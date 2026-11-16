@@ -15,7 +15,7 @@ Ou télécharge le dépôt et ouvre `index.html` dans un navigateur moderne.
 - Couteau en arme principale, armes à feu trouvées dans des caisses larguées du ciel (munitions ou durée limitée)
 - ~100 armes à débloquer par niveau et par prix, 4 améliorations par arme, skins de couleur
 - Zombies de plus en plus forts à chaque vague, vie max améliorable dans le menu
-- Personnalisation du personnage : 7 tenues homme / femme, couleurs de peau, cheveux et vêtements
+- Personnalisation du personnage : 7 tenues homme / femme (morphologie normale ou exagérée), couleurs de peau, cheveux et vêtements
 - Visée souris ou tir dans la direction du déplacement, touches configurables, pause (Échap / P)
 
 Jeu et graphismes originaux, inspirés par le genre des shooters de survie.

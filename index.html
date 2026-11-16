@@ -192,7 +192,7 @@ try{
   if(r) save=Object.assign(save,r);
   save.own['Couteau']=true;save.own['Glock 17']=true;
 }catch(e){}
-save.look=Object.assign({outfit:0,sex:'m',skin:null,hair:null,top:null,pants:null,hat:null,shoes:null},save.look||{});
+save.look=Object.assign({outfit:0,sex:'m',build:0,skin:null,hair:null,top:null,pants:null,hat:null,shoes:null},save.look||{});
 const isOwned=i=>!!save.own[WEAPONS[i].name];
 // Améliorations par arme : niveaux 1 à 3 = dégâts, niveau 4 = dégâts + mod or + couleurs (changeables à tout moment)
 if(!save.up) save.up={};
@@ -629,15 +629,34 @@ const OUTFITS=[
  {n:'MOTARD',top:'#1c1c20',pants:'#2e3a52',hat:'#d8a626',shoes:'#141414',hair:'#2a2a2a',head:'shades',body:'jacket'}
 ];
 function lookCols(){const L=save.look,O=OUTFITS[L.outfit]||OUTFITS[0];
-  return{O,f:L.sex==='f',skin:L.skin||'#e2b58c',hair:L.hair||O.hair,top:L.top||O.top,pants:L.pants||O.pants,hat:L.hat||O.hat,shoes:L.shoes||O.shoes}}
+  return{O,f:L.sex==='f',big:L.build===1,skin:L.skin||'#e2b58c',hair:L.hair||O.hair,top:L.top||O.top,pants:L.pants||O.pants,hat:L.hat||O.hat,shoes:L.shoes||O.shoes}}
+function torsoPath(f,big,yb){
+  ctx.beginPath();
+  if(!big){const w=f?20:22;ctx.roundRect(-w/2,-60,w,yb+60,6);return}
+  if(f){                                                   // silhouette sablier exagérée
+    ctx.moveTo(-8,-60);ctx.lineTo(8,-60);
+    ctx.bezierCurveTo(12,-60,20,-54,17,-46);
+    ctx.bezierCurveTo(15,-42,8,-42,8,-38);
+    ctx.bezierCurveTo(8,-33,18,-32,17,yb);
+    ctx.lineTo(-16,yb);
+    ctx.bezierCurveTo(-19,-32,-8,-33,-8,-38);
+    ctx.bezierCurveTo(-8,-44,-10,-52,-8,-60);
+  } else {                                                 // carrure en V exagérée
+    ctx.moveTo(-13,-62);ctx.lineTo(13,-62);ctx.quadraticCurveTo(21,-62,20,-53);
+    ctx.lineTo(11,-33);ctx.lineTo(10,yb);ctx.lineTo(-10,yb);ctx.lineTo(-11,-33);
+    ctx.lineTo(-20,-53);ctx.quadraticCurveTo(-21,-62,-13,-62);
+  }
+  ctx.closePath();
+}
 function drawSoldier(p){
-  const x=p.x,y=p.y,sw=Math.sin(p.step)*8,C=lookCols(),O=C.O,f=C.f,tw=f?20:22,tx=-tw/2;
+  const x=p.x,y=p.y,sw=Math.sin(p.step)*8,C=lookCols(),O=C.O,f=C.f,big=C.big,lw=big?(f?10.5:12):9,aw=big&&!f?11:7;
   ctx.fillStyle='#0004';ctx.beginPath();ctx.ellipse(x,GROUND+4,16,4,0,0,7);ctx.fill();
   ctx.save();ctx.translate(x,y);ctx.scale(p.face,1);
-  limb(-4,-28,-4-sw,-4,9,C.pants);limb(5,-28,5+sw,-4,9,shade(C.pants,-.1));        // jambes
+  limb(-4,-28,-4-sw,-4,lw,C.pants);limb(5,-28,5+sw,-4,lw,shade(C.pants,-.1));        // jambes
   rrect(-10-sw,-8,12,8,3,C.shoes);rrect(0+sw,-8,12,8,3,C.shoes);                  // chaussures
   if(O.body==='hoodie'){ctx.fillStyle=shade(C.top,-.25);ctx.beginPath();ctx.arc(-6,-62,8,0,7);ctx.fill()}   // capuche
-  rrect(tx,-60,tw,O.body==='coat'?50:34,6,C.top);                                  // haut
+  const yb=O.body==='coat'?-10:-26,tx=-17,tw=34;
+  torsoPath(f,big,yb);ctx.fillStyle=C.top;ctx.fill();ctx.save();torsoPath(f,big,yb);ctx.clip();   // haut (les détails sont découpés dans la silhouette)
   if(O.body==='vest'||O.body==='tank'){rrect(tx,-34,tw,6,2,'#2d2d2d')}
   if(O.body==='vest') rrect(-7,-54,7,10,2,shade(C.top,-.15));
   if(O.body==='tank'){ctx.fillStyle=C.skin;ctx.beginPath();ctx.arc(0,-60,5,0,Math.PI);ctx.fill()}
@@ -645,6 +664,7 @@ function drawSoldier(p){
   if(O.body==='flannel'){ctx.fillStyle=shade(C.top,-.4);for(let i=0;i<4;i++){ctx.fillRect(tx+3+i*5.5,-60,2,34);ctx.fillRect(tx,-56+i*9,tw,2)}}
   if(O.body==='coat'){ctx.fillStyle=shade(C.top,-.15);ctx.beginPath();ctx.moveTo(-5,-60);ctx.lineTo(0,-46);ctx.lineTo(5,-60);ctx.fill();ctx.fillRect(-.7,-46,1.4,36);rrect(3,-34,6,7,1.5,shade(C.top,-.1))}
   if(O.body==='jacket'){ctx.fillStyle='#9a9a9a';ctx.fillRect(1,-58,1.5,32);rrect(tx,-60,tw,5,2,C.hat);rrect(tx,-32,tw,5,2,C.hat)}
+  ctx.restore();
   // tête
   if(f){ctx.fillStyle=C.hair;ctx.beginPath();ctx.ellipse(-9,-62,5.5,13,.12,0,7);ctx.fill()}    // cheveux longs / queue
   ctx.fillStyle=C.skin;ctx.beginPath();ctx.arc(0,-70,9,0,7);ctx.fill();
@@ -670,7 +690,7 @@ function drawSoldier(p){
   }
   ctx.save();ctx.translate(sx,sy);ctx.rotate(a);
   if(Math.abs(a)>Math.PI/2) ctx.scale(1,-1);
-  limb(0,0,16,0,7,O.body==='tank'?C.skin:C.top);
+  limb(0,0,16,0,aw,O.body==='tank'?C.skin:C.top);if(big&&!f){ctx.fillStyle=O.body==='tank'?C.skin:C.top;ctx.beginPath();ctx.arc(2,0,7.5,0,7);ctx.fill();ctx.beginPath();ctx.ellipse(8,-3.5,6.5,5,0,0,7);ctx.fill()}
   const ic=weaponIcon(p.w,skinOf(p.w),woodOf(p.w)),hs=wp.hs;
   ctx.save();ctx.translate(14,1);ctx.scale(hs,hs);ctx.drawImage(ic.cv,-OX/2,-OY/2,ICON_W/2,ICON_H/2);ctx.restore();
   ctx.fillStyle=C.skin;ctx.beginPath();ctx.arc(16,3,4,0,7);ctx.fill();
@@ -1511,13 +1531,15 @@ function drawCustom(){
   ctx.fillStyle='#7a2c1c';ctx.fillRect(40,66,200,3);
   const L=save.look,ch=()=>persist();
   // aperçu
-  panel(40,88,250,334,{grunge:.8,norivets:true});
-  const g=ctx.createRadialGradient(165,300,10,165,300,170);g.addColorStop(0,'rgba(226,84,46,.25)');g.addColorStop(1,'rgba(226,84,46,0)');ctx.fillStyle=g;ctx.fillRect(41,89,248,332);
+  panel(40,88,250,300,{grunge:.8,norivets:true});
+  const g=ctx.createRadialGradient(165,280,10,165,280,170);g.addColorStop(0,'rgba(226,84,46,.25)');g.addColorStop(1,'rgba(226,84,46,0)');ctx.fillStyle=g;ctx.fillRect(41,89,248,298);
   player.x=150;player.y=GROUND;player.face=1;player.aim=.04;player.w=MENU_GUN;player.cd=0;player.swing=0;player.step=0;
-  ctx.save();ctx.beginPath();ctx.rect(41,89,248,332);ctx.clip();
-  ctx.translate(150,408);ctx.scale(2.5,2.5);ctx.translate(-150,-GROUND);drawSoldier(player);ctx.restore();
-  selBtn(40,430,122,38,'HOMME',L.sex==='m',()=>{L.sex='m';ch()},18);
-  selBtn(168,430,122,38,'FEMME',L.sex==='f',()=>{L.sex='f';ch()},18);
+  ctx.save();ctx.beginPath();ctx.rect(41,89,248,298);ctx.clip();
+  ctx.translate(150,372);ctx.scale(2.4,2.4);ctx.translate(-150,-GROUND);drawSoldier(player);ctx.restore();
+  selBtn(40,396,122,34,'HOMME',L.sex==='m',()=>{L.sex='m';ch()},18);
+  selBtn(168,396,122,34,'FEMME',L.sex==='f',()=>{L.sex='f';ch()},18);
+  selBtn(40,436,122,34,'NORMALE',L.build===0,()=>{L.build=0;ch()},16);
+  selBtn(168,436,122,34,'EXAGÉRÉE',L.build===1,()=>{L.build=1;ch()},16);
   // tenues
   ctx.fillStyle='#8a8178';ctx.font='500 14px '+FONT;ctx.fillText('TENUE  (chaque tenue existe en version homme et femme)',310,92);
   OUTFITS.forEach((o,i)=>{
