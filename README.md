@@ -2,10 +2,14 @@
 
 # Zombie Survivor By C02
 
+<p align="center"><a href="https://ghoster-001.github.io/Zombie-Survivor-By-C02/"><b>▶ JOUER AU JEU</b></a></p>
+
 Shooter de survie zombie en vue de côté, jouable dans le navigateur (HTML5 canvas, JavaScript pur, un seul fichier).
 
 ## Lancer le jeu
-Ouvre `index.html` dans un navigateur moderne.
+Joue en ligne : https://ghoster-001.github.io/Zombie-Survivor-By-C02/
+
+Ou télécharge le dépôt et ouvre `index.html` dans un navigateur moderne.
 
 ## Contenu
 - Couteau en arme principale, armes à feu trouvées dans des caisses larguées du ciel (munitions ou durée limitée)
