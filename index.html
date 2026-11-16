@@ -19,18 +19,33 @@
 </head>
 <body>
 <canvas id="c" width="1920" height="1080"></canvas>
+<div id="safe" style="position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)"></div>
 <div id="rot"><i></i><div id="rot1"></div><div id="rot2"></div></div>
 <script>
 // ===== Stickman vs Zombies : base de jeu originale =====
 const cv = document.getElementById('c');
 let ctx = cv.getContext('2d');
-const W=960,H=540,GROUND=460,GRAV=0.7;   // coordonnées logiques 16:9 ; le canvas est en 1920x1080
+let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 ctx.scale(2,2);
 var READY=false;
+// Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
+const SAFE={l:0,r:0};
+function readSafe(){
+  try{const cs=getComputedStyle(document.getElementById('safe')),k=W/Math.max(1,cv.getBoundingClientRect().width);SAFE.l=(parseFloat(cs.paddingLeft)||0)*k;SAFE.r=(parseFloat(cs.paddingRight)||0)*k}catch(e){}
+}
 function fit(){
-  const vv=window.visualViewport,vw=vv?vv.width:innerWidth,vh=vv?vv.height:innerHeight;
-  const w=Math.min(vw,vh*16/9);cv.style.width=w+'px';cv.style.height=(w*9/16)+'px';
-  if(READY) updateRot(vw,vh);
+  const vv=window.visualViewport,vw=Math.max(1,vv?vv.width:innerWidth),vh=Math.max(1,vv?vv.height:innerHeight);
+  const asp=vw/vh,a=Math.max(1.2,Math.min(3,asp));
+  let nw,nh;if(a>=16/9){nh=540;nw=Math.round(540*a)}else{nw=960;nh=Math.round(960/a)}
+  if(nw!==W||nh!==H){
+    const dG=(nh-80)-GROUND;
+    W=nw;H=nh;GROUND=nh-80;
+    cv.width=W*2;cv.height=H*2;cv.getContext('2d').setTransform(2,0,0,2,0,0);
+    if(READY&&dG){try{for(const z of zombies) z.y+=dG;for(const c of crates) c.y+=dG;player.y+=dG}catch(e){}}
+  }
+  const cw=asp>=1.2&&asp<=3?vw:(asp>3?vh*3:vw),ch=asp>=1.2&&asp<=3?vh:(asp>3?vh:vw/1.2);
+  cv.style.width=cw+'px';cv.style.height=ch+'px';
+  if(READY){readSafe();layoutTouch();updateRot(vw,vh)}
 }
 addEventListener('resize',fit);addEventListener('orientationchange',()=>setTimeout(fit,150));if(window.visualViewport) visualViewport.addEventListener('resize',fit);fit();
 function toggleFull(){
@@ -267,7 +282,7 @@ function trHook(t){
   P.fillText=function(t,x,y,mw){
     t=trHook(t);
     if(mw===undefined&&LANG!=='fr'&&typeof t==='string'){            // un texte traduit plus long que prévu est comprimé au lieu de sortir de l'écran
-      const al=this.textAlign;let av=al==='right'||al==='end'?x-8:al==='center'?2*Math.min(x,960-x)-16:960-8-x;
+      const al=this.textAlign;let av=al==='right'||al==='end'?x-8:al==='center'?2*Math.min(x,W-x)-16:W-8-x;
       if(av>40) mw=av;
     }
     return mw===undefined?_ft.call(this,t,x,y):_ft.call(this,t,x,y,mw);
@@ -394,7 +409,7 @@ function reset(toMenu){
   player={x:W/2,y:GROUND,vy:0,hp:mhp,maxhp:mhp,w:mi,melee:mi,gun:null,
           cd:0,dmgMul:1,hurtCd:0,face:1,step:0,aim:0,swing:0};
   zombies=[]; bullets=[]; particles=[]; fx=[]; crates=[]; bonuses=[]; strikes=[]; turret=null; fxB={shield:0,dmg:0,rapid:0,freeze:0}; charXp=0;charLvl=1;charPulse=0;stock=[]; crateT=7000+rnd()*8000; spawnQueue=[]; spawnTimer=0;
-  mouse={x:W/2,y:0,down:false}; keys={}; msg=''; msgT=0;
+  mouse={x:W/2,y:0,rx:W/2,ry:0,down:false}; keys={}; msg=''; msgT=0;
   xp=0; level=1; runXp=0; lvlStart=curLevel(); xpStart=save.xp; combo=0; comboT=0; shake=0; kills=0;
   if(toMenu){state='menu';training=false} else startWave();
 }
@@ -435,14 +450,19 @@ addEventListener('keyup',e=>keys[e.code]=false);
 let sliderActive=null;
 cv.addEventListener('mousemove',e=>{
   const r=cv.getBoundingClientRect();
-  mouse.x=(e.clientX-r.left)*W/r.width; mouse.y=(e.clientY-r.top)*H/r.height;
+  mouse.rx=(e.clientX-r.left)*W/r.width; mouse.ry=(e.clientY-r.top)*H/r.height;syncMouse();
   if(sliderActive) sliderActive.act();
 });
 // --- Mobile : commandes tactiles (déplacement, saut, tir), toucher sur les caisses et les bonus ---
 const tctl={left:false,right:false,jump:false,fire:false};
 const tpts=new Map();
-const TB={left:{x:78,y:H-150,r:46},right:{x:188,y:H-150,r:46},jump:{x:W-210,y:H-126,r:42},fire:{x:W-100,y:H-166,r:58}};
-const TPAUSE={x:W-56,y:84,w:44,h:44},STOCK={x:W-262,y:H-76,w:248,h:62};
+const TB={left:{},right:{},jump:{},fire:{}},TPAUSE={w:44,h:44},STOCK={w:248,h:62};
+function layoutTouch(){
+  const l=SAFE.l,rr=SAFE.r;
+  Object.assign(TB.left,{x:l+78,y:H-150,r:46});Object.assign(TB.right,{x:l+188,y:H-150,r:46});Object.assign(TB.jump,{x:W-rr-210,y:H-126,r:42});Object.assign(TB.fire,{x:W-rr-100,y:H-166,r:58});
+  Object.assign(TPAUSE,{x:W-rr-56,y:84});Object.assign(STOCK,{x:W-rr-262,y:H-76});
+}
+layoutTouch();
 const MENU_STATES=['menu','options','credits','upgrades','weapon','keys','custom','lang','pause','trainpick','over'];
 let autoTarget=null;
 const inR=(p,r)=>p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h;
@@ -473,7 +493,7 @@ addEventListener('mouseup',()=>{mouse.down=false;sliderActive=null});
 cv.addEventListener('touchstart',e=>{
   e.preventDefault();touchUsed=true;audioInit();
   for(const t of e.changedTouches){
-    const p=tpos(t);mouse.x=p.x;mouse.y=p.y;
+    const p=tpos(t);mouse.rx=p.x;mouse.ry=p.y;syncMouse();
     if(MENU_STATES.includes(state)){menuPress();continue}
     if(state!=='play'||paused) continue;
     if(inR(p,TPAUSE)){openPause();continue}
@@ -487,7 +507,7 @@ cv.addEventListener('touchstart',e=>{
 cv.addEventListener('touchmove',e=>{
   e.preventDefault();
   for(const t of e.changedTouches){
-    const p=tpos(t);mouse.x=p.x;mouse.y=p.y;
+    const p=tpos(t);mouse.rx=p.x;mouse.ry=p.y;syncMouse();
     if(sliderActive){sliderActive.act();continue}
     if(state==='play'&&tpts.has(t.identifier)){tpts.set(t.identifier,tHit(p.x,p.y));tRecalc()}
   }
@@ -1100,7 +1120,7 @@ function useBonus(){
   applyBonus(stock.shift());
 }
 function drawLevelHud(){
-  const x=304,y=10,w=380;
+  const x=Math.round((W-380)/2),y=10,w=380;
   panel(x,y,w,64,{});
   const gx=save.xp+(training?0:runXp),L=levelOf(gx),a=xpForLevel(L),b=xpForLevel(L+1);
   ctx.textAlign='left';ctx.fillStyle='#d8c27a';ctx.font='700 13px '+FONT;ctx.fillText(tr('Niveau de jeu').toUpperCase()+'  '+L,x+14,y+17);
@@ -1210,7 +1230,7 @@ function rrect(x,y,w,h,r,fill){
   ctx.fillStyle=fill;ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill();
 }
 const BUILDINGS=[];
-for(let i=0;i<14;i++) BUILDINGS.push({x:i*75-10,w:60+(i*29%30),h:90+(i*53%130),far:i%2===0});
+for(let i=0;i<24;i++) BUILDINGS.push({x:i*75-10,w:60+(i*29%30),h:90+(i*53%130),far:i%2===0});
 function flame(cx,cy,sc){
   const f=1+.18*Math.sin(tick*.35+cx);
   const gl=ctx.createRadialGradient(cx,cy,2,cx,cy,70*sc*f);gl.addColorStop(0,'rgba(255,150,50,.45)');gl.addColorStop(1,'rgba(255,100,20,0)');
@@ -1224,9 +1244,9 @@ function drawBackground(){
   const g=ctx.createLinearGradient(0,0,0,GROUND);
   g.addColorStop(0,'#0b0a10');g.addColorStop(.45,'#3a1519');g.addColorStop(.8,'#a8401f');g.addColorStop(1,'#e0763a');
   ctx.fillStyle=g;ctx.fillRect(0,0,W,GROUND);
-  const sg=ctx.createRadialGradient(760,150,6,760,150,130);sg.addColorStop(0,'rgba(240,170,100,.5)');sg.addColorStop(.4,'rgba(200,90,50,.22)');sg.addColorStop(1,'rgba(200,90,50,0)');
-  ctx.fillStyle=sg;ctx.fillRect(560,0,400,330);
-  ctx.fillStyle='rgba(217,165,106,.5)';ctx.beginPath();ctx.arc(760,150,30,0,7);ctx.fill();
+  const sg=ctx.createRadialGradient(W*.79,150,6,W*.79,150,130);sg.addColorStop(0,'rgba(240,170,100,.5)');sg.addColorStop(.4,'rgba(200,90,50,.22)');sg.addColorStop(1,'rgba(200,90,50,0)');
+  ctx.fillStyle=sg;ctx.fillRect(W*.79-200,0,400,330);
+  ctx.fillStyle='rgba(217,165,106,.5)';ctx.beginPath();ctx.arc(W*.79,150,30,0,7);ctx.fill();
   ctx.fillStyle='rgba(255,255,255,.2)';for(let i=0;i<26;i++) ctx.fillRect((i*131)%W,(i*47)%140,1.6,1.6);
   for(const far of [true,false]){
     BUILDINGS.forEach((b,n)=>{
@@ -1381,7 +1401,7 @@ function bar(x,y,w,v,max,col){
   ctx.fillStyle=col;ctx.fillRect(x,y,w*Math.max(0,v/max),6);
 }
 function draw(){
-  tick++;
+  tick++;syncMouse();
   if(state==='menu'||state==='options'||state==='credits'||state==='upgrades'||state==='weapon'||state==='keys'||state==='custom'||state==='lang'){drawMenu();overlayFx(0);drawCursor();return}
   ctx.save();
   if(shake>.5){ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake*=.88}
@@ -1412,6 +1432,7 @@ function draw(){
   if(fxB.freeze>0){ctx.fillStyle='rgba(110,210,235,'+(fxB.freeze<2000?.05:.11)+')';ctx.fillRect(0,0,W,H)}
   const hpR=p.hp/p.maxhp;
   overlayFx(state==='play'&&hpR<.35?(.35-hpR)/.35:0);
+  const sfOn=SAFE.l+SAFE.r>0,RW0=W;if(sfOn){ctx.save();ctx.translate(SAFE.l,0);W=RW0-SAFE.l-SAFE.r}
   // --- HUD : vie
   panel(10,10,282,64,{});
   ctx.fillStyle='#b3241c';ctx.fillRect(20,20,22,22);ctx.fillStyle='#f2efe8';ctx.fillRect(29,24,4,14);ctx.fillRect(24,29,14,4);
@@ -1438,6 +1459,7 @@ function draw(){
   } else {ctx.fillStyle='#8a8178';ctx.font='500 14px '+FONT;ctx.fillText(wpn.melee?'MÊLÉE  ·  ILLIMITÉ':'ARME PRINCIPALE  ·  ILLIMITÉ',126,H-30)}
   ctx.fillStyle='#b9b1a6';ctx.font='500 12px '+FONT;
   if(!touchOn()) ctx.fillText(tr('Armes à feu : dans les caisses larguées  ·  {0} : ramasser  ·  {1} : bonus  ·  Échap : pause  ·  {2} : plein écran',kn('pick'),kn('bonus'),kn('full')),16,H-4);
+  if(sfOn){W=RW0;ctx.restore()}
   if(touchOn()&&state==='play') drawTouch();
   // --- annonce (vague, caisse...) avec rayures de danger
   if(msgT>0){
@@ -1478,7 +1500,7 @@ function draw(){
     btn(menuRects,W/2-150,459,300,50,'MENU PRINCIPAL',{act:()=>reset(true),size:26});
     overlayFx(0);
   }
-  if(state==='pause') drawPause(); else if(state==='trainpick') drawTrainPick();
+  if(state==='pause') drawPause(); else if(state==='trainpick') inMenuSpace(drawTrainPick);
   drawCursor();
 }
 // ===== Interface apocalyptique : plaques de métal rouillé, rivets, rayures de danger, grain et vignette =====
@@ -1511,11 +1533,13 @@ function panel(x,y,w,h,o){
   if(!o.norivets&&w>40&&h>34){rivet(x+7,y+7);rivet(x+w-7,y+7);rivet(x+7,y+h-7);rivet(x+w-7,y+h-7)}
 }
 function hazard(x,y,w,h){
+  if(MENU_MODE&&x===0&&w===960){x=-MOX;w=MRW}
   ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();ctx.fillStyle='#d9a21b';ctx.fillRect(x,y,w,h);ctx.fillStyle='#17130f';
   for(let k=-h;k<w+h;k+=14){ctx.beginPath();ctx.moveTo(x+k,y+h);ctx.lineTo(x+k+7,y+h);ctx.lineTo(x+k+7+h,y);ctx.lineTo(x+k+h,y);ctx.fill()}
   ctx.restore();
 }
 function barbed(x0,x1,y,sway){
+  if(MENU_MODE&&x0===0&&x1===960){x0=-MOX;x1=960+MOX;y-=MOY}
   ctx.strokeStyle='#6a625a';ctx.lineWidth=1.6;ctx.beginPath();
   for(let x=x0;x<=x1;x+=6){const yy=y+Math.sin(x*.05+tick*.01)*3*sway;x===x0?ctx.moveTo(x,yy):ctx.lineTo(x,yy)}ctx.stroke();
   ctx.strokeStyle='#8a8278';ctx.lineWidth=1.3;
@@ -1552,8 +1576,8 @@ function ash(){
 }
 function drawCursor(){
   if(touchUsed) return;
-  if(state==='play'&&aimDir()){ctx.fillStyle='rgba(255,74,58,.85)';ctx.beginPath();ctx.arc(mouse.x,mouse.y,3,0,7);ctx.fill();return}
-  const x=mouse.x,y=mouse.y,path=()=>{ctx.beginPath();ctx.arc(x,y,9,0,7);
+  if(state==='play'&&aimDir()){ctx.fillStyle='rgba(255,74,58,.85)';ctx.beginPath();ctx.arc(mouse.rx,mouse.ry,3,0,7);ctx.fill();return}
+  const x=mouse.rx,y=mouse.ry,path=()=>{ctx.beginPath();ctx.arc(x,y,9,0,7);
     for(const [dx,dy] of[[1,0],[-1,0],[0,1],[0,-1]]){ctx.moveTo(x+dx*12,y+dy*12);ctx.lineTo(x+dx*19,y+dy*19)}};
   ctx.save();ctx.lineCap='round';path();ctx.strokeStyle='rgba(0,0,0,.75)';ctx.lineWidth=4.5;ctx.stroke();
   path();ctx.strokeStyle='#ff4a3a';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#ff4a3a';ctx.beginPath();ctx.arc(x,y,1.5,0,7);ctx.fill();ctx.restore();
@@ -1578,10 +1602,23 @@ function embers(){
     ctx.fillRect(x,y,2+i%3,2+i%3);
   }
 }
+// Les menus sont dessinés dans un espace de 960x540 centré en bas de l'écran, le décor et les voiles couvrent tout l'écran.
+let MENU_MODE=false,MOX=0,MOY=0,MRW=960,MRH=540;
+const MENU_SPACE=['menu','options','credits','upgrades','weapon','keys','custom','lang','trainpick'];
+function syncMouse(){const m=MENU_SPACE.includes(state);mouse.x=mouse.rx-(m?(W-960)/2:0);mouse.y=mouse.ry-(m?(H-540):0)}
+function inMenuSpace(fn){
+  const RW=W,RH=H,RG=GROUND,ox=(RW-960)/2,oy=RH-540;
+  ctx.save();ctx.translate(ox,oy);W=960;H=540;GROUND=460;MENU_MODE=true;MOX=ox;MOY=oy;MRW=RW;MRH=RH;
+  const fr=ctx.fillRect;ctx.fillRect=function(x,y,w,h){if(x===0&&y===0&&w===960&&h===540){x=-ox;y=-oy;w=RW;h=RH}return fr.call(this,x,y,w,h)};
+  try{fn()}finally{delete ctx.fillRect;W=RW;H=RH;GROUND=RG;MENU_MODE=false;ctx.restore()}
+}
 function drawMenu(){
   drawBackground();
   ctx.fillStyle='#0009';ctx.fillRect(0,0,W,H);
   embers();
+  inMenuSpace(drawMenuBody);
+}
+function drawMenuBody(){
   menuRects=[];
   if(state==='upgrades'){drawUpgrades();return}
   if(state==='weapon'){drawWeaponDetail();return}
