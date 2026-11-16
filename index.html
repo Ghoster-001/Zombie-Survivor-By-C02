@@ -1752,7 +1752,7 @@ function drawMenuBody(){
   }
   hazard(0,H-8,W,8);
   ctx.fillStyle='#8a8178';ctx.font='500 15px '+FONT;
-  if(!touchOn()) ctx.fillText(tr('{0}/{1} déplacer · {2} sauter · clic : attaquer · {3} : ramasser les caisses · armes à feu : dans les caisses larguées',kn('left'),kn('right'),kn('jump'),kn('pick')),70,H-24);
+  ctx.fillText('V0.5',70,H-24);
 }
 // ===== Armes réalistes : dessinées une fois sur un canvas hors-écran (1 unité = 2 px), origine = détente sur l'axe du canon =====
 const ICON_W=640,ICON_H=320,OX=260,OY=150,ICONS={};
