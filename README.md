@@ -23,6 +23,8 @@ Ou télécharge le dépôt et ouvre `index.html` dans un navigateur moderne.
 - 8 bonus lâchés par les zombies : soin, bouclier, dégâts x2, cadence, gel, frappe aérienne, tourelle, butin
 - Menu pause (Échap : continuer, paramètres, quitter avec confirmation) ; P fige le jeu sans menu
 - Mode Entraînement : toutes les armes au maximum, arme principale au choix, rien n'est sauvegardé
+- Deux barres d'XP : niveau de jeu (global) et niveau du personnage (par partie) ; chaque niveau donne un bonus stocké, utilisable à la demande (touche Q)
+- Caisses du ciel : tirage au sort uniforme parmi les armes à feu débloquées, le kit de soin et le bouclier
 - Visée souris ou tir dans la direction du déplacement, touches configurables, pause (Échap / P)
 
 Jeu et graphismes originaux, inspirés par le genre des shooters de survie.

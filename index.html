@@ -204,7 +204,7 @@ const wBoost=i=>[1,1.15,1.3,1.45,1.9][upLvl(i)];
 const upCost=(i,n)=>Math.round(Math.max(200,WEAPONS[i].cost)*[0,.6,1,1.5,2.5][n]/5)*5;
 let upSel=0;
 // --- Touches configurables (2 touches possibles par action) et options enregistrées ---
-const DEFAULT_KEYS={left:['KeyA','ArrowLeft'],right:['KeyD','ArrowRight'],jump:['Space','KeyW'],pick:['KeyE',''],fire:['KeyJ',''],full:['KeyF',''],pause:['KeyP','']};
+const DEFAULT_KEYS={left:['KeyA','ArrowLeft'],right:['KeyD','ArrowRight'],jump:['Space','KeyW'],pick:['KeyE',''],fire:['KeyJ',''],full:['KeyF',''],pause:['KeyP',''],bonus:['KeyQ','']};
 const KEYS={};
 function loadKeys(){for(const a in DEFAULT_KEYS) KEYS[a]=(save.keys&&Array.isArray(save.keys[a]))?[save.keys[a][0]||'',save.keys[a][1]||'']:DEFAULT_KEYS[a].slice();
   const pk=KEYS.pause.filter(k=>k&&k!=='Escape');KEYS.pause=[pk[0]||'',pk[1]||'']}   // Échap ouvre maintenant le menu pause
@@ -274,7 +274,7 @@ function reset(toMenu){
   const mi=training&&trainMain>=0?trainMain:Math.max(0,WEAPONS.findIndex(w=>w.name===save.melee));
   player={x:W/2,y:GROUND,vy:0,hp:mhp,maxhp:mhp,w:mi,melee:mi,gun:null,
           cd:0,dmgMul:1,hurtCd:0,face:1,step:0,aim:0,swing:0};
-  zombies=[]; bullets=[]; particles=[]; fx=[]; crates=[]; bonuses=[]; strikes=[]; turret=null; fxB={shield:0,dmg:0,rapid:0,freeze:0}; crateT=7000+Math.random()*8000; spawnQueue=[]; spawnTimer=0;
+  zombies=[]; bullets=[]; particles=[]; fx=[]; crates=[]; bonuses=[]; strikes=[]; turret=null; fxB={shield:0,dmg:0,rapid:0,freeze:0}; charXp=0;charLvl=1;charPulse=0;stock=[]; crateT=7000+rnd()*8000; spawnQueue=[]; spawnTimer=0;
   mouse={x:W/2,y:0,down:false}; keys={}; msg=''; msgT=0;
   xp=0; level=1; runXp=0; lvlStart=curLevel(); xpStart=save.xp; combo=0; comboT=0; shake=0; kills=0;
   if(toMenu){state='menu';training=false} else startWave();
@@ -305,6 +305,7 @@ addEventListener('keydown',e=>{
   if(state==='over' && e.code==='Enter') reset(false);
   else if(state==='menu' && e.code==='Enter'){training=false;reset(false)}
   else if(state==='play' && e.code==='Escape' && !e.repeat) openPause();
+  else if(state==='play' && !paused && !e.repeat && KEYS.bonus.includes(e.code)) useBonus();
   else if(state==='pause' && e.code==='Escape' && !e.repeat){if(pauseConfirm) pauseConfirm=false; else closePause()}
   else if(state==='trainpick' && e.code==='Escape') state='pause';
   else if(state==='weapon' && e.code==='Escape') state='upgrades';
@@ -336,17 +337,16 @@ addEventListener('mouseup',()=>{mouse.down=false;sliderActive=null});
 // Seules les armes à feu déjà achetées peuvent tomber dans une caisse
 const ownedGuns=()=>WEAPONS.map((w,i)=>i).filter(i=>!WEAPONS[i].melee&&isOwned(i));
 function spawnCrate(){
-  const pool=ownedGuns();
-  if(!pool.length) return false;
-  const byTime=Math.random()<.5;
-  crates.push({x:70+Math.random()*(W-140),y:-30,vy:0,landed:false,age:0,ph:Math.random()*6,
-    w:pool[Math.floor(Math.random()*pool.length)],
-    ammo:byTime?0:5+Math.floor(Math.random()*96),
-    time:byTime?(10+Math.floor(Math.random()*31))*1000:0});
-  flash('CAISSE LARGUÉE !');return true;
+  // un seul tirage au sort, uniforme et sans pondération : chaque arme à feu débloquée, le kit de soin et le bouclier ont exactement la même chance
+  const pool=ownedGuns(),k=rndInt(pool.length+2),byTime=rnd()<.5;
+  const c={x:70+rnd()*(W-140),y:-30,vy:0,landed:false,age:0,ph:rnd()*6,w:0,ammo:0,time:0};
+  if(k<pool.length){c.w=pool[k];c.ammo=byTime?0:5+rndInt(96);c.time=byTime?(10+rndInt(31))*1000:0}
+  else c.sup=k===pool.length?'heal':'shield';
+  crates.push(c);flash('CAISSE LARGUÉE !');return true;
 }
 function dropGun(txt){player.gun=null;player.w=player.melee;player.cd=0;flash(txt)}
 function pickCrate(c){
+  if(c.sup){applyBonus(c.sup);sfx('crate');return}
   const w=WEAPONS[c.w],g=player.gun;
   if(g&&g.w===c.w&&((g.time>0)===(c.time>0))){g.ammo+=c.ammo;g.time+=c.time;g.a0+=c.ammo;g.t0+=c.time}
   else player.gun={w:c.w,ammo:c.ammo,time:c.time,a0:c.ammo,t0:c.time};
@@ -362,7 +362,7 @@ function useAmmo(){
 function updateCrates(dt,p){
   if(p.gun&&p.gun.time>0){p.gun.time-=dt;if(p.gun.time<=0) dropGun('TEMPS ÉCOULÉ')}
   crateT-=dt;
-  if(crateT<=0){spawnCrate();crateT=15000+Math.random()*20000}
+  if(crateT<=0){spawnCrate();crateT=15000+rnd()*20000}
   nearC=null;let best=48;                      // caisse à portée : elle se ramasse avec la touche, plus automatiquement
   for(const c of crates){
     if(!c.landed){
@@ -895,6 +895,55 @@ function drawTrainPick(){
   }
   btn(menuRects,40,470,170,46,'RETOUR',{act:()=>state='pause',size:20});
 }
+// --- Vrai tirage au sort : générateur du navigateur (crypto), sans pondération ni truquage ---
+function rnd(){try{const a=new Uint32Array(1);crypto.getRandomValues(a);return a[0]/4294967296}catch(e){return Math.random()}}
+const rndInt=n=>Math.floor(rnd()*n);
+// --- Niveau du personnage (propre à la partie) : à chaque niveau, un bonus est gagné et stocké, utilisable à la demande avec une touche ---
+const LEVEL_BONUS=['dmg','rapid','freeze','strike','turret'];      // tirés uniformément au hasard à chaque niveau
+let charXp=0,charLvl=1,charPulse=0,stock=[];
+const charNeed=L=>15+5*(L-1);
+function gainChar(n){
+  charXp+=n;
+  while(charXp>=charNeed(charLvl)){
+    charXp-=charNeed(charLvl);charLvl++;
+    const t=LEVEL_BONUS[rndInt(LEVEL_BONUS.length)];
+    if(stock.length<8) stock.push(t);
+    charPulse=45;sfx('bonus');flash('NIVEAU '+charLvl+'  ·  BONUS : '+BON[t].n);
+  }
+}
+function useBonus(){
+  if(!stock.length) return;
+  applyBonus(stock.shift());
+}
+function drawLevelHud(){
+  const x=304,y=10,w=380;
+  panel(x,y,w,64,{});
+  const gx=save.xp+(training?0:runXp),L=levelOf(gx),a=xpForLevel(L),b=xpForLevel(L+1);
+  ctx.textAlign='left';ctx.fillStyle='#d8c27a';ctx.font='700 13px '+FONT;ctx.fillText('NIVEAU DE JEU  '+L,x+14,y+17);
+  ctx.textAlign='right';ctx.fillStyle='#8a8178';ctx.font='500 12px '+FONT;ctx.fillText(Math.floor(gx-a)+' / '+(b-a)+' XP'+(training?'  (non compté)':''),x+w-14,y+17);
+  drawXpBar(x+14,y+22,w-28,8,gx,0);
+  const need=charNeed(charLvl),f=Math.min(1,charXp/need);
+  ctx.textAlign='left';ctx.fillStyle=charPulse>0?'#ffd45a':'#f2efe8';ctx.font='700 13px '+FONT;ctx.fillText('PERSONNAGE  NIV. '+charLvl,x+14,y+46);
+  ctx.textAlign='right';ctx.fillStyle='#8a8178';ctx.font='500 12px '+FONT;ctx.fillText(charXp+' / '+need+'  ·  1 bonus par niveau',x+w-14,y+46);
+  const bx=x+14,by=y+51,bw=w-28;
+  ctx.fillStyle='#120e0b';ctx.fillRect(bx,by,bw,7);
+  if(charPulse>0){ctx.shadowColor='#e2542e';ctx.shadowBlur=14*charPulse/45;charPulse--}
+  const g=ctx.createLinearGradient(0,by,0,by+7);g.addColorStop(0,'#ff8a5a');g.addColorStop(1,'#c9372c');ctx.fillStyle=g;ctx.fillRect(bx,by,bw*f,7);ctx.shadowBlur=0;
+  ctx.strokeStyle='#5a3a30';ctx.lineWidth=1.2;ctx.strokeRect(bx,by,bw,7);ctx.textAlign='left';
+  // bonus en stock
+  const sx=W-262,sy=H-76;
+  panel(sx,sy,248,62,{});
+  const k=KEYS.bonus.find(v=>v);
+  if(stock.length){
+    bonusIcon(stock[0],sx+32,sy+31,19);
+    ctx.fillStyle='#f2efe8';ctx.font='700 17px '+FONT;ctx.fillText(BON[stock[0]].n,sx+62,sy+26);
+    ctx.fillStyle=tick%50<30?'#ffd45a':'#c9a227';ctx.font='700 14px '+FONT;ctx.fillText(k?'['+keyName(k)+']  UTILISER':'DÉFINIS UNE TOUCHE (OPTIONS)',sx+62,sy+46);
+    for(let i=1;i<stock.length;i++) bonusIcon(stock[i],sx+240-(stock.length-i)*22+8,sy+12,8);
+  } else {
+    ctx.fillStyle='#6b625b';ctx.font='700 15px '+FONT;ctx.fillText('AUCUN BONUS EN STOCK',sx+14,sy+27);
+    ctx.fillStyle='#8a8178';ctx.font='500 13px '+FONT;ctx.fillText('Prochain bonus au niveau '+(charLvl+1),sx+14,sy+47);
+  }
+}
 let paused=false;
 function update(dt){
   if(state!=='play'){paused=false;return}
@@ -952,7 +1001,7 @@ function update(dt){
   zombies=zombies.filter(z=>z.hp>0);
   // fin de vague
   if(state==='play' && !spawnQueue.length && !zombies.length){
-    if(waveBreak===0){waveBreak=150;if(!training){money+=5;runXp+=5}sfx('wave');flash(training?'Vague '+wave+' terminée':'Vague '+wave+' terminée  ·  +5 $  +5 XP')}
+    if(waveBreak===0){waveBreak=150;gainChar(5);if(!training){money+=5;runXp+=5}sfx('wave');flash(training?'Vague '+wave+' terminée':'Vague '+wave+' terminée  ·  +5 $  +5 XP')}
     else if(--waveBreak===0) startWave();
   }
   for(const q of particles){q.x+=q.vx;q.y+=q.vy;q.vy+=.3;q.life--}
@@ -962,7 +1011,7 @@ function update(dt){
   comboT-=dt; if(comboT<=0) combo=0;
 }
 function onKill(z){
-  kills++; if(!training){money+=1;runXp+=1}sfx('zdie');dropBonus(z);
+  kills++; gainChar(1); if(!training){money+=1;runXp+=1}sfx('zdie');
   burst(z.x,z.y-30,SET.blood?'#8e1b1b':z.color,SET.blood?20:10);
 }
 
@@ -1184,7 +1233,7 @@ function draw(){
   ctx.textAlign='left';ctx.fillStyle='#e8e0d0';ctx.font='700 20px '+FONT;ctx.fillText(Math.ceil(p.hp)+' / '+p.maxhp,50,39);
   segBar(20,48,262,12,p.hp,p.maxhp,hpR<.35&&tick%24<12?'#ff4a3a':'#c9372c',22);
   ctx.textAlign='right';ctx.fillStyle='#9a9086';ctx.font='500 13px '+FONT;ctx.fillText(kills+' TUÉS',282,36);ctx.textAlign='left';
-  drawBonusHud();
+  drawBonusHud();drawLevelHud();
   // --- HUD : vague, argent, zombies restants
   panel(W-262,10,252,64,{});hazard(W-262,10,8,64);
   ctx.textAlign='left';ctx.fillStyle='#8a8178';ctx.font='500 12px '+FONT;ctx.fillText('RESTANTS',W-244,32);
@@ -1203,7 +1252,7 @@ function draw(){
     ctx.textAlign='right';ctx.fillStyle=low?'#ff7a6a':'#ffd45a';ctx.font='700 16px '+FONT;ctx.fillText(t?Math.ceil(left/1000)+' S':left+' BALLES',346,H-52);ctx.textAlign='left';
   } else {ctx.fillStyle='#8a8178';ctx.font='500 14px '+FONT;ctx.fillText(wpn.melee?'MÊLÉE  ·  ILLIMITÉ':'ARME PRINCIPALE  ·  ILLIMITÉ',126,H-30)}
   ctx.fillStyle='#b9b1a6';ctx.font='500 12px '+FONT;
-  ctx.fillText('Armes à feu : dans les caisses larguées  ·  '+kn('pick')+' : ramasser  ·  Échap : pause  ·  '+kn('full')+' : plein écran',16,H-4);
+  ctx.fillText('Armes à feu : dans les caisses larguées  ·  '+kn('pick')+' : ramasser  ·  '+kn('bonus')+' : bonus  ·  Échap : pause  ·  '+kn('full')+' : plein écran',16,H-4);
   // --- annonce (vague, caisse...) avec rayures de danger
   if(msgT>0){
     const age=120-msgT,sc=age<14?1.5-age/28:1;
@@ -1926,7 +1975,7 @@ function drawWeaponDetail(){
   });
   if(msgT>0){msgT--;ctx.fillStyle='#e2542e';ctx.font='700 20px '+FONT;ctx.fillText(msg.toUpperCase(),650,512)}
 }
-const ACTIONS=[['left','ALLER À GAUCHE'],['right','ALLER À DROITE'],['jump','SAUTER'],['pick','RAMASSER UNE CAISSE'],['fire','TIRER / ATTAQUER  (en plus du clic)'],['full','PLEIN ÉCRAN'],['pause','FIGER LE JEU  (sans menu)']];
+const ACTIONS=[['left','ALLER À GAUCHE'],['right','ALLER À DROITE'],['jump','SAUTER'],['pick','RAMASSER UNE CAISSE'],['fire','TIRER / ATTAQUER  (en plus du clic)'],['full','PLEIN ÉCRAN'],['bonus','UTILISER LE BONUS EN STOCK'],['pause','FIGER LE JEU  (sans menu)']];
 function drawKeys(){
   ctx.fillStyle='#000000d8';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
   ctx.fillStyle='#000';ctx.font='400 38px '+TITLE;ctx.fillText('TOUCHES',43,61);ctx.fillStyle='#e9e1d0';ctx.fillText('TOUCHES',40,58);
@@ -1934,16 +1983,16 @@ function drawKeys(){
   ctx.fillStyle='#8a8178';ctx.font='500 15px '+FONT;
   ctx.fillText('Clique sur une case puis appuie sur la nouvelle touche  ·  Échap : annuler  ·  Retour arrière : effacer la case',40,94);
   ACTIONS.forEach(([a,label],i)=>{
-    const y=108+i*52;
-    panel(40,y,880,46,{norivets:true,grunge:.7});
-    ctx.fillStyle='#e8e0d0';ctx.font='700 20px '+FONT;ctx.textAlign='left';ctx.fillText(label,60,y+30);
+    const y=106+i*45;
+    panel(40,y,880,40,{norivets:true,grunge:.7});
+    ctx.fillStyle='#e8e0d0';ctx.font='700 20px '+FONT;ctx.textAlign='left';ctx.fillText(label,60,y+28);
     for(let sl=0;sl<2;sl++){
-      const x=560+sl*180,w=164,on=!!bindListen&&bindListen.action===a&&bindListen.slot===sl,hot=mouse.x>=x&&mouse.x<=x+w&&mouse.y>=y+3&&mouse.y<=y+43;
-      menuRects.push({x,y:y+3,w,h:40,act:()=>{bindListen={action:a,slot:sl}}});
-      panel(x,y+3,w,40,{top:on?'#4a2018':hot?'#3a2e28':'#26211e',bot:on?'#2a100c':'#14100e',edge:on||hot?'#e2542e':'#4a3a2e',norivets:true});
+      const x=560+sl*180,w=164,on=!!bindListen&&bindListen.action===a&&bindListen.slot===sl,hot=mouse.x>=x&&mouse.x<=x+w&&mouse.y>=y+2&&mouse.y<=y+40;
+      menuRects.push({x,y:y+2,w,h:38,act:()=>{bindListen={action:a,slot:sl}}});
+      panel(x,y+2,w,38,{top:on?'#4a2018':hot?'#3a2e28':'#26211e',bot:on?'#2a100c':'#14100e',edge:on||hot?'#e2542e':'#4a3a2e',norivets:true});
       ctx.textAlign='center';
-      if(on){ctx.globalAlpha=.6+.4*Math.sin(tick*.2);ctx.fillStyle='#ffd45a';ctx.font='700 13px '+FONT;ctx.fillText('APPUIE SUR UNE TOUCHE…',x+w/2,y+29);ctx.globalAlpha=1}
-      else{ctx.fillStyle=KEYS[a][sl]?'#f2efe8':'#5a534c';ctx.font='700 18px '+FONT;ctx.fillText(keyName(KEYS[a][sl]),x+w/2,y+30)}
+      if(on){ctx.globalAlpha=.6+.4*Math.sin(tick*.2);ctx.fillStyle='#ffd45a';ctx.font='700 13px '+FONT;ctx.fillText('APPUIE SUR UNE TOUCHE…',x+w/2,y+27);ctx.globalAlpha=1}
+      else{ctx.fillStyle=KEYS[a][sl]?'#f2efe8':'#5a534c';ctx.font='700 18px '+FONT;ctx.fillText(keyName(KEYS[a][sl]),x+w/2,y+28)}
       ctx.textAlign='left';
     }
   });
