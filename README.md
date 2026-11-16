@@ -18,7 +18,7 @@ Ou télécharge le dépôt et ouvre `index.html` dans un navigateur moderne.
 - ~100 armes à débloquer par niveau et par prix, 4 améliorations par arme, skins de couleur
 - Zombies de plus en plus forts à chaque vague, vie max améliorable dans le menu
 - Personnalisation du personnage : 7 tenues homme / femme (morphologie normale ou exagérée), couleurs de peau, cheveux et vêtements
-- Sons synthétisés propres à chaque famille d'arme (réglage du volume dans Options)
+- Sons synthétisés : chaque arme a son propre son, inspiré de son calibre, de son canon et de son mécanisme (réglage du volume dans Options)
 - Musique de fond en boucle (curseur de volume et bouton on/off dans Options)
 - 8 bonus lâchés par les zombies : soin, bouclier, dégâts x2, cadence, gel, frappe aérienne, tourelle, butin
 - Menu pause (Échap : continuer, paramètres, quitter avec confirmation) ; P fige le jeu sans menu

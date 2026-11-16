@@ -500,8 +500,115 @@ function tone(t,dur,o){                                // oscillateur (corps gra
   s.start(t);s.stop(t+dur+.05);
 }
 const wHash=n=>{let h=7;for(const ch of n)h=(h*31+ch.charCodeAt(0))>>>0;return (h%1000)/1000};
+// --- Sons par arme : chaque arme a un profil inspiré de son vrai calibre, de la longueur de canon et du mécanisme ---
+// classes de munition : [claquement Hz, corps grave Hz, durée de queue s, volume, réverbération]
+const AMMO={
+  c22:[4400,280,.06,.55,.06], p9:[3400,190,.09,1,.15], p9s:[3800,215,.07,.85,.1], p45:[2500,150,.12,1.05,.18],
+  p57:[5200,320,.05,.7,.1], tt:[4300,200,.1,.95,.15], p357:[2100,115,.22,1.2,.3], p44:[1900,100,.28,1.3,.35], p50:[1800,92,.32,1.4,.42],
+  r556:[3600,175,.13,1,.28], r545:[3300,160,.13,1,.28], r762s:[2300,130,.15,1.1,.28], r762:[2000,112,.2,1.2,.35],
+  r54r:[1900,100,.26,1.25,.4], r792:[1800,100,.3,1.3,.45], r303:[1900,108,.28,1.2,.42], r3030:[2200,125,.2,1.1,.3],
+  r338:[2000,82,.4,1.45,.55], r408:[1600,66,.5,1.6,.65], r50:[1400,56,.6,1.75,.75]
+};
+// mécanismes : s = glissière, r = culasse mobile (cliquetis), k = clac doux, g = piston à gaz, b = culasse à verrou, l = levier, c = bande de cartouches
+const WS={
+ 'Glock 17':['p9','s'],'Beretta 92':['p9','s',{fb:1.05,tl:1.05}],'M1911':['p45','s'],'USP':['p9','s',{fc:.92,fb:.95,tl:1.1}],'CZ 75':['p9','s',{fc:1.05}],
+ 'Five-seveN':['p57','s'],'Sig P226':['p9','s',{fc:.97,fb:1.1}],'Makarov':['p9','s',{fc:.9,v:.85,fb:1.1}],'Tokarev TT-33':['tt','s'],'Glock 18':['p9','r',{v:.8,tl:.7}],
+ 'Revolver Python':['p357',''],'Magnum 44':['p44',''],'Desert Eagle':['p50','s'],
+ 'Uzi':['p9s','r',{fb:1.1}],'MAC-10':['p9s','r',{fc:.9,fb:1.2,tl:.8}],'MP5':['p9s','k',{fc:.95,v:.8}],'MP7':['p57','k',{fb:.9,v:.8}],'P90':['p57','k',{fb:.85,v:.85}],
+ 'Vector':['p45','r',{fc:1.1,v:.9,tl:.8}],'Skorpion':['c22','r'],'Thompson M1928':['p45','r',{fb:.9,v:1.1,tl:1.1}],'PPSh-41':['tt','r',{fb:1.1,tl:.9}],
+ 'UMP45':['p45','k',{v:.9}],'Bizon':['p9s','r',{fb:.95}],'MP40':['p9s','r',{fc:.9,fb:1.05}],'AKS-74U':['r545','g',{fc:1.1,tl:.8,v:1.1}],
+ 'AK-47':['r762s','g'],'AKM':['r762s','g',{fc:.97,v:1.05}],'AK-74':['r545','g',{fb:1.05}],'AK-12':['r545','g',{fc:1.05,fb:.95}],'AN-94':['r545','g',{fc:1.1,v:.95}],
+ 'M4A1':['r556','k'],'M16A4':['r556','k',{fc:.95,fb:1.05,tl:1.1}],'HK416':['r556','k',{fc:1.05,v:.95}],'SCAR-H':['r762','k'],'FAMAS':['r556','k',{fc:1.1,tl:.8,v:.9}],
+ 'Galil':['r556','g',{fb:1.1}],'Steyr AUG':['r556','k',{fc:.9,fb:.95,v:.9}],'G36':['r556','k',{fc:.95,fb:1.1,v:.9}],'SIG 552':['r556','k',{fc:1.05,tl:.9}],
+ 'FN FAL':['r762','g',{fb:1.05}],'H&K G3':['r762','g',{fc:.95,fb:1.1,v:1.05}],'Tavor':['r556','k',{fc:.9,fb:.9,v:.95}],'QBZ-95':['r556','k',{fc:.85}],
+ 'Dragunov SVD':['r54r','g'],'M14 EBR':['r762','g',{fc:1.05}],'SKS':['r762s','g',{fc:.95,tl:1.1}],'Mosin-Nagant':['r54r','b',{fb:1.05,tl:1.2}],
+ 'Kar98k':['r792','b'],'Lee-Enfield':['r303','b'],'Winchester 94':['r3030','l'],'Remington 700':['r762','b',{fb:.9,tl:1.3}],'Steyr Scout':['r762','b',{fc:1.05,fb:.95}],
+ 'M24 SWS':['r762','b',{fb:.9,tl:1.4,v:1.1}],'AWP':['r338','b'],'CheyTac M200':['r408','b'],'Barrett M82':['r50','s'],'PGM Hécate II':['r50','b',{fb:.95,tl:1.1,v:1.05}],
+ 'M249':['r556','c'],'PKM':['r54r','c'],'RPK':['r762s','c'],'MG42':['r792','c',{fc:1.1,tl:.6}],'M60':['r762','c'],'Browning M2':['r50','c',{v:.95,tl:.5}],
+ 'Negev':['r556','c',{fc:1.05}],'MG4':['r556','c',{fb:1.1}],'Stoner 63':['r556','c',{fc:.95}],'BAR M1918':['r762','k']
+};
+// fusils à pompe : [grave Hz, durée, filtre Hz, mécanisme p = pompe, g = gaz, l = levier, r = rapide, d = double canon]
+const WSG={'Remington 870':[85,.38,1500,'p'],'Mossberg 500':[90,.36,1650,'p'],'Benelli M4':[95,.3,1700,'g'],'SPAS-12':[88,.34,1550,'p'],'KSG':[80,.4,1400,'p'],
+ 'Winchester 1887':[75,.4,1300,'l'],'AA-12':[105,.2,1900,'r'],'Saiga-12':[92,.3,1650,'g'],'Double canon':[70,.5,1200,'d'],'Vepr-12':[98,.3,1750,'g']};
+function mech(m,t,v){
+  const k=(dt,o)=>nz(t+dt,o.d||.03,Object.assign({q:3,vol:.3*v},o));
+  switch(m){
+    case 's':k(.13,{f:3500,vol:.12*v});tone(t+.13,.03,{f:700,type:'square',vol:.05*v,lp:2500});break;
+    case 'r':k(.012,{f:5000,vol:.25*v});tone(t+.012,.02,{f:420,type:'square',vol:.08*v,lp:2000});break;
+    case 'k':k(.01,{f:4200,vol:.12*v});break;
+    case 'g':tone(t+.02,.04,{f:230,f2:120,vol:.16*v});k(.025,{f:2600,vol:.12*v});break;
+    case 'b':k(.38,{f:1800,d:.05,vol:.4*v});tone(t+.38,.04,{f:300,type:'square',vol:.1*v,lp:1500});k(.55,{f:1400,d:.06,vol:.45*v});tone(t+.56,.05,{f:220,type:'square',vol:.1*v,lp:1200});break;
+    case 'l':k(.3,{f:1900,d:.05,vol:.4*v});k(.45,{f:1500,d:.06,vol:.45*v});break;
+    case 'c':k(.012,{f:6500,vol:.2*v});k(.04,{f:5200,vol:.12*v});break;
+    case 'p':k(.38,{f:1200,q:2,d:.05,vol:.5*v});k(.52,{f:900,q:2,d:.06,vol:.55*v});break;
+  }
+}
+function gunVoice(name,t){
+  const w=wHash(name),j=(a,s)=>1+((w*7.3%1)-.5)*s*(a||1);            // micro-variation propre à chaque arme
+  const e=WS[name];
+  if(e){
+    const c=AMMO[e[0]],o=e[2]||{},fc=c[0]*(o.fc||1)*j(1,.08),fb=c[1]*(o.fb||1)*j(1,.08),tl=c[2]*(o.tl||1)*j(1,.1),v=c[3]*(o.v||1),rv=c[4];
+    const rj=1+(Math.random()-.5)*.05;
+    nz(t,tl,{f:fc*rj,f2:Math.max(200,fc*.22),q:.6,vol:v,rev:rv});                  // souffle de la détonation
+    nz(t,.02,{f:7000,type:'highpass',vol:.3*v*Math.min(1.4,fc/2800)});             // claquement sec de la balle
+    tone(t,tl*1.25,{f:fb*rj,f2:fb*.33,vol:v*.95});                                 // coup grave
+    mech(e[1],t,Math.min(1,v));return true;
+  }
+  const g=WSG[name];
+  if(g){
+    const f=g[2]*j(1,.1),bd=g[0]*j(1,.1),tl=g[1]*j(1,.1);
+    nz(t,tl,{f,f2:f*.13,q:.4,vol:1.4,rev:.4});nz(t,.03,{f:3500,q:.8,vol:.6});tone(t,tl*.9,{f:bd,f2:28,vol:1.45});
+    if(g[3]==='d'){nz(t+.06,tl,{f,f2:f*.13,q:.4,vol:1.5,rev:.4});tone(t+.06,tl*.9,{f:bd*.9,f2:26,vol:1.5});nz(t+.5,.06,{f:1000,q:2,vol:.5});}
+    else mech(g[3]==='r'?'r':g[3],t,1);
+    return true;
+  }
+  switch(name){
+    case 'Minigun':nz(t,.045,{f:2400,f2:1200,q:.8,vol:.55});tone(t,.045,{f:150,f2:90,vol:.4});tone(t,.05,{f:60+Math.random()*6,type:'sawtooth',vol:.12,lp:300});return true;
+    case 'Arbalète':tone(t,.3,{f:380,f2:140,type:'triangle',vol:.6});nz(t,.05,{f:900,q:3,vol:.5});nz(t,.14,{f:1600,f2:500,q:1,vol:.25});return true;
+    case 'Arc de chasse':tone(t,.28,{f:520,f2:240,type:'triangle',vol:.5});nz(t+.02,.2,{f:2800,f2:900,q:1.2,vol:.3});return true;
+    case 'Pistolet à clous':nz(t,.05,{f:2500,q:2,vol:.8});tone(t,.06,{f:300,f2:90,type:'square',vol:.35,lp:2000});nz(t+.02,.05,{f:6000,type:'highpass',vol:.3});return true;
+    case 'Lance-flammes':tone(t,.15,{f:70,f2:40,vol:.6});nz(t,.28,{f:800,f2:1500,q:.5,vol:.9,rev:.1});nz(t,.28,{f:260,type:'lowpass',vol:.8});return true;
+    case 'Lance-grenades M79':tone(t,.25,{f:130,f2:45,vol:1.2,lp:400});nz(t,.2,{f:600,f2:200,q:.6,vol:.7,rev:.3});tone(t+.03,.12,{f:300,f2:120,vol:.4});return true;
+    case 'RPG-7':nz(t,.03,{f:3000,type:'highpass',vol:.6});nz(t+.02,.7,{f:1200,f2:400,q:.7,vol:.9,rev:.4});tone(t,.3,{f:100,f2:40,vol:1});return true;
+    case 'Bazooka':tone(t,.45,{f:80,f2:30,vol:1.3});nz(t,.9,{f:800,f2:200,q:.6,vol:1,rev:.5});nz(t,.03,{f:3000,type:'highpass',vol:.5});return true;
+    case 'Railgun':tone(t,.15,{f:200,f2:1500,type:'sine',vol:.3});tone(t+.14,.35,{f:1800,f2:90,type:'sawtooth',vol:.5,lp:3000});tone(t+.14,.5,{f:70,f2:25,vol:1.3});nz(t+.14,.22,{f:5000,type:'highpass',vol:.45,rev:.5});return true;
+    case 'Fusil laser':tone(t,.16,{f:1800,f2:400,type:'square',vol:.3,lp:4000});tone(t,.18,{f:2600,f2:700,vol:.25});return true;
+    case 'Fusil à plasma':tone(t,.3,{f:700,f2:120,type:'sawtooth',vol:.35,lp:2500});tone(t,.32,{f:1400,f2:260,vol:.2});nz(t,.12,{f:2500,f2:600,q:2,vol:.25});return true;
+    case 'Pistolet laser':tone(t,.1,{f:2600,f2:900,vol:.3});tone(t,.08,{f:3200,f2:1200,type:'square',vol:.12,lp:5000});return true;
+    case 'Fusil harpon':tone(t,.3,{f:150,f2:60,vol:.9});nz(t,.25,{f:1200,f2:300,q:.5,type:'lowpass',vol:.8});nz(t+.04,.08,{f:4000,q:4,vol:.3});return true;
+  }
+  return false;
+}
+function meleeSwing(name,t){
+  switch(name){
+    case 'Couteau':nz(t,.1,{f:900,f2:3800,q:1.3,vol:.55,att:.04});return true;
+    case 'Poignard':nz(t,.09,{f:1100,f2:4200,q:1.3,vol:.5,att:.04});return true;
+    case 'Machette':nz(t,.15,{f:600,f2:2800,q:1.2,vol:.75,att:.06});tone(t,.12,{f:140,f2:90,vol:.2});return true;
+    case 'Hache de bûcheron':nz(t,.22,{f:250,f2:1100,q:1,vol:1,att:.1});tone(t,.2,{f:90,f2:60,vol:.3});return true;
+    case 'Batte cloutée':nz(t,.2,{f:300,f2:1500,q:.9,vol:.9,att:.09});return true;
+    case 'Katana':nz(t,.2,{f:900,f2:4500,q:1.2,vol:.6,att:.07});tone(t+.02,.35,{f:3300,f2:3900,type:'triangle',vol:.09});tone(t+.02,.3,{f:4950,type:'sine',vol:.04});return true;
+    case 'Marteau de guerre':nz(t,.28,{f:180,f2:900,q:1,vol:1.1,att:.14});tone(t,.28,{f:70,f2:50,vol:.35});return true;
+    case 'Faux':nz(t,.34,{f:400,f2:2200,q:.8,vol:.85,att:.16});return true;
+    case 'Tronçonneuse':tone(t,.1,{f:75+Math.random()*8,f2:100,type:'sawtooth',vol:.35,lp:900});tone(t,.1,{f:150,f2:200,type:'sawtooth',vol:.12,lp:1500});nz(t,.1,{f:1800,q:1,vol:.3});return true;
+  }
+  return false;
+}
+function meleeHit(name,t){
+  switch(name){
+    case 'Couteau':case 'Poignard':nz(t,.06,{f:2400,f2:1300,q:.8,vol:1.6});nz(t,.1,{f:300,f2:120,vol:1.4});break;
+    case 'Machette':nz(t,.08,{f:1800,f2:700,q:.8,vol:1.5});tone(t,.1,{f:110,f2:50,vol:1.2});break;
+    case 'Hache de bûcheron':nz(t,.1,{f:700,f2:200,q:.6,vol:1.8});tone(t,.15,{f:95,f2:40,vol:1.5});nz(t,.03,{f:3000,type:'highpass',vol:.6});break;
+    case 'Batte cloutée':tone(t,.08,{f:400,f2:150,type:'triangle',vol:1});nz(t,.06,{f:1200,f2:400,vol:1.2});tone(t,.12,{f:100,f2:50,vol:1.2});break;
+    case 'Katana':nz(t,.09,{f:3200,f2:1500,q:.8,vol:1.5});nz(t,.1,{f:280,f2:110,vol:1.2});tone(t,.2,{f:3300,type:'triangle',vol:.06});break;
+    case 'Marteau de guerre':tone(t,.25,{f:90,f2:35,vol:2});nz(t,.12,{f:400,type:'lowpass',vol:1.8});nz(t,.03,{f:3000,type:'highpass',vol:.7});break;
+    case 'Faux':nz(t,.09,{f:2400,f2:1000,q:.8,vol:1.5});nz(t,.12,{f:260,f2:100,vol:1.3});break;
+    case 'Tronçonneuse':tone(t,.14,{f:95,type:'sawtooth',vol:.5,lp:1200});nz(t,.12,{f:2000,q:.8,vol:1.5});break;
+    default:nz(t,.09,{f:500,f2:150,q:.6,vol:1.6});tone(t,.12,{f:120,f2:50,vol:1.3});
+  }
+}
 function playGun(wp,t0){
   if(!snd()) return;const t=t0==null?AC.currentTime:t0;
+  if(gunVoice(wp.name,t)) return;                    // son propre à cette arme
   const w=wHash(wp.name),pf=(.9+w*.2)*(1+(Math.random()-.5)*.05),dk=.9+(1-w)*.25;
   switch(wp.kind){
     case 'pistol':nz(t,.09*dk,{f:3300*pf,f2:900,q:.7,rev:.15});tone(t,.1*dk,{f:190*pf,f2:55,vol:.9});nz(t,.03,{f:6500,type:'highpass',vol:.45});break;
@@ -528,6 +635,7 @@ function playGun(wp,t0){
 }
 function playSwing(wp,t0){
   if(!snd()) return;const t=t0==null?AC.currentTime:t0,pf=.9+wHash(wp.name)*.2;
+  if(meleeSwing(wp.name,t)) return;
   switch(wp.kind){
     case 'knife':case 'blade':nz(t,wp.name==='Katana'?.2:.13,{f:700*pf,f2:3000,q:1.3,vol:.7,att:.05});if(wp.name==='Katana') tone(t,.3,{f:3300,type:'triangle',vol:.08});break;
     case 'axe':case 'bat':case 'hammer':nz(t,.24,{f:250*pf,f2:1200,q:1,vol:1,att:.1});break;
@@ -584,7 +692,7 @@ function slash(){
       z.hp-=wp.dmg*player.dmgMul*wBoost(player.w)*(fxB.dmg>0?2:1); z.x+=player.face*22/z.size; burst(z.x,z.y-40,'#a22',6);hitAny=true;
     }
   }
-  if(hitAny) sfx(wp.kind==='knife'||wp.kind==='blade'||wp.kind==='scythe'||wp.kind==='chainsaw'?'hitcut':'hitmelee');
+  if(hitAny&&snd()){const tt=AC.currentTime;if(!lastSfx.mh||tt-lastSfx.mh>.06){lastSfx.mh=tt;meleeHit(wp.name,tt)}}
 }
 function spawnZombie(type){
   if(Math.random()<.25) sfx('groan');
