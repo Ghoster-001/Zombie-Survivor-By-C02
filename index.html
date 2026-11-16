@@ -29,7 +29,7 @@ let ctx = cv.getContext('2d');
 if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){r=Math.min(Array.isArray(r)?(r[0]||0):(r||0),Math.abs(w)/2,Math.abs(h)/2);this.moveTo(x+r,y);this.arcTo(x+w,y,x+w,y+h,r);this.arcTo(x+w,y+h,x,y+h,r);this.arcTo(x,y+h,x,y,r);this.arcTo(x,y,x+w,y,r);this.closePath()}}   // anciens navigateurs mobiles
 let RES=Math.max(1,Math.min(2,window.devicePixelRatio||1));if(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) RES=Math.min(RES,1.5);   // résolution interne adaptée : plus fluide sur mobile
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
-ctx.scale(RES,RES);
+cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -212,7 +212,8 @@ const SAVE_KEY='zs_save_v5';
 let save={bank:0,xp:0,own:{'Couteau':true,'Glock 17':true},melee:'Couteau',up:{},hpLvl:0,dmgLvl:0,best:0};
 try{
   const load=k=>JSON.parse(localStorage.getItem(k)||'null');
-  let r=load(SAVE_KEY);
+  let r=null;try{r=load(SAVE_KEY)}catch(e){}
+  if(!r||typeof r!=='object'){try{r=load(SAVE_KEY+'_bak')}catch(e){}}   // sauvegarde principale absente ou corrompue : copie de secours
   if(!r){ // reprise des anciennes sauvegardes (nouvelle économie : valeurs ÷10)
     let o=load('zs_save_v4');
     if(!o){
@@ -379,7 +380,65 @@ if(save.dmgLvl>0){
 {const mi=WEAPONS.findIndex(w=>w.name===save.melee);if(mi<0||!WEAPONS[mi].melee||!save.own[save.melee]) save.melee='Couteau'}
 let fx=[],upCat=0,crates=[],crateT=0;
 let upPage=0;
-function persist(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(save))}catch(e){}}
+let saveOK=true,savedAt=0;try{savedAt=+localStorage.getItem(SAVE_KEY+'_t')||0}catch(e){}
+let noPersist=false;
+function persist(){
+  if(noPersist) return;
+  try{
+    const prev=localStorage.getItem(SAVE_KEY);if(prev) localStorage.setItem(SAVE_KEY+'_bak',prev);   // copie de secours = version précédente
+    localStorage.setItem(SAVE_KEY,JSON.stringify(save));savedAt=Date.now();localStorage.setItem(SAVE_KEY+'_t',savedAt);saveOK=true;
+  }catch(e){saveOK=false}
+}
+try{if(navigator.storage&&navigator.storage.persist) navigator.storage.persist()}catch(e){}   // demande au navigateur de ne pas effacer la sauvegarde
+addEventListener('pagehide',persist);document.addEventListener('visibilitychange',()=>{if(document.hidden) persist()});
+let saveMsg='',saveMsgT=0,saveConfirm=false;
+const saveNote=t=>{saveMsg=t;saveMsgT=300};
+function exportSave(){
+  try{
+    persist();const blob=new Blob([JSON.stringify({game:'the-infected-grounds',v:5,date:new Date().toISOString(),data:save},null,1)],{type:'application/json'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='infected-grounds-sauvegarde.json';document.body.appendChild(a);a.click();
+    setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1500);saveNote('Fichier de sauvegarde créé');
+  }catch(e){saveNote('Export impossible')}
+}
+function importSave(){
+  const inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json';
+  inp.onchange=()=>{
+    const f=inp.files&&inp.files[0];if(!f) return;
+    const rd=new FileReader();
+    rd.onload=()=>{
+      try{
+        let o=JSON.parse(rd.result);if(o&&o.data) o=o.data;
+        if(!o||typeof o!=='object'||typeof o.own!=='object'||isNaN(+o.bank)) throw 0;
+        localStorage.setItem(SAVE_KEY+'_bak',localStorage.getItem(SAVE_KEY)||JSON.stringify(save));
+        localStorage.setItem(SAVE_KEY,JSON.stringify(o));noPersist=true;saveNote('Progression importée…');setTimeout(()=>location.reload(),600);
+      }catch(e){saveNote('Fichier invalide')}
+    };
+    rd.readAsText(f);
+  };
+  inp.click();
+}
+function resetSave(){
+  try{localStorage.removeItem(SAVE_KEY);localStorage.removeItem(SAVE_KEY+'_bak');localStorage.removeItem(SAVE_KEY+'_t')}catch(e){}
+  noPersist=true;location.reload();
+}
+function drawSaves(){
+  ctx.fillStyle='#000000e0';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
+  ctx.fillStyle='#000';ctx.font='400 38px '+TITLE;ctx.fillText('SAUVEGARDE',43,61);ctx.fillStyle='#e9e1d0';ctx.fillText('SAUVEGARDE',40,58);
+  ctx.fillStyle='#7a2c1c';ctx.fillRect(40,66,200,3);
+  panel(40,90,880,120,{grunge:.7,norivets:true});
+  ctx.font='700 20px '+FONT;ctx.fillStyle=saveOK?'#9fd18a':'#ff6a4a';
+  ctx.fillText(saveOK?'Sauvegarde automatique active sur cet appareil':'ATTENTION : le navigateur refuse d\'enregistrer (navigation privée ?)',60,122);
+  ctx.font='500 17px '+FONT;ctx.fillStyle='#d8d2c8';
+  ctx.fillText('Niveau '+curLevel()+'   ·   $'+save.bank+'   ·   Record : vague '+save.best+'   ·   '+Object.keys(save.own).length+' armes',60,152);
+  ctx.fillText(savedAt?'Dernier enregistrement : '+new Date(savedAt).toLocaleString():'Aucun enregistrement pour l\'instant',60,178);
+  ctx.fillStyle='#8a8178';ctx.font='500 14px '+FONT;
+  ctx.fillText('Ta progression est enregistrée automatiquement. Exporte un fichier pour la garder en sécurité ou la passer sur un autre appareil.',40,236);
+  btn(menuRects,40,262,420,56,'EXPORTER LA SAUVEGARDE',{act:exportSave,size:22,sub:'Télécharge un fichier'});
+  btn(menuRects,500,262,420,56,'IMPORTER UNE SAUVEGARDE',{act:importSave,size:22,sub:'Choisis un fichier exporté'});
+  btn(menuRects,40,336,420,50,saveConfirm?'CONFIRMER : TOUT EFFACER ?':'EFFACER LA PROGRESSION',{act:()=>{if(saveConfirm) resetSave(); else{saveConfirm=true;saveNote('Clique encore pour confirmer (irréversible)')}},size:20,dim:false});
+  btn(menuRects,40,462,200,46,'RETOUR',{act:()=>{saveConfirm=false;state='options'},size:20});
+  if(saveMsgT>0){saveMsgT--;ctx.fillStyle='#ffd45a';ctx.font='700 20px '+FONT;ctx.fillText(tr(saveMsg).toUpperCase(),260,492)}
+}
 const MAX_UP=15;
 const hpCost=()=>Math.round(50*Math.pow(save.hpLvl+1,1.5)/10)*10;
 let waveBreak=0,runGain=0,runXp=0,lvlStart=1,xpStart=0,overXp=0,overLvl=1,overPulse=0,upShown=null;
@@ -450,6 +509,7 @@ addEventListener('keydown',e=>{
   else if(state==='trainpick' && e.code==='Escape') state='pause';
   else if(state==='weapon' && e.code==='Escape') state='upgrades';
   else if(state==='keys' && e.code==='Escape') state='options';
+  else if(state==='saves'&&e.code==='Escape'){saveConfirm=false;state='options'}
   else if((state==='options'||state==='credits'||state==='upgrades'||state==='custom'||state==='lang') && e.code==='Escape') state=(state==='options'&&optFrom==='pause')?'pause':'menu';
 });
 addEventListener('keyup',e=>keys[e.code]=false);
@@ -469,7 +529,7 @@ function layoutTouch(){
   Object.assign(TPICK,{x:W-rr-100,y:H-268});Object.assign(TPAUSE,{x:W-rr-56,y:84});Object.assign(STOCK,{x:W-rr-262,y:H-76});
 }
 layoutTouch();
-const MENU_STATES=['menu','options','credits','upgrades','weapon','keys','custom','lang','pause','trainpick','over'];
+const MENU_STATES=['menu','saves','options','credits','upgrades','weapon','keys','custom','lang','pause','trainpick','over'];
 let autoTarget=null;
 const inR=(p,r)=>p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h;
 function tpos(t){
@@ -1410,7 +1470,7 @@ function bar(x,y,w,v,max,col){
 }
 function draw(){
   tick++;syncMouse();
-  if(state==='menu'||state==='options'||state==='credits'||state==='upgrades'||state==='weapon'||state==='keys'||state==='custom'||state==='lang'){drawMenu();overlayFx(0);drawCursor();return}
+  if(state==='menu'||state==='options'||state==='credits'||state==='upgrades'||state==='weapon'||state==='keys'||state==='custom'||state==='lang'||state==='saves'){drawMenu();overlayFx(0);drawCursor();return}
   ctx.save();
   if(shake>.5){ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake*=.88}
   drawBackground();ash();
@@ -1612,7 +1672,7 @@ function embers(){
 }
 // Les menus sont dessinés dans un espace de 960x540 centré en bas de l'écran, le décor et les voiles couvrent tout l'écran.
 let MENU_MODE=false,MOX=0,MOY=0,MRW=960,MRH=540;
-const MENU_SPACE=['menu','options','credits','upgrades','weapon','keys','custom','lang','trainpick'];
+const MENU_SPACE=['menu','saves','options','credits','upgrades','weapon','keys','custom','lang','trainpick'];
 function syncMouse(){const m=MENU_SPACE.includes(state);mouse.x=mouse.rx-(m?(W-960)/2:0);mouse.y=mouse.ry-(m?(H-540):0)}
 function inMenuSpace(fn){
   const RW=W,RH=H,RG=GROUND,ox=(RW-960)/2,oy=RH-540;
@@ -1632,6 +1692,7 @@ function drawMenuBody(){
   if(state==='weapon'){drawWeaponDetail();return}
   if(state==='keys'){drawKeys();return}
   if(state==='lang'){drawLang();return}
+  if(state==='saves'){drawSaves();return}
   if(state==='custom'){drawCustom();return}
   // silhouette du soldat à droite (dessin original)
   player.x=720;player.y=GROUND;player.face=-1;player.aim=Math.PI+.1;player.w=MENU_GUN;player.cd=0;player.swing=0;
@@ -1666,6 +1727,7 @@ function drawMenuBody(){
     btn(menuRects,70,376,360,44,tr('Visée').toUpperCase()+' : '+tr(aimDir()?'Direction':'Souris').toUpperCase(),{act:()=>{SET.aim=SET.aim==='dir'?'mouse':'dir';saveOpts()},size:20});
     btn(menuRects,470,276,300,44,'TOUCHES',{act:()=>{bindListen=null;state='keys'},size:20});
     btn(menuRects,470,326,300,44,tr('Effets').toUpperCase()+' : '+(SET.vol>0?Math.round(SET.vol*100)+' %':tr('Non').toUpperCase()),{act:()=>{const L=[1,.6,.3,0];SET.vol=L[(L.indexOf(SET.vol)+1)%4]??1;setVol();saveOpts();audioInit();sfx('click')},size:20});
+    btn(menuRects,784,276,140,44,'SAUVEGARDE',{act:()=>{saveConfirm=false;state='saves'},size:14});
     btn(menuRects,470,376,300,44,'RETOUR',{act:()=>state=optFrom==='pause'?'pause':'menu',size:20});
     // musique : curseur de volume + bouton activer / désactiver
     panel(70,430,700,46,{grunge:.7,norivets:true});
