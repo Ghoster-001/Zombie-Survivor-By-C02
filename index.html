@@ -272,7 +272,7 @@ function reset(toMenu){
   const mi=Math.max(0,WEAPONS.findIndex(w=>w.name===save.melee));
   player={x:W/2,y:GROUND,vy:0,hp:mhp,maxhp:mhp,w:mi,melee:mi,gun:null,
           cd:0,dmgMul:1,hurtCd:0,face:1,step:0,aim:0,swing:0};
-  zombies=[]; bullets=[]; particles=[]; fx=[]; crates=[]; crateT=7000+Math.random()*8000; spawnQueue=[]; spawnTimer=0;
+  zombies=[]; bullets=[]; particles=[]; fx=[]; crates=[]; bonuses=[]; strikes=[]; turret=null; fxB={shield:0,dmg:0,rapid:0,freeze:0}; crateT=7000+Math.random()*8000; spawnQueue=[]; spawnTimer=0;
   mouse={x:W/2,y:0,down:false}; keys={}; msg=''; msgT=0;
   xp=0; level=1; runXp=0; lvlStart=curLevel(); xpStart=save.xp; combo=0; comboT=0; shake=0; kills=0;
   if(toMenu) state='menu'; else startWave();
@@ -544,6 +544,9 @@ function sfx(name){
     case 'wave':[523,659,784].forEach((f,i)=>tone(t+i*.12,.35,{f,type:'triangle',vol:.3,rev:.2}));break;
     case 'over':tone(t,1,{f:220,f2:50,type:'sawtooth',vol:.7,lp:700});nz(t,.5,{f:400,f2:80,type:'lowpass',vol:1.6});break;
     case 'buy':tone(t,.18,{f:1320,vol:.25,type:'triangle'});tone(t+.09,.3,{f:1760,vol:.25,type:'triangle'});nz(t,.03,{f:6000,type:'highpass',vol:.3});break;
+    case 'bonus':tone(t,.14,{f:880,type:'triangle',vol:.3});tone(t+.08,.14,{f:1175,type:'triangle',vol:.3});tone(t+.16,.3,{f:1568,type:'triangle',vol:.3,rev:.2});break;
+    case 'whistle':tone(t,.45,{f:2200,f2:500,type:'sawtooth',vol:.12,lp:3000});break;
+    case 'turret':if(!gate(60)) return;nz(t,.05,{f:3200,f2:1200,q:.8,vol:.5});tone(t,.06,{f:260,f2:100,vol:.4});break;
     case 'click':nz(t,.03,{f:3000,q:2,vol:1.2});tone(t,.04,{f:600,f2:300,type:'square',vol:.25});break;
   }
 }
@@ -557,21 +560,21 @@ function shoot(){
     const a=base+(Math.random()-.5)*wp.spread*2;
     bullets.push({x:px+Math.cos(base)*22,y:py+Math.sin(base)*22,
       vx:Math.cos(a)*wp.speed,vy:Math.sin(a)*wp.speed,
-      dmg:wp.dmg*player.dmgMul*wBoost(player.w),pierce:wp.pierce,life:wp.life||60,hit:new Set(),
+      dmg:wp.dmg*player.dmgMul*wBoost(player.w)*(fxB.dmg>0?2:1),pierce:wp.pierce,life:wp.life||60,hit:new Set(),
       col:wp.col||'#ff0',aoe:wp.aoe||0,fire:!!wp.fire,size:wp.size||2});
   }
-  player.cd=wp.rate; player.firedThisClick=true;
+  player.cd=wp.rate/(fxB.rapid>0?1.8:1); player.firedThisClick=true;
   playGun(wp);
 }
 function slash(){
   const wp=WEAPONS[player.w];
-  player.cd=wp.rate; player.swing=180;
+  player.cd=wp.rate/(fxB.rapid>0?1.8:1); player.swing=180;
   playSwing(wp);let hitAny=false;
   for(const z of zombies){
     if(z.hp<=0) continue;
     const dx=(z.x-player.x)*player.face;
     if(dx>-10 && dx<wp.reach+14*z.size){
-      z.hp-=wp.dmg*player.dmgMul*wBoost(player.w); z.x+=player.face*22/z.size; burst(z.x,z.y-40,'#a22',6);hitAny=true;
+      z.hp-=wp.dmg*player.dmgMul*wBoost(player.w)*(fxB.dmg>0?2:1); z.x+=player.face*22/z.size; burst(z.x,z.y-40,'#a22',6);hitAny=true;
     }
   }
   if(hitAny) sfx(wp.kind==='knife'||wp.kind==='blade'||wp.kind==='scythe'||wp.kind==='chainsaw'?'hitcut':'hitmelee');
@@ -589,11 +592,128 @@ function burst(x,y,col,n=8){
   for(let i=0;i<n;i++) particles.push({x,y,vx:(Math.random()-.5)*5,vy:-Math.random()*4,life:30,col});
 }
 
+// --- Bonus tombés des zombies : ramassés en marchant dessus (soin, bouclier, dégâts x2, cadence, gel, frappe aérienne, tourelle, butin) ---
+const BON={
+  heal:{n:'SOIN',c:'#c9372c',w:3},
+  shield:{n:'BOUCLIER',c:'#3f8fe0',w:2,dur:8000},
+  dmg:{n:'DÉGÂTS ×2',c:'#e0762a',w:2,dur:12000},
+  rapid:{n:'CADENCE',c:'#d8b81f',w:2,dur:12000},
+  freeze:{n:'GEL',c:'#5fc8e0',w:2,dur:8000},
+  strike:{n:'FRAPPE AÉRIENNE',c:'#a83a2a',w:1.5},
+  turret:{n:'TOURELLE',c:'#6f8560',w:1.5,dur:14000},
+  cash:{n:'BUTIN +10 $',c:'#d8a020',w:2}
+};
+let bonuses=[],strikes=[],turret=null,fxB={shield:0,dmg:0,rapid:0,freeze:0};
+function dropBonus(z){
+  const ch=z.type==='tank'?.3:z.type==='fast'?.09:.06;
+  if(Math.random()>=ch) return;
+  const ks=Object.keys(BON),low=player.hp<player.maxhp*.5;
+  let tot=0;const ws=ks.map(k=>{const w=BON[k].w*(k==='heal'&&low?2.5:1);tot+=w;return w});
+  let r=Math.random()*tot,i=0;while(i<ks.length-1&&(r-=ws[i])>0) i++;
+  bonuses.push({x:Math.max(30,Math.min(W-30,z.x)),y:z.y-70,vy:-4,type:ks[i],life:12000});
+}
+function applyBonus(type){
+  const p=player,B=BON[type];
+  if(type==='heal') p.hp=Math.min(p.maxhp,p.hp+Math.round(p.maxhp*.35));
+  else if(type==='cash') money+=10;
+  else if(type==='strike'){for(let i=0;i<6;i++) strikes.push({x:60+Math.random()*(W-120),t:-i*230-200,w:false})}
+  else if(type==='turret') turret={x:p.x,t:B.dur,cd:0};
+  else fxB[type]=B.dur;
+  sfx('bonus');flash(B.n);burst(p.x,p.y-40,B.c,14);
+}
+function updateBonus(dt){
+  const p=player;
+  for(const k in fxB) if(fxB[k]>0) fxB[k]=Math.max(0,fxB[k]-dt);
+  for(const b of bonuses){
+    b.life-=dt;b.vy+=.35;b.y+=b.vy;if(b.y>GROUND-16){b.y=GROUND-16;b.vy=0}
+    if(Math.abs(b.x-p.x)<28&&p.y>GROUND-70){applyBonus(b.type);b.life=0}
+  }
+  bonuses=bonuses.filter(b=>b.life>0);
+  if(turret){
+    turret.t-=dt;turret.cd-=dt;
+    if(turret.cd<=0){
+      let best=null,bd=520;for(const z of zombies){if(z.hp<=0) continue;const d=Math.abs(z.x-turret.x);if(d<bd){bd=d;best=z}}
+      if(best){
+        const a=Math.atan2((best.y-38*best.size)-(GROUND-26),best.x-turret.x);
+        bullets.push({x:turret.x+Math.cos(a)*20,y:GROUND-26+Math.sin(a)*20,vx:Math.cos(a)*19,vy:Math.sin(a)*19,dmg:12*(1+.1*(wave-1)),pierce:1,life:50,hit:new Set(),col:'#8fe8ff',aoe:0,fire:false,size:2});
+        turret.cd=230;sfx('turret');
+      }
+    }
+    if(turret.t<=0) turret=null;
+  }
+  for(const s of strikes){
+    s.t+=dt;
+    if(s.t>=0&&!s.w){s.w=true;sfx('whistle')}
+    if(s.t>=450){explode(s.x,GROUND-8,95,70+wave*9);s.dead=true}
+  }
+  strikes=strikes.filter(s=>!s.dead);
+}
+function bonusIcon(type,cx,cy,r){
+  const B=BON[type],k=r/14;
+  ctx.save();ctx.translate(cx,cy);ctx.scale(k,k);
+  ctx.fillStyle='#0b0908';ctx.beginPath();ctx.arc(0,0,15,0,7);ctx.fill();
+  ctx.fillStyle=B.c;ctx.beginPath();ctx.arc(0,0,13,0,7);ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.22)';ctx.beginPath();ctx.arc(-3,-4,8,0,7);ctx.fill();
+  ctx.fillStyle='#fff';ctx.strokeStyle='#fff';ctx.lineWidth=2.6;ctx.lineCap='round';ctx.lineJoin='round';
+  if(type==='heal'){ctx.fillRect(-2.5,-8,5,16);ctx.fillRect(-8,-2.5,16,5)}
+  else if(type==='shield'){ctx.beginPath();ctx.moveTo(-7,-7);ctx.lineTo(7,-7);ctx.lineTo(7,0);ctx.quadraticCurveTo(7,7,0,9);ctx.quadraticCurveTo(-7,7,-7,0);ctx.closePath();ctx.fill()}
+  else if(type==='dmg'){ctx.font='900 13px '+FONT;ctx.textAlign='center';ctx.fillText('x2',0,5)}
+  else if(type==='rapid'){for(const o of[-5,2]){ctx.beginPath();ctx.moveTo(o,-6);ctx.lineTo(o+5,0);ctx.lineTo(o,6);ctx.stroke()}}
+  else if(type==='freeze'){for(let i=0;i<3;i++){ctx.save();ctx.rotate(i*Math.PI/3);ctx.beginPath();ctx.moveTo(0,-8);ctx.lineTo(0,8);ctx.stroke();ctx.restore()}}
+  else if(type==='strike'){ctx.beginPath();ctx.ellipse(0,-1,3.4,7,0,0,7);ctx.fill();ctx.beginPath();ctx.moveTo(-3,6);ctx.lineTo(-7,10);ctx.lineTo(0,7);ctx.lineTo(7,10);ctx.lineTo(3,6);ctx.fill()}
+  else if(type==='turret'){ctx.fillRect(-7,3,14,5);ctx.fillRect(-2,-3,10,4);ctx.beginPath();ctx.arc(-1,0,4.5,0,7);ctx.fill()}
+  else if(type==='cash'){ctx.font='900 17px '+FONT;ctx.textAlign='center';ctx.fillText('$',0,6)}
+  ctx.restore();
+}
+function drawBonusWorld(){
+  for(const b of bonuses){
+    if(b.life<2500&&Math.floor(b.life/150)%2) continue;
+    const bob=Math.sin(tick*.1+b.x)*3,B=BON[b.type];
+    const g=ctx.createRadialGradient(b.x,b.y+bob,2,b.x,b.y+bob,30);g.addColorStop(0,B.c+'aa');g.addColorStop(1,B.c+'00');ctx.fillStyle=g;ctx.fillRect(b.x-30,b.y+bob-30,60,60);
+    ctx.fillStyle='#0004';ctx.beginPath();ctx.ellipse(b.x,GROUND+4,11,3,0,0,7);ctx.fill();
+    bonusIcon(b.type,b.x,b.y+bob-4,14);
+  }
+  for(const s of strikes){
+    if(s.t<0){ctx.strokeStyle='rgba(255,70,50,.5)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(s.x,GROUND+8,10+Math.sin(tick*.4)*3,0,7);ctx.stroke();continue}
+    const f=s.t/450,y=-30+f*(GROUND+22);
+    ctx.fillStyle='rgba(255,70,50,'+(.25+.3*f)+')';ctx.beginPath();ctx.arc(s.x,GROUND+8,8+16*f,0,7);ctx.fill();
+    ctx.save();ctx.translate(s.x,y);ctx.fillStyle='#8a8d92';ctx.beginPath();ctx.ellipse(0,0,4,12,0,0,7);ctx.fill();ctx.fillStyle='#a83a2a';ctx.beginPath();ctx.moveTo(-4,-8);ctx.lineTo(-9,-16);ctx.lineTo(0,-11);ctx.lineTo(9,-16);ctx.lineTo(4,-8);ctx.fill();ctx.fillStyle='#ffb040';ctx.beginPath();ctx.moveTo(-3,-12);ctx.lineTo(0,-34-Math.random()*12);ctx.lineTo(3,-12);ctx.fill();ctx.restore();
+  }
+  if(turret){
+    const tx=turret.x,ty=GROUND;
+    ctx.fillStyle='#0004';ctx.beginPath();ctx.ellipse(tx,ty+4,15,3.5,0,0,7);ctx.fill();
+    let best=null,bd=1e9;for(const z of zombies){const d=Math.abs(z.x-tx);if(z.hp>0&&d<bd){bd=d;best=z}}
+    const a=best?Math.atan2((best.y-38*best.size)-(ty-26),best.x-tx):0;
+    ctx.fillStyle='#4a4f44';ctx.fillRect(tx-4,ty-14,8,14);ctx.fillRect(tx-13,ty-4,26,6);
+    ctx.save();ctx.translate(tx,ty-26);ctx.rotate(a);ctx.fillStyle='#262a26';ctx.fillRect(-4,-5,24,10);ctx.fillStyle='#8a948a';ctx.fillRect(18,-3,8,6);ctx.restore();
+    ctx.fillStyle='#6f8560';ctx.beginPath();ctx.arc(tx,ty-26,9,0,7);ctx.fill();ctx.fillStyle='#2a2e28';ctx.beginPath();ctx.arc(tx,ty-26,4,0,7);ctx.fill();
+    ctx.fillStyle='#0006';ctx.fillRect(tx-14,ty-46,28,4);ctx.fillStyle='#8fe8ff';ctx.fillRect(tx-14,ty-46,28*turret.t/BON.turret.dur,4);
+  }
+}
+function drawBonusPlayer(){
+  const p=player;
+  if(fxB.shield>0){const a=fxB.shield<2000&&Math.floor(fxB.shield/150)%2?.15:.35+.1*Math.sin(tick*.2);
+    const g=ctx.createRadialGradient(p.x,p.y-42,10,p.x,p.y-42,46);g.addColorStop(0,'rgba(80,150,255,0)');g.addColorStop(1,'rgba(90,170,255,'+a+')');ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y-42,46,0,7);ctx.fill();
+    ctx.strokeStyle='rgba(150,200,255,'+(a+.3)+')';ctx.lineWidth=2;ctx.stroke()}
+  if(fxB.dmg>0){ctx.fillStyle='rgba(255,120,40,'+(.12+.06*Math.sin(tick*.3))+')';ctx.beginPath();ctx.arc(p.x,p.y-42,40,0,7);ctx.fill()}
+  if(fxB.rapid>0){ctx.strokeStyle='rgba(255,220,70,.5)';ctx.lineWidth=2;for(let i=0;i<3;i++){const y=p.y-30-i*14;ctx.beginPath();ctx.moveTo(p.x-p.face*24,y);ctx.lineTo(p.x-p.face*(40+(tick*3+i*9)%14),y);ctx.stroke()}}
+}
+function drawBonusHud(){
+  const items=[];for(const k of['shield','dmg','rapid','freeze']) if(fxB[k]>0) items.push([k,fxB[k],BON[k].dur]);
+  if(turret) items.push(['turret',turret.t,BON.turret.dur]);
+  items.forEach(([k,t,d],i)=>{
+    const x=10+i*76,y=80;panel(x,y,70,34,{norivets:true,grunge:.6});
+    bonusIcon(k,x+18,y+17,11);
+    ctx.fillStyle=t<2500&&tick%20<10?'#ff7a6a':'#f2efe8';ctx.font='700 16px '+FONT;ctx.textAlign='left';ctx.fillText(Math.ceil(t/1000)+' s',x+34,y+23);
+    ctx.fillStyle=BON[k].c;ctx.fillRect(x+4,y+30,62*t/d,2);
+  });
+}
 let paused=false;
 function update(dt){
   if(state!=='play'){paused=false;return}
   if(paused) return;
   const p=player;
+  updateBonus(dt);
   // déplacement
   let mv=(kd('right')?1:0)-(kd('left')?1:0);
   p.x+=mv*4; p.x=Math.max(20,Math.min(W-20,p.x));
@@ -635,10 +755,11 @@ function update(dt){
   for(const z of zombies){
     if(z.hp<=0){onKill(z);continue}
     z.dir=p.x>z.x?1:-1;
-    z.x+=z.dir*z.speed; z.step+=0.15*z.speed;
+    const fz=fxB.freeze>0?.3:1;z.x+=z.dir*z.speed*fz; z.step+=0.15*z.speed*fz;
     if(Math.abs(z.x-p.x)<18*z.size && p.y>GROUND-60 && p.hurtCd<=0){
-      p.hp-=z.dmg; p.hurtCd=500;sfx('hurt'); if(SET.shake) shake=8; burst(p.x,p.y-40,'#d33',10);
-      if(p.hp<=0){p.hp=0;endRun()}
+      if(fxB.shield>0){p.hurtCd=300;burst(p.x+20*z.dir,p.y-40,'#7ab8ff',8);sfx('click')}
+      else{p.hp-=z.dmg; p.hurtCd=500;sfx('hurt'); if(SET.shake) shake=8; burst(p.x,p.y-40,'#d33',10);
+      if(p.hp<=0){p.hp=0;endRun()}}
     }
   }
   zombies=zombies.filter(z=>z.hp>0);
@@ -654,7 +775,7 @@ function update(dt){
   comboT-=dt; if(comboT<=0) combo=0;
 }
 function onKill(z){
-  kills++; money+=1; runXp+=1;sfx('zdie');
+  kills++; money+=1; runXp+=1;sfx('zdie');dropBonus(z);
   burst(z.x,z.y-30,SET.blood?'#8e1b1b':z.color,SET.blood?20:10);
 }
 
@@ -851,13 +972,13 @@ function draw(){
     drawZombie(z);
     if(z.hp<z.maxhp) bar(z.x-15,z.y-85*z.size,30,z.hp,z.maxhp,'#d33');
   }
-  drawCrates();
+  drawCrates();drawBonusWorld();
   // joueur
   const py=p.y-48;
   p.aim=SET.aim==='dir'?(p.face>0?0:Math.PI):Math.atan2(mouse.y-py,mouse.x-p.x);
   if(p.hurtCd>0 && Math.floor(p.hurtCd/60)%2) ctx.globalAlpha=.4;
   drawSoldier(p);
-  ctx.globalAlpha=1;
+  ctx.globalAlpha=1;drawBonusPlayer();
   // balles
   for(const b of bullets){
     if(b.fire){const t=1-b.life/16;ctx.fillStyle='rgba(255,'+(160-t*110|0)+',40,'+(.85-t*.6)+')';ctx.beginPath();ctx.arc(b.x,b.y,4+t*10,0,7);ctx.fill()}
@@ -867,6 +988,7 @@ function draw(){
   for(const q of particles){ctx.fillStyle=q.col;ctx.fillRect(q.x,q.y,3,3)}
 
   ctx.restore();
+  if(fxB.freeze>0){ctx.fillStyle='rgba(110,210,235,'+(fxB.freeze<2000?.05:.11)+')';ctx.fillRect(0,0,W,H)}
   const hpR=p.hp/p.maxhp;
   overlayFx(state==='play'&&hpR<.35?(.35-hpR)/.35:0);
   // --- HUD : vie
@@ -875,6 +997,7 @@ function draw(){
   ctx.textAlign='left';ctx.fillStyle='#e8e0d0';ctx.font='700 20px '+FONT;ctx.fillText(Math.ceil(p.hp)+' / '+p.maxhp,50,39);
   segBar(20,48,262,12,p.hp,p.maxhp,hpR<.35&&tick%24<12?'#ff4a3a':'#c9372c',22);
   ctx.textAlign='right';ctx.fillStyle='#9a9086';ctx.font='500 13px '+FONT;ctx.fillText(kills+' TUÉS',282,36);ctx.textAlign='left';
+  drawBonusHud();
   // --- HUD : vague, argent, zombies restants
   panel(W-262,10,252,64,{});hazard(W-262,10,8,64);
   ctx.textAlign='left';ctx.fillStyle='#8a8178';ctx.font='500 12px '+FONT;ctx.fillText('RESTANTS',W-244,32);

@@ -18,6 +18,7 @@ Ou télécharge le dépôt et ouvre `index.html` dans un navigateur moderne.
 - Personnalisation du personnage : 7 tenues homme / femme (morphologie normale ou exagérée), couleurs de peau, cheveux et vêtements
 - Sons synthétisés propres à chaque famille d'arme (réglage du volume dans Options)
 - Musique de fond en boucle (curseur de volume et bouton on/off dans Options)
+- 8 bonus lâchés par les zombies : soin, bouclier, dégâts x2, cadence, gel, frappe aérienne, tourelle, butin
 - Visée souris ou tir dans la direction du déplacement, touches configurables, pause (Échap / P)
 
 Jeu et graphismes originaux, inspirés par le genre des shooters de survie.
