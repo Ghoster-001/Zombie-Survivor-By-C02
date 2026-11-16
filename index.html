@@ -1255,7 +1255,7 @@ function drawMenu(){
   ctx.strokeStyle='rgba(10,8,8,.55)';ctx.lineWidth=1.4;                           // rayures sur le titre
   for(let k=0;k<16;k++){const x=70+(k*37)%430,y=70+(k*53)%140;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+26,y+9);ctx.stroke()}
   for(let k=0;k<5;k++){const x=84+k*92,len=6+((k*31)%16)+Math.sin(tick*.03+k)*3;ctx.fillStyle='#7a1812';ctx.fillRect(x,211,4,len);ctx.beginPath();ctx.arc(x+2,211+len,3.4,0,7);ctx.fill()}
-  ctx.fillStyle='rgba(233,225,208,.5)';ctx.font='500 15px '+FONT;if('letterSpacing' in ctx) ctx.letterSpacing='5px';ctx.fillText('ZOMBIES SIEGE',72,232);if('letterSpacing' in ctx) ctx.letterSpacing='0px';
+  ctx.fillStyle='rgba(233,225,208,.5)';ctx.font='500 15px '+FONT;if('letterSpacing' in ctx) ctx.letterSpacing='5px';{ctx.save();ctx.font='400 76px '+TITLE;const tcx=70+Math.max(ctx.measureText('INFECTED').width,ctx.measureText('GROUNDS').width)/2;ctx.restore();ctx.textAlign='center';ctx.fillText('ZOMBIES SIEGE',tcx+2.5,232);ctx.textAlign='left'};if('letterSpacing' in ctx) ctx.letterSpacing='0px';
   if(state==='menu'){
     btn(menuRects,70,238,300,38,'JOUER',{act:()=>{training=false;reset(false)},size:22});
     btn(menuRects,70,280,300,38,'AMÉLIORATIONS',{act:openUpgrades,size:22});
