@@ -722,7 +722,7 @@ let bonuses=[],strikes=[],turret=null,fxB={shield:0,dmg:0,rapid:0,freeze:0};
 function dropBonus(z){
   const ch=z.type==='tank'?.3:z.type==='fast'?.09:.06;
   if(Math.random()>=ch) return;
-  const ks=Object.keys(BON),low=player.hp<player.maxhp*.5;
+  const ks=Object.keys(BON).filter(k=>!(training&&k==='cash')),low=player.hp<player.maxhp*.5;
   let tot=0;const ws=ks.map(k=>{const w=BON[k].w*(k==='heal'&&low?2.5:1);tot+=w;return w});
   let r=Math.random()*tot,i=0;while(i<ks.length-1&&(r-=ws[i])>0) i++;
   bonuses.push({x:Math.max(30,Math.min(W-30,z.x)),y:z.y-70,vy:-4,type:ks[i],life:12000});
@@ -730,7 +730,7 @@ function dropBonus(z){
 function applyBonus(type){
   const p=player,B=BON[type];
   if(type==='heal') p.hp=Math.min(p.maxhp,p.hp+Math.round(p.maxhp*.35));
-  else if(type==='cash') money+=10;
+  else if(type==='cash'){if(!training) money+=10}
   else if(type==='strike'){for(let i=0;i<6;i++) strikes.push({x:60+Math.random()*(W-120),t:-i*230-200,w:false})}
   else if(type==='turret') turret={x:p.x,t:B.dur,cd:0};
   else fxB[type]=B.dur;
@@ -952,7 +952,7 @@ function update(dt){
   zombies=zombies.filter(z=>z.hp>0);
   // fin de vague
   if(state==='play' && !spawnQueue.length && !zombies.length){
-    if(waveBreak===0){waveBreak=150;money+=5;runXp+=5;sfx('wave');flash(training?'Vague '+wave+' terminée':'Vague '+wave+' terminée  ·  +5 $  +5 XP')}
+    if(waveBreak===0){waveBreak=150;if(!training){money+=5;runXp+=5}sfx('wave');flash(training?'Vague '+wave+' terminée':'Vague '+wave+' terminée  ·  +5 $  +5 XP')}
     else if(--waveBreak===0) startWave();
   }
   for(const q of particles){q.x+=q.vx;q.y+=q.vy;q.vy+=.3;q.life--}
@@ -962,7 +962,7 @@ function update(dt){
   comboT-=dt; if(comboT<=0) combo=0;
 }
 function onKill(z){
-  kills++; money+=1; runXp+=1;sfx('zdie');dropBonus(z);
+  kills++; if(!training){money+=1;runXp+=1}sfx('zdie');dropBonus(z);
   burst(z.x,z.y-30,SET.blood?'#8e1b1b':z.color,SET.blood?20:10);
 }
 
@@ -1222,7 +1222,7 @@ function draw(){
     ctx.fillStyle='#000';ctx.fillText('VOUS ÊTES MORT',W/2+3,173);ctx.fillStyle='#b3241c';ctx.fillText('VOUS ÊTES MORT',W/2,170);
     for(let k=0;k<6;k++){const x=W/2-250+k*100+((k*53)%30),len=8+((k*29)%20)+Math.sin(tick*.03+k)*3;ctx.fillStyle='#8a1a14';ctx.fillRect(x,174,4,len);ctx.beginPath();ctx.arc(x+2,174+len,3.4,0,7);ctx.fill()}
     panel(W/2-270,196,540,70,{});
-    [['VAGUE',wave,'#e8e0d0'],['ZOMBIES TUÉS',kills,'#e8e0d0'],['PIÈCES','+'+runGain,'#e0a526'],['XP','+'+runXp,'#9fd18a']].forEach(([l,v,c],k)=>{
+    [['VAGUE',wave,'#e8e0d0'],['ZOMBIES TUÉS',kills,'#e8e0d0'],['PIÈCES',training?'—':'+'+runGain,'#e0a526'],['XP',training?'—':'+'+runXp,'#9fd18a']].forEach(([l,v,c],k)=>{
       const cx=W/2-270+67.5+k*135;ctx.fillStyle='#8a8178';ctx.font='500 13px '+FONT;ctx.fillText(l,cx,218);ctx.fillStyle=c;ctx.font='700 30px '+FONT;ctx.fillText(v,cx,252);
     });
     if(training){ctx.textAlign='center';ctx.fillStyle='#9fd18a';ctx.font='700 22px '+FONT;ctx.fillText('ENTRAÎNEMENT  ·  rien n\'est sauvegardé',W/2,312)} else {
