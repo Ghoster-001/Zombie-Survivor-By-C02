@@ -30,14 +30,16 @@ if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.proto
 let RES=Math.max(1,Math.min(2,window.devicePixelRatio||1));if(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) RES=Math.min(RES,1.5);   // résolution interne adaptée : plus fluide sur mobile
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 ctx.scale(RES,RES);
-var READY=false;
+var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
 function readSafe(){
   try{const cs=getComputedStyle(document.getElementById('safe')),k=W/Math.max(1,cv.getBoundingClientRect().width);SAFE.l=(parseFloat(cs.paddingLeft)||0)*k;SAFE.r=(parseFloat(cs.paddingRight)||0)*k}catch(e){}
 }
 function fit(){
-  const vv=window.visualViewport,vw=Math.max(1,vv?vv.width:innerWidth),vh=Math.max(1,vv?vv.height:innerHeight);
+  const vv=window.visualViewport;let vw=Math.max(1,vv?vv.width:innerWidth),vh=Math.max(1,vv?vv.height:innerHeight);
+  FORCED=READY&&vh>vw*1.02&&touchOn();                      // téléphone tenu en portrait : le jeu est pivoté de 90° pour rester en paysage, même avec le verrouillage de rotation
+  if(FORCED){const t=vw;vw=vh;vh=t}
   const asp=vw/vh,a=Math.max(1.2,Math.min(3,asp));
   let nw,nh;if(a>=16/9){nh=540;nw=Math.round(540*a)}else{nw=960;nh=Math.round(960/a)}
   if(nw!==W||nh!==H){
@@ -47,8 +49,8 @@ function fit(){
     if(READY&&dG){try{for(const z of zombies) z.y+=dG;for(const c of crates) c.y+=dG;player.y+=dG}catch(e){}}
   }
   const cw=asp>=1.2&&asp<=3?vw:(asp>3?vh*3:vw),ch=asp>=1.2&&asp<=3?vh:(asp>3?vh:vw/1.2);
-  cv.style.width=cw+'px';cv.style.height=ch+'px';
-  if(READY){readSafe();layoutTouch();updateRot(vw,vh)}
+  cv.style.width=cw+'px';cv.style.height=ch+'px';CW=cw;CH=ch;cv.style.transform=FORCED?'rotate(90deg)':'';cv.style.flex='none';
+  if(READY){if(FORCED){SAFE.l=SAFE.r=0}else readSafe();layoutTouch();updateRot()}
 }
 addEventListener('resize',fit);addEventListener('orientationchange',()=>setTimeout(fit,150));if(window.visualViewport) visualViewport.addEventListener('resize',fit);fit();
 function toggleFullIn(){try{if(document.fullscreenElement||document.webkitFullscreenElement) return;const el=document.documentElement,r=(el.requestFullscreen||el.webkitRequestFullscreen).call(el);const lock=()=>{try{screen.orientation.lock('landscape').catch(()=>{})}catch(e){}};if(r&&r.then) r.then(lock).catch(()=>{}); else lock()}catch(e){}}
@@ -470,7 +472,9 @@ layoutTouch();
 const MENU_STATES=['menu','options','credits','upgrades','weapon','keys','custom','lang','pause','trainpick','over'];
 let autoTarget=null;
 const inR=(p,r)=>p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h;
-function tpos(t){const r=cv.getBoundingClientRect();return{x:(t.clientX-r.left)*W/r.width,y:(t.clientY-r.top)*H/r.height}}
+function tpos(t){
+  if(FORCED){const vv=window.visualViewport,vw=vv?vv.width:innerWidth,vh=vv?vv.height:innerHeight,dx=t.clientX-vw/2,dy=t.clientY-vh/2;return{x:(dy+CW/2)*W/CW,y:(-dx+CH/2)*H/CH}}
+  const r=cv.getBoundingClientRect();return{x:(t.clientX-r.left)*W/r.width,y:(t.clientY-r.top)*H/r.height}}
 function tHit(x,y){for(const k in TB){const b=TB[k];if(Math.hypot(x-b.x,y-b.y)<=b.r*1.3) return k}return null}
 function tRecalc(){tctl.left=tctl.right=tctl.jump=tctl.fire=false;for(const v of tpts.values()) if(v) tctl[v]=true}
 function takeCrate(c){pickCrate(c);c.dead=true;crates=crates.filter(k=>!k.dead);nearC=null;autoTarget=null}
@@ -517,7 +521,7 @@ cv.addEventListener('touchmove',e=>{
     if(state==='play'&&tpts.has(t.identifier)){tpts.set(t.identifier,tHit(p.x,p.y));tRecalc()}
   }
 },{passive:false});
-const tEnd=e=>{e.preventDefault();audioInit();for(const t of e.changedTouches) tpts.delete(t.identifier);tRecalc();sliderActive=null};
+const tEnd=e=>{e.preventDefault();audioInit();if(!tEnd.fs){tEnd.fs=1;toggleFullIn()}for(const t of e.changedTouches) tpts.delete(t.identifier);tRecalc();sliderActive=null};
 cv.addEventListener('touchend',tEnd,{passive:false});cv.addEventListener('touchcancel',tEnd,{passive:false});
 function drawTouch(){
   const disc=(b,on)=>{ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,7);ctx.fillStyle=on?'rgba(226,84,46,.6)':'rgba(16,12,10,.5)';ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=on?'#ff8a5a':'rgba(255,255,255,.4)';ctx.stroke()};
@@ -537,12 +541,8 @@ function drawTouch(){
 }
 // --- Adaptation automatique à tous les écrans : le jeu garde son format 16:9 et occupe le maximum de place ---
 const rotEl=document.getElementById('rot');let portOK=false;
-rotEl.addEventListener('click',()=>{portOK=true;rotEl.style.display='none';try{toggleFullIn()}catch(e){}});
-function updateRot(vw,vh){
-  const port=vh>vw*1.02&&touchOn();if(!port) portOK=false;const show=port&&!portOK;
-  rotEl.style.display=show?'flex':'none';
-  if(show){document.getElementById('rot1').textContent=tr('Tourne ton appareil');document.getElementById('rot2').textContent=tr('Passe en mode paysage pour jouer');if(state==='play') openPause()}
-}
+
+function updateRot(){rotEl.style.display='none'}
 
 
 // --- Caisses larguées du ciel : seule source d'armes à feu en partie. Munitions (5 à 100) OU durée (10 à 40 s) ---
@@ -1504,7 +1504,7 @@ function draw(){
     }
     ctx.textAlign='left';menuRects=[];
     btn(menuRects,W/2-150,345,300,50,'REJOUER',{act:()=>reset(false),size:26});
-    btn(menuRects,W/2-150,402,300,50,'AMÉLIORATIONS',{act:openUpgrades,size:26});
+    btn(menuRects,W/2-150,402,300,50,'ARSENAL',{act:openUpgrades,size:26});
     btn(menuRects,W/2-150,459,300,50,'MENU PRINCIPAL',{act:()=>reset(true),size:26});
     overlayFx(0);
   }
@@ -1648,7 +1648,7 @@ function drawMenuBody(){
   ctx.fillStyle='rgba(233,225,208,.5)';ctx.font='500 15px '+FONT;if('letterSpacing' in ctx) ctx.letterSpacing='5px';{ctx.save();ctx.font='400 76px '+TITLE;const tcx=70+Math.max(ctx.measureText('INFECTED').width,ctx.measureText('GROUNDS').width)/2;ctx.restore();ctx.textAlign='center';ctx.fillText('ZOMBIES SIEGE',tcx+2.5,232);ctx.textAlign='left'};if('letterSpacing' in ctx) ctx.letterSpacing='0px';
   if(state==='menu'){
     btn(menuRects,70,238,300,38,'JOUER',{act:()=>{training=false;reset(false)},size:22});
-    btn(menuRects,70,280,300,38,'AMÉLIORATIONS',{act:openUpgrades,size:22});
+    btn(menuRects,70,280,300,38,'ARSENAL',{act:openUpgrades,size:22});
     btn(menuRects,70,322,300,38,'ENTRAÎNEMENT',{act:()=>{training=true;reset(false)},size:22});
     btn(menuRects,70,364,300,38,'PERSONNALISATION',{act:()=>state='custom',size:22});
     btn(menuRects,70,406,300,38,'OPTIONS',{act:()=>{optFrom='menu';state='options'},size:22});
@@ -2284,7 +2284,7 @@ function drawCustom(){
 function drawUpgrades(){
   ctx.fillStyle='#000000d8';ctx.fillRect(0,0,W,H);
   ctx.textAlign='left';barbed(0,W,12,.8);
-  ctx.fillStyle='#000';ctx.font='400 38px '+TITLE;ctx.fillText('AMÉLIORATIONS',43,61);ctx.fillStyle='#e9e1d0';ctx.fillText('AMÉLIORATIONS',40,58);
+  ctx.fillStyle='#000';ctx.font='400 38px '+TITLE;ctx.fillText('ARSENAL',43,61);ctx.fillStyle='#e9e1d0';ctx.fillText('ARSENAL',40,58);
   ctx.fillStyle='#7a2c1c';ctx.fillRect(40,66,200,3);
   if(upShown===null) upShown=xpForLevel(curLevel());
   upShown=Math.min(save.xp,upShown+Math.max(.4,(save.xp-upShown)*.06));
