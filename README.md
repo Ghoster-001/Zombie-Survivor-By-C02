@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/logo.png" width="260" alt="Zombie Survivor By C02"></p>
+<p align="center"><a href="https://ghoster-001.github.io/Zombie-Survivor-By-C02/"><img src="assets/logo.png" width="260" alt="Zombie Survivor By C02 - cliquer pour jouer"></a></p>
 
 # Zombie Survivor By C02
 
