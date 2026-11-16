@@ -3,29 +3,43 @@
 <head>
 <meta charset="utf-8">
 <title>The Infected Grounds</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Black+Ops+One&display=swap">
 <style>
-  html,body{margin:0;height:100%;background:#000;overflow:hidden}
+  html,body{margin:0;height:100%;height:100dvh;background:#000;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+  #rot{display:none;position:fixed;inset:0;z-index:10;background:#0b0a10;color:#e9e1d0;flex-direction:column;align-items:center;justify-content:center;gap:14px;font:700 22px Oswald,Impact,sans-serif;text-align:center;padding:24px}
+  #rot2{font-size:15px;font-weight:500;color:#a89f94}
+  #rot i{display:block;width:70px;height:116px;border:5px solid #e2542e;border-radius:14px;animation:rot 2.2s ease-in-out infinite;margin-bottom:8px}
+  @keyframes rot{0%,20%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
   body{display:flex;align-items:center;justify-content:center}
   canvas{display:block;cursor:none;touch-action:none}
 </style>
 </head>
 <body>
 <canvas id="c" width="1920" height="1080"></canvas>
+<div id="rot"><i></i><div id="rot1"></div><div id="rot2"></div></div>
 <script>
 // ===== Stickman vs Zombies : base de jeu originale =====
 const cv = document.getElementById('c');
 let ctx = cv.getContext('2d');
 const W=960,H=540,GROUND=460,GRAV=0.7;   // coordonnées logiques 16:9 ; le canvas est en 1920x1080
 ctx.scale(2,2);
-function fit(){const w=Math.min(innerWidth,innerHeight*16/9);cv.style.width=w+'px';cv.style.height=(w*9/16)+'px'}
-addEventListener('resize',fit);fit();
+var READY=false;
+function fit(){
+  const vv=window.visualViewport,vw=vv?vv.width:innerWidth,vh=vv?vv.height:innerHeight;
+  const w=Math.min(vw,vh*16/9);cv.style.width=w+'px';cv.style.height=(w*9/16)+'px';
+  if(READY) updateRot(vw,vh);
+}
+addEventListener('resize',fit);addEventListener('orientationchange',()=>setTimeout(fit,150));if(window.visualViewport) visualViewport.addEventListener('resize',fit);fit();
 function toggleFull(){
   try{
-    if(document.fullscreenElement){document.exitFullscreen();return}
-    const r=document.documentElement.requestFullscreen();
-    if(r&&r.catch) r.catch(()=>{});
+    const el=document.documentElement;
+    if(document.fullscreenElement||document.webkitFullscreenElement){(document.exitFullscreen||document.webkitExitFullscreen).call(document);return}
+    const r=(el.requestFullscreen||el.webkitRequestFullscreen).call(el);
+    const lock=()=>{try{screen.orientation.lock('landscape').catch(()=>{})}catch(e){}};
+    if(r&&r.then) r.then(lock).catch(()=>{}); else lock();
   }catch(e){}
 }
 
@@ -171,7 +185,7 @@ const ZTYPES = {
 };
 
 // --- État ---
-const SET={shake:true,blood:true,aim:'mouse',vol:.6,music:true,mvol:.5};   // aim : 'mouse' (visée à la souris) ou 'dir' (tir droit dans le sens du déplacement)
+const SET={shake:true,blood:true,aim:'mouse',vol:.6,music:true,mvol:.5,lang:null};   // aim : 'mouse' (visée à la souris) ou 'dir' (tir droit dans le sens du déplacement)
 // Progression conservée entre les parties (menu Améliorations uniquement)
 const SAVE_KEY='zs_save_v5';
 let save={bank:0,xp:0,own:{'Couteau':true,'Glock 17':true},melee:'Couteau',up:{},hpLvl:0,dmgLvl:0,best:0};
@@ -210,8 +224,113 @@ function loadKeys(){for(const a in DEFAULT_KEYS) KEYS[a]=(save.keys&&Array.isArr
   const pk=KEYS.pause.filter(k=>k&&k!=='Escape');KEYS.pause=[pk[0]||'',pk[1]||'']}   // Échap ouvre maintenant le menu pause
 loadKeys();Object.assign(SET,save.opts||{});
 function saveKeys(){save.keys=JSON.parse(JSON.stringify(KEYS));persist()}
-function saveOpts(){save.opts={shake:SET.shake,blood:SET.blood,aim:SET.aim,vol:SET.vol,music:SET.music,mvol:SET.mvol};persist()}
+function saveOpts(){save.opts={shake:SET.shake,blood:SET.blood,aim:SET.aim,vol:SET.vol,music:SET.music,mvol:SET.mvol,lang:SET.lang};persist()}
 function resetKeys(){for(const a in DEFAULT_KEYS) KEYS[a]=DEFAULT_KEYS[a].slice();saveKeys()}
+// --- Traductions : 25 langues (le français est la langue source) ---
+const LANGS=[{"c": "fr", "n": "Français", "f": "fr"}, {"c": "en", "n": "English", "f": "gb"}, {"c": "es", "n": "Español", "f": "es"}, {"c": "de", "n": "Deutsch", "f": "de"}, {"c": "it", "n": "Italiano", "f": "it"}, {"c": "pt", "n": "Português", "f": "pt"}, {"c": "nl", "n": "Nederlands", "f": "nl"}, {"c": "pl", "n": "Polski", "f": "pl"}, {"c": "ru", "n": "Русский", "f": "ru"}, {"c": "uk", "n": "Українська", "f": "ua"}, {"c": "tr", "n": "Türkçe", "f": "tr"}, {"c": "ar", "n": "العربية", "f": "sa"}, {"c": "zh", "n": "中文", "f": "cn"}, {"c": "ja", "n": "日本語", "f": "jp"}, {"c": "ko", "n": "한국어", "f": "kr"}, {"c": "hi", "n": "हिन्दी", "f": "in"}, {"c": "id", "n": "Bahasa Indonesia", "f": "id"}, {"c": "vi", "n": "Tiếng Việt", "f": "vn"}, {"c": "th", "n": "ไทย", "f": "th"}, {"c": "sv", "n": "Svenska", "f": "se"}, {"c": "cs", "n": "Čeština", "f": "cz"}, {"c": "ro", "n": "Română", "f": "ro"}, {"c": "el", "n": "Ελληνικά", "f": "gr"}, {"c": "he", "n": "עברית", "f": "il"}, {"c": "hu", "n": "Magyar", "f": "hu"}];
+const I18N_FR=["Original", "Rouge", "Bleu", "Vert", "Violet", "Orange", "Rose", "Cyan", "Blanc", "Or", "Foncé", "Clair", "Mêlée", "Pistolets", "PM", "Assaut", "Pompes", "Précision", "Lourdes", "Spécial", "Espace", "Maj G", "Maj D", "Ctrl G", "Ctrl D", "Alt G", "Alt D", "Entrée", "Tab", "Retour", "Pavé", "Vague", "Niveau", "Caisse larguée !", "secondes", "munitions", "Niveau {0} requis", "Pas assez d'argent", "Mod or débloqué !", "Arme principale : {0}", "Soin", "Bouclier", "Dégâts ×2", "Cadence", "Gel", "Frappe aérienne", "Tourelle", "Pause", "Mode entraînement", "tués", "Continuer", "Arme principale", "Paramètres", "Quitter", "Échap : continuer   ·   {0} : figer le jeu sans menu", "Quitter la partie ?", "Rien n'est sauvegardé en mode entraînement.", "Tes gains sont conservés :  +{0} $   ·   +{1} XP", "Tu reviendras au menu principal.", "Oui, quitter", "Non, retour", "Entraînement : toutes les armes, améliorées au maximum, munitions illimitées", "Dégâts", "zone", "s", "Équipée", "Clic : équiper", "Page", "armes", "<  PRÉC.", "SUIV.  >", "Niveau {0}  ·  Bonus : {1}", "Niveau de jeu", "(non compté)", "Personnage", "Niv.", "{0} / {1}  ·  1 bonus par niveau", "[{0}]  Utiliser", "Définis une touche (Options)", "Aucun bonus en stock", "Prochain bonus au niveau {0}", "terminée", "+5 $  +5 XP", "Restants", "Entraînement", "balles", "Mêlée  ·  Illimité", "Arme principale  ·  Illimité", "Armes à feu : dans les caisses larguées  ·  {0} : ramasser  ·  {1} : bonus  ·  Échap : pause  ·  {2} : plein écran", "Vous êtes mort", "Entraînement  ·  rien n'est sauvegardé", "Niveau supérieur !", "Rejouer", "Améliorations", "Menu principal", "Zombies tués", "Pièces", "XP", "Jouer", "Personnalisation", "Options", "Crédits", "Plein écran  ({0})", "Record : vague {0}", "Tremblement", "Sang", "Visée", "Oui", "Non", "Direction", "Souris", "Touches", "Effets", "Musique", "Visée DIRECTION : le soldat tire droit devant lui, dans le sens où tu te déplaces (clic ou touche de tir).", "Visée SOURIS : le soldat vise vers le curseur (clic pour tirer).", "Un jeu by C02. Code et dessins originaux créés pour ce projet.", "Un shooter de survie en vue de côté.", "{0}/{1} déplacer · {2} sauter · clic : attaquer · {3} : ramasser les caisses · armes à feu : dans les caisses larguées", "Arme de mêlée", "Arme à feu", "Amélioration", "Équiper", "Les armes à feu tombent uniquement dans les caisses larguées.", "Verrouillée", "Couleur du métal  ·  change à tout moment, ou reviens au skin d'origine", "Couleur et bois  ·  débloqués avec l'amélioration 4 (mod or + couleurs + bois)", "Bois", "Mod or", "Couleurs", "Aller à gauche", "Aller à droite", "Sauter", "Ramasser une caisse", "Tirer / attaquer  (en plus du clic)", "Plein écran", "Utiliser le bonus en stock", "Figer le jeu  (sans menu)", "Clique sur une case puis appuie sur la nouvelle touche  ·  Échap : annuler  ·  Retour arrière : effacer la case", "Appuie sur une touche…", "Réinitialiser", "Peau", "Cheveux", "Haut", "Pantalon", "Coiffe", "Chaussures", "Homme", "Femme", "Normale", "Exagérée", "Tenue  (chaque tenue existe en version homme et femme)", "Origine", "Cosmétique uniquement. ORIGINE = couleur de la tenue choisie. Changer de tenue remet ses vêtements à l'origine.", "Soldat", "Commando", "Survivant", "SWAT", "Chasseur", "Scientifique", "Motard", "Clique sur une arme possédée : améliorer, couleur, équiper", "Armes à feu : une fois débloquées, elles tombent dans les caisses", "Personnage  ·  la vitesse de déplacement ne s'améliore pas", "Vie max  +20", "Niveau max", "PV", "Les améliorations se font uniquement ici, entre deux parties. Le niveau monte en tuant des zombies.", "Clic : améliorer", "requis", "Langue", "Tourne ton appareil", "Passe en mode paysage pour jouer", "Ramasser", "Touche pour ramasser", "Couteau", "Poignard", "Machette", "Hache de bûcheron", "Batte cloutée", "Marteau de guerre", "Faux", "Tronçonneuse", "Double canon", "Arbalète", "Arc de chasse", "Pistolet à clous", "Lance-flammes", "Lance-grenades M79", "Fusil laser", "Fusil à plasma", "Pistolet laser", "Fusil harpon"];
+const I18N={"en":["Original","Red","Blue","Green","Purple","Orange","Pink","Cyan","White","Gold","Dark","Light","Melee","Pistols","SMG","Assault","Shotguns","Precision","Heavy","Special","Space","L Shift","R Shift","L Ctrl","R Ctrl","L Alt","R Alt","Enter","Tab","Back","Numpad","Wave","Level","Crate dropped!","seconds","ammo","Level {0} required","Not enough money","Gold mod unlocked!","Main weapon: {0}","Heal","Shield","Damage ×2","Fire rate","Freeze","Airstrike","Turret","Pause","Training mode","kills","Resume","Main weapon","Settings","Quit","Esc: resume   ·   {0}: freeze the game without a menu","Quit the game?","Nothing is saved in training mode.","Your earnings are kept:  +{0} $   ·   +{1} XP","You will return to the main menu.","Yes, quit","No, go back","Training: all weapons, fully upgraded, unlimited ammo","Damage","area","s","Equipped","Click: equip","Page","weapons","<  PREV.","NEXT  >","Level {0}  ·  Bonus: {1}","Game level","(not counted)","Character","Lv.","{0} / {1}  ·  1 bonus per level","[{0}]  Use","Set a key (Options)","No bonus in stock","Next bonus at level {0}","complete","+5 $  +5 XP","Remaining","Training","bullets","Melee  ·  Unlimited","Main weapon  ·  Unlimited","Firearms: in the dropped crates  ·  {0}: pick up  ·  {1}: bonus  ·  Esc: pause  ·  {2}: fullscreen","You are dead","Training  ·  nothing is saved","Level up!","Play again","Upgrades","Main menu","Zombies killed","Coins","XP","Play","Customization","Options","Credits","Fullscreen  ({0})","Record: wave {0}","Screen shake","Blood","Aiming","Yes","No","Direction","Mouse","Keys","Effects","Music","DIRECTION aiming: the soldier shoots straight ahead, in the direction you move (click or fire key).","MOUSE aiming: the soldier aims at the cursor (click to shoot).","A game by C02. Original code and art created for this project.","A side-view survival shooter.","{0}/{1} move · {2} jump · click: attack · {3}: pick up crates · firearms: in the dropped crates","Melee weapon","Firearm","Upgrade","Equip","Firearms only drop in the airdropped crates.","Locked","Metal color  ·  change anytime, or go back to the original skin","Color and wood  ·  unlocked with upgrade 4 (gold mod + colors + wood)","Wood","Gold mod","Colors","Move left","Move right","Jump","Pick up a crate","Shoot / attack  (in addition to click)","Fullscreen","Use the stored bonus","Freeze the game  (no menu)","Click a slot, then press the new key  ·  Esc: cancel  ·  Backspace: clear the slot","Press a key…","Reset","Skin","Hair","Top","Pants","Headgear","Shoes","Male","Female","Normal","Exaggerated","Outfit  (every outfit comes in male and female versions)","Original","Cosmetic only. ORIGINAL = color of the chosen outfit. Changing outfit resets its clothes to original.","Soldier","Commando","Survivor","SWAT","Hunter","Scientist","Biker","Click an owned weapon: upgrade, color, equip","Firearms: once unlocked, they drop in the crates","Character  ·  movement speed cannot be upgraded","Max health  +20","Max level","HP","Upgrades are made only here, between games. Your level rises by killing zombies.","Click: upgrade","required","Language","Rotate your device","Switch to landscape mode to play","Pick up","Tap to pick up","Knife","Dagger","Machete","Lumberjack axe","Spiked bat","War hammer","Scythe","Chainsaw","Double-barrel","Crossbow","Hunting bow","Nail gun","Flamethrower","M79 grenade launcher","Laser rifle","Plasma rifle","Laser pistol","Harpoon gun"],"es":["Original","Rojo","Azul","Verde","Morado","Naranja","Rosa","Cian","Blanco","Oro","Oscuro","Claro","Cuerpo a cuerpo","Pistolas","Subfusiles","Asalto","Escopetas","Precisión","Pesadas","Especial","Espacio","Mayús izq.","Mayús der.","Ctrl izq.","Ctrl der.","Alt izq.","Alt der.","Intro","Tab","Atrás","Teclado num.","Oleada","Nivel","¡Caja lanzada!","segundos","munición","Nivel {0} requerido","No tienes suficiente dinero","¡Mod de oro desbloqueado!","Arma principal: {0}","Curar","Escudo","Daño ×2","Cadencia","Congelar","Ataque aéreo","Torreta","Pausa","Modo entrenamiento","bajas","Continuar","Arma principal","Ajustes","Salir","Esc: continuar   ·   {0}: congelar el juego sin menú","¿Salir de la partida?","En el modo entrenamiento no se guarda nada.","Conservas tus ganancias:  +{0} $   ·   +{1} XP","Volverás al menú principal.","Sí, salir","No, volver","Entrenamiento: todas las armas, mejoradas al máximo, munición ilimitada","Daño","área","s","Equipada","Clic: equipar","Página","armas","<  ANT.","SIG.  >","Nivel {0}  ·  Bonus: {1}","Nivel de juego","(no cuenta)","Personaje","Niv.","{0} / {1}  ·  1 bonus por nivel","[{0}]  Usar","Define una tecla (Ajustes)","Ningún bonus guardado","Próximo bonus en el nivel {0}","completada","+5 $  +5 XP","Restantes","Entrenamiento","balas","Cuerpo a cuerpo  ·  Ilimitado","Arma principal  ·  Ilimitado","Armas de fuego: en las cajas lanzadas  ·  {0}: recoger  ·  {1}: bonus  ·  Esc: pausa  ·  {2}: pantalla completa","Has muerto","Entrenamiento  ·  no se guarda nada","¡Subes de nivel!","Jugar de nuevo","Mejoras","Menú principal","Zombis abatidos","Monedas","XP","Jugar","Personalización","Opciones","Créditos","Pantalla completa  ({0})","Récord: oleada {0}","Temblor de pantalla","Sangre","Puntería","Sí","No","Dirección","Ratón","Teclas","Efectos","Música","Puntería DIRECCIÓN: el soldado dispara recto, en la dirección en que te mueves (clic o tecla de disparo).","Puntería RATÓN: el soldado apunta al cursor (clic para disparar).","Un juego de C02. Código y dibujos originales creados para este proyecto.","Un shooter de supervivencia en vista lateral.","{0}/{1} mover · {2} saltar · clic: atacar · {3}: recoger cajas · armas de fuego: en las cajas lanzadas","Arma cuerpo a cuerpo","Arma de fuego","Mejora","Equipar","Las armas de fuego solo caen en las cajas lanzadas.","Bloqueada","Color del metal  ·  cámbialo cuando quieras o vuelve al aspecto original","Color y madera  ·  se desbloquean con la mejora 4 (mod de oro + colores + madera)","Madera","Mod de oro","Colores","Ir a la izquierda","Ir a la derecha","Saltar","Recoger una caja","Disparar / atacar  (además del clic)","Pantalla completa","Usar el bonus guardado","Congelar el juego  (sin menú)","Haz clic en una casilla y pulsa la nueva tecla  ·  Esc: cancelar  ·  Retroceso: borrar la casilla","Pulsa una tecla…","Restablecer","Piel","Pelo","Camiseta","Pantalón","Cabeza","Zapatos","Hombre","Mujer","Normal","Exagerada","Atuendo  (cada atuendo existe en versión hombre y mujer)","Original","Solo cosmético. ORIGINAL = color del atuendo elegido. Al cambiar de atuendo se restablece su ropa.","Soldado","Comando","Superviviente","SWAT","Cazador","Científico","Motero","Haz clic en un arma que tengas: mejorar, color, equipar","Armas de fuego: una vez desbloqueadas, caen en las cajas","Personaje  ·  la velocidad de movimiento no se mejora","Vida máx.  +20","Nivel máx.","PV","Las mejoras se hacen solo aquí, entre partidas. El nivel sube al matar zombis.","Clic: mejorar","requerido","Idioma","Gira tu dispositivo","Pasa al modo horizontal para jugar","Recoger","Toca para recoger","Cuchillo","Daga","Machete","Hacha de leñador","Bate con clavos","Martillo de guerra","Guadaña","Motosierra","Escopeta de dos cañones","Ballesta","Arco de caza","Pistola de clavos","Lanzallamas","Lanzagranadas M79","Fusil láser","Fusil de plasma","Pistola láser","Arpón"],"de":["Original","Rot","Blau","Grün","Lila","Orange","Rosa","Cyan","Weiß","Gold","Dunkel","Hell","Nahkampf","Pistolen","MPs","Sturm","Schrotflinten","Präzision","Schwer","Spezial","Leertaste","Shift L","Shift R","Strg L","Strg R","Alt L","Alt R","Enter","Tab","Zurück","Ziffernblock","Welle","Level","Kiste abgeworfen!","Sekunden","Munition","Level {0} erforderlich","Nicht genug Geld","Gold-Mod freigeschaltet!","Hauptwaffe: {0}","Heilung","Schild","Schaden ×2","Feuerrate","Einfrieren","Luftschlag","Geschützturm","Pause","Trainingsmodus","Kills","Weiter","Hauptwaffe","Einstellungen","Beenden","Esc: weiter   ·   {0}: Spiel ohne Menü einfrieren","Spiel beenden?","Im Trainingsmodus wird nichts gespeichert.","Deine Einnahmen bleiben erhalten:  +{0} $   ·   +{1} XP","Du kehrst zum Hauptmenü zurück.","Ja, beenden","Nein, zurück","Training: alle Waffen, voll aufgerüstet, unbegrenzte Munition","Schaden","Fläche","s","Ausgerüstet","Klick: ausrüsten","Seite","Waffen","<  ZURÜCK","WEITER  >","Level {0}  ·  Bonus: {1}","Spiellevel","(zählt nicht)","Charakter","Lv.","{0} / {1}  ·  1 Bonus pro Level","[{0}]  Nutzen","Taste festlegen (Optionen)","Kein Bonus auf Lager","Nächster Bonus bei Level {0}","abgeschlossen","+5 $  +5 XP","Übrig","Training","Kugeln","Nahkampf  ·  Unbegrenzt","Hauptwaffe  ·  Unbegrenzt","Schusswaffen: in den abgeworfenen Kisten  ·  {0}: aufheben  ·  {1}: Bonus  ·  Esc: Pause  ·  {2}: Vollbild","Du bist tot","Training  ·  nichts wird gespeichert","Level aufgestiegen!","Nochmal","Verbesserungen","Hauptmenü","Getötete Zombies","Münzen","XP","Spielen","Anpassung","Optionen","Credits","Vollbild  ({0})","Rekord: Welle {0}","Bildschirmwackeln","Blut","Zielen","Ja","Nein","Richtung","Maus","Tasten","Effekte","Musik","Zielen RICHTUNG: Der Soldat schießt geradeaus in Bewegungsrichtung (Klick oder Feuertaste).","Zielen MAUS: Der Soldat zielt auf den Cursor (Klick zum Schießen).","Ein Spiel von C02. Originaler Code und Grafiken für dieses Projekt.","Ein Survival-Shooter in Seitenansicht.","{0}/{1} bewegen · {2} springen · Klick: angreifen · {3}: Kisten aufheben · Schusswaffen: in den abgeworfenen Kisten","Nahkampfwaffe","Schusswaffe","Verbesserung","Ausrüsten","Schusswaffen fallen nur in den abgeworfenen Kisten.","Gesperrt","Metallfarbe  ·  jederzeit änderbar, oder zurück zum Originallook","Farbe und Holz  ·  freigeschaltet mit Verbesserung 4 (Gold-Mod + Farben + Holz)","Holz","Gold-Mod","Farben","Nach links","Nach rechts","Springen","Kiste aufheben","Schießen / angreifen  (zusätzlich zum Klick)","Vollbild","Gelagerten Bonus nutzen","Spiel einfrieren  (ohne Menü)","Klicke auf ein Feld und drücke die neue Taste  ·  Esc: abbrechen  ·  Rücktaste: Feld löschen","Drücke eine Taste…","Zurücksetzen","Haut","Haare","Oberteil","Hose","Kopfbedeckung","Schuhe","Männlich","Weiblich","Normal","Übertrieben","Outfit  (jedes Outfit gibt es männlich und weiblich)","Original","Nur kosmetisch. ORIGINAL = Farbe des gewählten Outfits. Beim Outfitwechsel werden die Kleiderfarben zurückgesetzt.","Soldat","Kommando","Überlebender","SWAT","Jäger","Wissenschaftler","Biker","Klicke auf eine Waffe im Besitz: verbessern, Farbe, ausrüsten","Schusswaffen: einmal freigeschaltet, fallen sie in den Kisten","Charakter  ·  Bewegungstempo lässt sich nicht verbessern","Max. Leben  +20","Max. Level","LP","Verbesserungen gibt es nur hier, zwischen den Spielen. Dein Level steigt durch das Töten von Zombies.","Klick: verbessern","erforderlich","Sprache","Drehe dein Gerät","Wechsle zum Spielen ins Querformat","Aufheben","Tippen zum Aufheben","Messer","Dolch","Machete","Holzfälleraxt","Nagelkeule","Kriegshammer","Sense","Kettensäge","Doppelflinte","Armbrust","Jagdbogen","Nagelpistole","Flammenwerfer","M79-Granatwerfer","Laser-Gewehr","Plasma-Gewehr","Laser-Pistole","Harpunenwerfer"],"it":["Originale","Rosso","Blu","Verde","Viola","Arancione","Rosa","Ciano","Bianco","Oro","Scuro","Chiaro","Corpo a corpo","Pistole","Mitra","Assalto","Fucili a pompa","Precisione","Pesanti","Speciale","Spazio","Maiusc sx","Maiusc dx","Ctrl sx","Ctrl dx","Alt sx","Alt dx","Invio","Tab","Indietro","Tastierino","Ondata","Livello","Cassa lanciata!","secondi","munizioni","Livello {0} richiesto","Soldi insufficienti","Mod oro sbloccata!","Arma principale: {0}","Cura","Scudo","Danni ×2","Cadenza","Gelo","Attacco aereo","Torretta","Pausa","Modalità allenamento","uccisioni","Continua","Arma principale","Impostazioni","Esci","Esc: continua   ·   {0}: blocca il gioco senza menu","Uscire dalla partita?","Nella modalità allenamento non si salva nulla.","I tuoi guadagni sono conservati:  +{0} $   ·   +{1} XP","Tornerai al menu principale.","Sì, esci","No, indietro","Allenamento: tutte le armi, potenziate al massimo, munizioni illimitate","Danni","area","s","Equipaggiata","Clic: equipaggia","Pagina","armi","<  PREC.","SUCC.  >","Livello {0}  ·  Bonus: {1}","Livello di gioco","(non conta)","Personaggio","Liv.","{0} / {1}  ·  1 bonus per livello","[{0}]  Usa","Imposta un tasto (Opzioni)","Nessun bonus disponibile","Prossimo bonus al livello {0}","completata","+5 $  +5 XP","Rimasti","Allenamento","proiettili","Corpo a corpo  ·  Illimitato","Arma principale  ·  Illimitato","Armi da fuoco: nelle casse lanciate  ·  {0}: raccogli  ·  {1}: bonus  ·  Esc: pausa  ·  {2}: schermo intero","Sei morto","Allenamento  ·  non si salva nulla","Livello superiore!","Rigioca","Potenziamenti","Menu principale","Zombie uccisi","Monete","XP","Gioca","Personalizzazione","Opzioni","Crediti","Schermo intero  ({0})","Record: ondata {0}","Tremolio schermo","Sangue","Mira","Sì","No","Direzione","Mouse","Tasti","Effetti","Musica","Mira DIREZIONE: il soldato spara dritto, nella direzione in cui ti muovi (clic o tasto di fuoco).","Mira MOUSE: il soldato mira al cursore (clic per sparare).","Un gioco di C02. Codice e disegni originali creati per questo progetto.","Uno sparatutto di sopravvivenza a scorrimento laterale.","{0}/{1} muovi · {2} salta · clic: attacca · {3}: raccogli casse · armi da fuoco: nelle casse lanciate","Arma da mischia","Arma da fuoco","Potenziamento","Equipaggia","Le armi da fuoco cadono solo nelle casse lanciate.","Bloccata","Colore del metallo  ·  cambia quando vuoi o torna all'aspetto originale","Colore e legno  ·  sbloccati con il potenziamento 4 (mod oro + colori + legno)","Legno","Mod oro","Colori","Vai a sinistra","Vai a destra","Salta","Raccogli una cassa","Spara / attacca  (oltre al clic)","Schermo intero","Usa il bonus in magazzino","Blocca il gioco  (senza menu)","Clicca una casella e premi il nuovo tasto  ·  Esc: annulla  ·  Backspace: cancella la casella","Premi un tasto…","Ripristina","Pelle","Capelli","Maglia","Pantaloni","Copricapo","Scarpe","Uomo","Donna","Normale","Esagerata","Outfit  (ogni outfit esiste in versione uomo e donna)","Originale","Solo estetico. ORIGINALE = colore dell'outfit scelto. Cambiando outfit i vestiti tornano all'originale.","Soldato","Commando","Sopravvissuto","SWAT","Cacciatore","Scienziato","Motociclista","Clicca su un'arma posseduta: potenzia, colore, equipaggia","Armi da fuoco: una volta sbloccate, cadono nelle casse","Personaggio  ·  la velocità di movimento non si può potenziare","Vita max  +20","Livello max","PV","I potenziamenti si fanno solo qui, tra una partita e l'altra. Il livello sale uccidendo zombie.","Clic: potenzia","richiesto","Lingua","Ruota il dispositivo","Passa alla modalità orizzontale per giocare","Raccogli","Tocca per raccogliere","Coltello","Pugnale","Machete","Ascia da boscaiolo","Mazza chiodata","Martello da guerra","Falce","Motosega","Doppietta","Balestra","Arco da caccia","Sparachiodi","Lanciafiamme","Lanciagranate M79","Fucile laser","Fucile al plasma","Pistola laser","Fucile ad arpione"],"pt":["Original","Vermelho","Azul","Verde","Roxo","Laranja","Rosa","Ciano","Branco","Ouro","Escuro","Claro","Corpo a corpo","Pistolas","Submetralhadoras","Assalto","Espingardas","Precisão","Pesadas","Especial","Espaço","Shift esq.","Shift dir.","Ctrl esq.","Ctrl dir.","Alt esq.","Alt dir.","Enter","Tab","Voltar","Teclado num.","Onda","Nível","Caixa lançada!","segundos","munição","Nível {0} necessário","Dinheiro insuficiente","Mod dourado desbloqueado!","Arma principal: {0}","Cura","Escudo","Dano ×2","Cadência","Congelar","Ataque aéreo","Torre","Pausa","Modo treino","abates","Continuar","Arma principal","Configurações","Sair","Esc: continuar   ·   {0}: congelar o jogo sem menu","Sair da partida?","No modo treino nada é guardado.","Os teus ganhos são mantidos:  +{0} $   ·   +{1} XP","Vais voltar ao menu principal.","Sim, sair","Não, voltar","Treino: todas as armas, no máximo, munição ilimitada","Dano","área","s","Equipada","Clique: equipar","Página","armas","<  ANT.","SEG.  >","Nível {0}  ·  Bónus: {1}","Nível de jogo","(não conta)","Personagem","Nív.","{0} / {1}  ·  1 bónus por nível","[{0}]  Usar","Define uma tecla (Opções)","Nenhum bónus guardado","Próximo bónus no nível {0}","concluída","+5 $  +5 XP","Restantes","Treino","balas","Corpo a corpo  ·  Ilimitado","Arma principal  ·  Ilimitado","Armas de fogo: nas caixas lançadas  ·  {0}: apanhar  ·  {1}: bónus  ·  Esc: pausa  ·  {2}: ecrã inteiro","Morreste","Treino  ·  nada é guardado","Subiste de nível!","Jogar de novo","Melhorias","Menu principal","Zombies abatidos","Moedas","XP","Jogar","Personalização","Opções","Créditos","Ecrã inteiro  ({0})","Recorde: onda {0}","Tremor do ecrã","Sangue","Mira","Sim","Não","Direção","Rato","Teclas","Efeitos","Música","Mira DIREÇÃO: o soldado dispara em frente, na direção em que te moves (clique ou tecla de tiro).","Mira RATO: o soldado aponta para o cursor (clique para disparar).","Um jogo de C02. Código e desenhos originais criados para este projeto.","Um shooter de sobrevivência em vista lateral.","{0}/{1} mover · {2} saltar · clique: atacar · {3}: apanhar caixas · armas de fogo: nas caixas lançadas","Arma corpo a corpo","Arma de fogo","Melhoria","Equipar","As armas de fogo só caem nas caixas lançadas.","Bloqueada","Cor do metal  ·  muda quando quiseres ou volta ao visual original","Cor e madeira  ·  desbloqueadas com a melhoria 4 (mod dourado + cores + madeira)","Madeira","Mod dourado","Cores","Ir para a esquerda","Ir para a direita","Saltar","Apanhar uma caixa","Disparar / atacar  (além do clique)","Ecrã inteiro","Usar o bónus guardado","Congelar o jogo  (sem menu)","Clica numa casa e carrega na nova tecla  ·  Esc: cancelar  ·  Retrocesso: apagar a casa","Carrega numa tecla…","Repor","Pele","Cabelo","Camisola","Calças","Cabeça","Sapatos","Homem","Mulher","Normal","Exagerada","Traje  (cada traje existe em versão homem e mulher)","Original","Apenas cosmético. ORIGINAL = cor do traje escolhido. Ao mudar de traje, a roupa volta ao original.","Soldado","Comando","Sobrevivente","SWAT","Caçador","Cientista","Motociclista","Clica numa arma que tens: melhorar, cor, equipar","Armas de fogo: depois de desbloqueadas, caem nas caixas","Personagem  ·  a velocidade de movimento não se melhora","Vida máx.  +20","Nível máx.","PV","As melhorias fazem-se só aqui, entre partidas. O nível sobe ao matar zombies.","Clique: melhorar","necessário","Idioma","Roda o teu dispositivo","Passa ao modo horizontal para jogar","Apanhar","Toca para apanhar","Faca","Adaga","Catana","Machado de lenhador","Taco com pregos","Martelo de guerra","Foice","Motosserra","Caçadeira de dois canos","Besta","Arco de caça","Pistola de pregos","Lança-chamas","Lança-granadas M79","Espingarda laser","Espingarda de plasma","Pistola laser","Arpão"],"nl":["Origineel","Rood","Blauw","Groen","Paars","Oranje","Roze","Cyaan","Wit","Goud","Donker","Licht","Melee","Pistolen","Machinepistolen","Aanval","Jachtgeweren","Precisie","Zwaar","Speciaal","Spatie","Shift L","Shift R","Ctrl L","Ctrl R","Alt L","Alt R","Enter","Tab","Terug","Numpad","Golf","Level","Kist gedropt!","seconden","munitie","Level {0} vereist","Niet genoeg geld","Goud-mod ontgrendeld!","Hoofdwapen: {0}","Genezing","Schild","Schade ×2","Vuursnelheid","Bevriezen","Luchtaanval","Geschutstoren","Pauze","Trainingsmodus","kills","Doorgaan","Hoofdwapen","Instellingen","Stoppen","Esc: doorgaan   ·   {0}: spel bevriezen zonder menu","Spel stoppen?","In de trainingsmodus wordt niets opgeslagen.","Je verdiensten blijven behouden:  +{0} $   ·   +{1} XP","Je keert terug naar het hoofdmenu.","Ja, stoppen","Nee, terug","Training: alle wapens, volledig geüpgraded, onbeperkte munitie","Schade","gebied","s","Uitgerust","Klik: uitrusten","Pagina","wapens","<  VORIGE","VOLGENDE  >","Level {0}  ·  Bonus: {1}","Spellevel","(telt niet mee)","Personage","Lv.","{0} / {1}  ·  1 bonus per level","[{0}]  Gebruik","Stel een toets in (Opties)","Geen bonus op voorraad","Volgende bonus op level {0}","voltooid","+5 $  +5 XP","Resterend","Training","kogels","Melee  ·  Onbeperkt","Hoofdwapen  ·  Onbeperkt","Vuurwapens: in de gedropte kisten  ·  {0}: oppakken  ·  {1}: bonus  ·  Esc: pauze  ·  {2}: volledig scherm","Je bent dood","Training  ·  niets wordt opgeslagen","Level omhoog!","Opnieuw spelen","Upgrades","Hoofdmenu","Gedode zombies","Munten","XP","Spelen","Aanpassen","Opties","Credits","Volledig scherm  ({0})","Record: golf {0}","Schermtrilling","Bloed","Richten","Ja","Nee","Richting","Muis","Toetsen","Effecten","Muziek","Richten RICHTING: de soldaat schiet recht vooruit, in de richting waarin je beweegt (klik of vuurtoets).","Richten MUIS: de soldaat richt op de cursor (klik om te schieten).","Een spel van C02. Originele code en tekeningen gemaakt voor dit project.","Een survival-shooter in zijaanzicht.","{0}/{1} bewegen · {2} springen · klik: aanvallen · {3}: kisten oppakken · vuurwapens: in de gedropte kisten","Melee-wapen","Vuurwapen","Upgrade","Uitrusten","Vuurwapens vallen alleen in de gedropte kisten.","Vergrendeld","Metaalkleur  ·  altijd te wijzigen, of terug naar de originele look","Kleur en hout  ·  ontgrendeld met upgrade 4 (goud-mod + kleuren + hout)","Hout","Goud-mod","Kleuren","Naar links","Naar rechts","Springen","Kist oppakken","Schieten / aanvallen  (naast klikken)","Volledig scherm","Opgeslagen bonus gebruiken","Spel bevriezen  (zonder menu)","Klik op een vak en druk op de nieuwe toets  ·  Esc: annuleren  ·  Backspace: vak wissen","Druk op een toets…","Resetten","Huid","Haar","Shirt","Broek","Hoofddeksel","Schoenen","Man","Vrouw","Normaal","Overdreven","Outfit  (elke outfit bestaat in een mannelijke en vrouwelijke versie)","Origineel","Alleen cosmetisch. ORIGINEEL = kleur van de gekozen outfit. Bij een andere outfit worden de kleren hersteld.","Soldaat","Commando","Overlevende","SWAT","Jager","Wetenschapper","Motorrijder","Klik op een bezit wapen: upgraden, kleur, uitrusten","Vuurwapens: eenmaal ontgrendeld vallen ze in de kisten","Personage  ·  bewegingssnelheid is niet te upgraden","Max. leven  +20","Max. level","HP","Upgrades doe je alleen hier, tussen de spellen. Je level stijgt door zombies te doden.","Klik: upgraden","vereist","Taal","Draai je apparaat","Schakel over naar liggend om te spelen","Oppakken","Tik om op te pakken","Mes","Dolk","Machete","Houthakkersbijl","Spijkerknuppel","Oorlogshamer","Zeis","Kettingzaag","Dubbelloops","Kruisboog","Jachtboog","Spijkerpistool","Vlammenwerper","M79-granaatwerper","Laser-geweer","Plasma-geweer","Laser-pistool","Harpoenpistool"],"pl":["Oryginalny","Czerwony","Niebieski","Zielony","Fioletowy","Pomarańczowy","Różowy","Cyjan","Biały","Złoty","Ciemny","Jasny","Biała broń","Pistolety","Pistolety maszynowe","Szturmowe","Strzelby","Precyzyjne","Ciężkie","Specjalne","Spacja","Lewy Shift","Prawy Shift","Lewy Ctrl","Prawy Ctrl","Lewy Alt","Prawy Alt","Enter","Tab","Wstecz","Klaw. num.","Fala","Poziom","Skrzynia zrzucona!","sekund","amunicja","Wymagany poziom {0}","Za mało pieniędzy","Złoty mod odblokowany!","Główna broń: {0}","Leczenie","Tarcza","Obrażenia ×2","Szybkostrzelność","Zamrożenie","Nalot","Wieżyczka","Pauza","Tryb treningowy","zabici","Wznów","Główna broń","Ustawienia","Wyjdź","Esc: wznów   ·   {0}: zamroź grę bez menu","Wyjść z gry?","W trybie treningowym nic nie jest zapisywane.","Twoje zarobki zostają:  +{0} $   ·   +{1} XP","Wrócisz do menu głównego.","Tak, wyjdź","Nie, wróć","Trening: wszystkie bronie, w pełni ulepszone, nieograniczona amunicja","Obrażenia","obszar","s","Założona","Klik: załóż","Strona","bronie","<  POPRZ.","NAST.  >","Poziom {0}  ·  Bonus: {1}","Poziom gry","(nie liczy się)","Postać","Poz.","{0} / {1}  ·  1 bonus za poziom","[{0}]  Użyj","Ustaw klawisz (Opcje)","Brak bonusów w zapasie","Następny bonus na poziomie {0}","ukończona","+5 $  +5 XP","Pozostało","Trening","kul","Biała broń  ·  Bez limitu","Główna broń  ·  Bez limitu","Broń palna: w zrzuconych skrzyniach  ·  {0}: podnieś  ·  {1}: bonus  ·  Esc: pauza  ·  {2}: pełny ekran","Nie żyjesz","Trening  ·  nic nie jest zapisywane","Nowy poziom!","Zagraj ponownie","Ulepszenia","Menu główne","Zabite zombie","Monety","XP","Graj","Personalizacja","Opcje","Twórcy","Pełny ekran  ({0})","Rekord: fala {0}","Drżenie ekranu","Krew","Celowanie","Tak","Nie","Kierunek","Mysz","Klawisze","Efekty","Muzyka","Celowanie KIERUNEK: żołnierz strzela prosto przed siebie, w kierunku ruchu (klik lub klawisz strzału).","Celowanie MYSZ: żołnierz celuje w kursor (klik, by strzelać).","Gra C02. Oryginalny kod i grafiki stworzone na potrzeby projektu.","Survivalowa strzelanka widziana z boku.","{0}/{1} ruch · {2} skok · klik: atak · {3}: podnoś skrzynie · broń palna: w zrzuconych skrzyniach","Broń biała","Broń palna","Ulepszenie","Załóż","Broń palna wypada tylko ze zrzuconych skrzyń.","Zablokowane","Kolor metalu  ·  zmieniaj w każdej chwili lub wróć do oryginału","Kolor i drewno  ·  odblokowane ulepszeniem 4 (złoty mod + kolory + drewno)","Drewno","Złoty mod","Kolory","Idź w lewo","Idź w prawo","Skok","Podnieś skrzynię","Strzał / atak  (oprócz kliknięcia)","Pełny ekran","Użyj bonusu z zapasu","Zamroź grę  (bez menu)","Kliknij pole i naciśnij nowy klawisz  ·  Esc: anuluj  ·  Backspace: wyczyść pole","Naciśnij klawisz…","Resetuj","Skóra","Włosy","Góra","Spodnie","Nakrycie głowy","Buty","Mężczyzna","Kobieta","Normalna","Przesadzona","Strój  (każdy strój ma wersję męską i żeńską)","Oryginalny","Tylko kosmetyka. ORYGINALNY = kolor wybranego stroju. Zmiana stroju przywraca kolory ubrań.","Żołnierz","Komandos","Ocalały","SWAT","Myśliwy","Naukowiec","Motocyklista","Kliknij posiadaną broń: ulepsz, kolor, załóż","Broń palna: po odblokowaniu wypada ze skrzyń","Postać  ·  prędkości ruchu nie da się ulepszyć","Maks. życie  +20","Maks. poziom","PŻ","Ulepszeń dokonujesz tylko tutaj, między grami. Poziom rośnie za zabijanie zombie.","Klik: ulepsz","wymagany","Język","Obróć urządzenie","Przełącz na tryb poziomy, aby grać","Podnieś","Dotknij, aby podnieść","Nóż","Sztylet","Maczeta","Siekiera drwala","Pałka z kolcami","Młot bojowy","Kosa","Piła łańcuchowa","Dubeltówka","Kusza","Łuk myśliwski","Gwoździarka","Miotacz ognia","Granatnik M79","Karabin laserowy","Karabin plazmowy","Pistolet laserowy","Harpun"],"ru":["Оригинал","Красный","Синий","Зелёный","Фиолетовый","Оранжевый","Розовый","Голубой","Белый","Золото","Тёмное","Светлое","Ближний бой","Пистолеты","Пистолеты-пулемёты","Штурмовые","Дробовики","Точные","Тяжёлые","Особые","Пробел","Левый Shift","Правый Shift","Левый Ctrl","Правый Ctrl","Левый Alt","Правый Alt","Enter","Tab","Назад","Цифр. блок","Волна","Уровень","Ящик сброшен!","секунд","патроны","Нужен уровень {0}","Не хватает денег","Золотой мод открыт!","Основное оружие: {0}","Лечение","Щит","Урон ×2","Скорострельность","Заморозка","Авиаудар","Турель","Пауза","Режим тренировки","убито","Продолжить","Основное оружие","Настройки","Выйти","Esc: продолжить   ·   {0}: заморозить игру без меню","Выйти из игры?","В режиме тренировки ничего не сохраняется.","Заработанное сохраняется:  +{0} $   ·   +{1} XP","Ты вернёшься в главное меню.","Да, выйти","Нет, назад","Тренировка: всё оружие, улучшенное на максимум, патроны не кончаются","Урон","область","с","Экипировано","Клик: экипировать","Стр.","оружие","<  НАЗАД","ВПЕРЁД  >","Уровень {0}  ·  Бонус: {1}","Уровень игры","(не учитывается)","Персонаж","Ур.","{0} / {1}  ·  1 бонус за уровень","[{0}]  Применить","Назначь клавишу (Настройки)","Нет бонусов в запасе","Следующий бонус на уровне {0}","пройдена","+5 $  +5 XP","Осталось","Тренировка","пуль","Ближний бой  ·  Без ограничений","Основное оружие  ·  Без ограничений","Огнестрел: в сброшенных ящиках  ·  {0}: поднять  ·  {1}: бонус  ·  Esc: пауза  ·  {2}: во весь экран","Ты погиб","Тренировка  ·  ничего не сохраняется","Новый уровень!","Играть снова","Улучшения","Главное меню","Убито зомби","Монеты","XP","Играть","Персонализация","Настройки","Авторы","Во весь экран  ({0})","Рекорд: волна {0}","Тряска экрана","Кровь","Прицел","Да","Нет","Направление","Мышь","Клавиши","Эффекты","Музыка","Прицел НАПРАВЛЕНИЕ: солдат стреляет прямо перед собой, в сторону движения (клик или клавиша огня).","Прицел МЫШЬ: солдат целится в курсор (клик для выстрела).","Игра от C02. Оригинальный код и рисунки созданы для этого проекта.","Шутер на выживание с видом сбоку.","{0}/{1} движение · {2} прыжок · клик: атака · {3}: поднять ящики · огнестрел: в сброшенных ящиках","Оружие ближнего боя","Огнестрельное оружие","Улучшение","Экипировать","Огнестрел выпадает только из сброшенных ящиков.","Заблокировано","Цвет металла  ·  меняй когда угодно или вернись к исходному виду","Цвет и дерево  ·  открываются улучшением 4 (золотой мод + цвета + дерево)","Дерево","Золотой мод","Цвета","Идти влево","Идти вправо","Прыжок","Поднять ящик","Стрелять / атаковать  (вдобавок к клику)","Во весь экран","Применить бонус из запаса","Заморозить игру  (без меню)","Нажми на ячейку, затем на новую клавишу  ·  Esc: отмена  ·  Backspace: очистить ячейку","Нажми клавишу…","Сбросить","Кожа","Волосы","Верх","Штаны","Головной убор","Обувь","Мужчина","Женщина","Обычная","Преувеличенная","Наряд  (у каждого наряда есть мужская и женская версия)","Оригинал","Только косметика. ОРИГИНАЛ = цвет выбранного наряда. При смене наряда цвета одежды сбрасываются.","Солдат","Коммандос","Выживший","SWAT","Охотник","Учёный","Байкер","Нажми на своё оружие: улучшить, цвет, экипировать","Огнестрел: после открытия выпадает из ящиков","Персонаж  ·  скорость движения не улучшается","Макс. здоровье  +20","Макс. уровень","ОЗ","Улучшения делаются только здесь, между играми. Уровень растёт за убийство зомби.","Клик: улучшить","нужен","Язык","Поверни устройство","Для игры перейди в горизонтальный режим","Поднять","Нажми, чтобы поднять","Нож","Кинжал","Мачете","Топор дровосека","Бита с гвоздями","Боевой молот","Коса","Бензопила","Двустволка","Арбалет","Охотничий лук","Гвоздомёт","Огнемёт","Гранатомёт M79","Лазерная винтовка","Плазменная винтовка","Лазерный пистолет","Гарпунное ружьё"],"uk":["Оригінал","Червоний","Синій","Зелений","Фіолетовий","Помаранчевий","Рожевий","Блакитний","Білий","Золото","Темне","Світле","Ближній бій","Пістолети","Пістолети-кулемети","Штурмові","Рушниці","Точні","Важкі","Особливі","Пробіл","Лівий Shift","Правий Shift","Лівий Ctrl","Правий Ctrl","Лівий Alt","Правий Alt","Enter","Tab","Назад","Цифр. блок","Хвиля","Рівень","Ящик скинуто!","секунд","набої","Потрібен рівень {0}","Не вистачає грошей","Золотий мод відкрито!","Основна зброя: {0}","Лікування","Щит","Шкода ×2","Скорострільність","Заморозка","Авіаудар","Турель","Пауза","Режим тренування","вбито","Продовжити","Основна зброя","Налаштування","Вийти","Esc: продовжити   ·   {0}: заморозити гру без меню","Вийти з гри?","У режимі тренування нічого не зберігається.","Зароблене зберігається:  +{0} $   ·   +{1} XP","Ти повернешся до головного меню.","Так, вийти","Ні, назад","Тренування: уся зброя, прокачана на максимум, набої не закінчуються","Шкода","область","с","Екіпіровано","Клік: екіпірувати","Стор.","зброя","<  НАЗАД","ДАЛІ  >","Рівень {0}  ·  Бонус: {1}","Рівень гри","(не враховується)","Персонаж","Рів.","{0} / {1}  ·  1 бонус за рівень","[{0}]  Використати","Призначи клавішу (Налаштування)","Немає бонусів у запасі","Наступний бонус на рівні {0}","пройдена","+5 $  +5 XP","Залишилось","Тренування","куль","Ближній бій  ·  Без обмежень","Основна зброя  ·  Без обмежень","Вогнепальна: у скинутих ящиках  ·  {0}: підняти  ·  {1}: бонус  ·  Esc: пауза  ·  {2}: на весь екран","Ти загинув","Тренування  ·  нічого не зберігається","Новий рівень!","Грати знову","Покращення","Головне меню","Вбито зомбі","Монети","XP","Грати","Персоналізація","Налаштування","Автори","На весь екран  ({0})","Рекорд: хвиля {0}","Тряска екрана","Кров","Приціл","Так","Ні","Напрямок","Миша","Клавіші","Ефекти","Музика","Приціл НАПРЯМОК: солдат стріляє прямо перед собою, у бік руху (клік або клавіша вогню).","Приціл МИША: солдат цілиться в курсор (клік для пострілу).","Гра від C02. Оригінальний код і малюнки створені для цього проєкту.","Шутер на виживання з виглядом збоку.","{0}/{1} рух · {2} стрибок · клік: атака · {3}: підняти ящики · вогнепальна: у скинутих ящиках","Зброя ближнього бою","Вогнепальна зброя","Покращення","Екіпірувати","Вогнепальна зброя випадає лише зі скинутих ящиків.","Заблоковано","Колір металу  ·  змінюй будь-коли або повернися до початкового вигляду","Колір і дерево  ·  відкриваються покращенням 4 (золотий мод + кольори + дерево)","Дерево","Золотий мод","Кольори","Йти ліворуч","Йти праворуч","Стрибок","Підняти ящик","Стріляти / атакувати  (на додачу до кліку)","На весь екран","Використати бонус із запасу","Заморозити гру  (без меню)","Натисни на комірку, потім на нову клавішу  ·  Esc: скасувати  ·  Backspace: очистити комірку","Натисни клавішу…","Скинути","Шкіра","Волосся","Верх","Штани","Головний убір","Взуття","Чоловік","Жінка","Звичайна","Перебільшена","Вбрання  (кожне вбрання має чоловічу та жіночу версію)","Оригінал","Лише косметика. ОРИГІНАЛ = колір обраного вбрання. Під час зміни вбрання кольори одягу скидаються.","Солдат","Командос","Вижилий","SWAT","Мисливець","Науковець","Байкер","Натисни на свою зброю: покращити, колір, екіпірувати","Вогнепальна: після відкриття випадає з ящиків","Персонаж  ·  швидкість руху не покращується","Макс. здоров'я  +20","Макс. рівень","ОЗ","Покращення робляться лише тут, між іграми. Рівень зростає за вбивство зомбі.","Клік: покращити","потрібен","Мова","Поверни пристрій","Для гри перейди в горизонтальний режим","Підняти","Торкнись, щоб підняти","Ніж","Кинджал","Мачете","Сокира дроворуба","Бита з цвяхами","Бойовий молот","Коса","Бензопила","Двостволка","Арбалет","Мисливський лук","Цвяхомет","Вогнемет","Гранатомет M79","Лазерна гвинтівка","Плазмова гвинтівка","Лазерний пістолет","Гарпунна рушниця"],"tr":["Orijinal","Kırmızı","Mavi","Yeşil","Mor","Turuncu","Pembe","Camgöbeği","Beyaz","Altın","Koyu","Açık","Yakın dövüş","Tabancalar","Hafif makineliler","Taarruz","Pompalılar","Hassas","Ağır","Özel","Boşluk","Sol Shift","Sağ Shift","Sol Ctrl","Sağ Ctrl","Sol Alt","Sağ Alt","Enter","Tab","Geri","Sayısal tuş","Dalga","Seviye","Sandık düştü!","saniye","mermi","{0}. seviye gerekli","Yeterli para yok","Altın mod açıldı!","Ana silah: {0}","İyileştirme","Kalkan","Hasar ×2","Atış hızı","Dondurma","Hava saldırısı","Taret","Duraklat","Antrenman modu","öldürme","Devam et","Ana silah","Ayarlar","Çık","Esc: devam   ·   {0}: oyunu menüsüz dondur","Oyundan çıkılsın mı?","Antrenman modunda hiçbir şey kaydedilmez.","Kazançların korunur:  +{0} $   ·   +{1} XP","Ana menüye döneceksin.","Evet, çık","Hayır, geri","Antrenman: tüm silahlar, tam geliştirilmiş, sınırsız mermi","Hasar","alan","sn","Kuşanıldı","Tık: kuşan","Sayfa","silah","<  ÖNCEKİ","SONRAKİ  >","Seviye {0}  ·  Bonus: {1}","Oyun seviyesi","(sayılmaz)","Karakter","Svy.","{0} / {1}  ·  seviye başına 1 bonus","[{0}]  Kullan","Bir tuş ata (Ayarlar)","Depoda bonus yok","Sonraki bonus {0}. seviyede","tamamlandı","+5 $  +5 XP","Kalan","Antrenman","mermi","Yakın dövüş  ·  Sınırsız","Ana silah  ·  Sınırsız","Ateşli silahlar: bırakılan sandıklarda  ·  {0}: al  ·  {1}: bonus  ·  Esc: duraklat  ·  {2}: tam ekran","Öldün","Antrenman  ·  hiçbir şey kaydedilmez","Seviye atladın!","Tekrar oyna","Geliştirmeler","Ana menü","Öldürülen zombi","Para","XP","Oyna","Kişiselleştirme","Seçenekler","Emeği geçenler","Tam ekran  ({0})","Rekor: dalga {0}","Ekran sarsıntısı","Kan","Nişan","Evet","Hayır","Yön","Fare","Tuşlar","Efektler","Müzik","YÖN nişanı: asker, hareket ettiğin yöne doğru dümdüz ateş eder (tık veya ateş tuşu).","FARE nişanı: asker imleci hedef alır (ateş etmek için tıkla).","C02 oyunu. Bu proje için hazırlanmış özgün kod ve çizimler.","Yandan görünümlü bir hayatta kalma nişancı oyunu.","{0}/{1} hareket · {2} zıpla · tık: saldır · {3}: sandıkları al · ateşli silahlar: bırakılan sandıklarda","Yakın dövüş silahı","Ateşli silah","Geliştirme","Kuşan","Ateşli silahlar yalnızca bırakılan sandıklardan çıkar.","Kilitli","Metal rengi  ·  istediğin zaman değiştir ya da orijinal görünüme dön","Renk ve ahşap  ·  4. geliştirmeyle açılır (altın mod + renkler + ahşap)","Ahşap","Altın mod","Renkler","Sola git","Sağa git","Zıpla","Sandık al","Ateş et / saldır  (tıklamaya ek olarak)","Tam ekran","Depodaki bonusu kullan","Oyunu dondur  (menüsüz)","Bir kutuya tıkla, sonra yeni tuşa bas  ·  Esc: iptal  ·  Geri silme: kutuyu temizle","Bir tuşa bas…","Sıfırla","Ten","Saç","Üst","Pantolon","Başlık","Ayakkabı","Erkek","Kadın","Normal","Abartılı","Kıyafet  (her kıyafetin erkek ve kadın sürümü vardır)","Orijinal","Yalnızca görsel. ORİJİNAL = seçilen kıyafetin rengi. Kıyafet değişince giysi renkleri sıfırlanır.","Asker","Komando","Hayatta kalan","SWAT","Avcı","Bilim insanı","Motorcu","Sahip olduğun bir silaha tıkla: geliştir, renk, kuşan","Ateşli silahlar: açıldıktan sonra sandıklardan çıkar","Karakter  ·  hareket hızı geliştirilemez","Maks. can  +20","Maks. seviye","CAN","Geliştirmeler yalnızca burada, oyunlar arasında yapılır. Zombi öldürdükçe seviyen artar.","Tık: geliştir","gerekli","Dil","Cihazını döndür","Oynamak için yatay moda geç","Al","Almak için dokun","Bıçak","Hançer","Satır","Oduncu baltası","Çivili sopa","Savaş çekici","Tırpan","Motorlu testere","Çift namlulu","Tatar yayı","Av yayı","Çivi tabancası","Alev silahı","M79 bombaatar","Lazer tüfeği","Plazma tüfeği","Lazer tabancası","Zıpkın tüfeği"],"ar":["الأصلي","أحمر","أزرق","أخضر","بنفسجي","برتقالي","وردي","سماوي","أبيض","ذهبي","داكن","فاتح","قتال قريب","مسدسات","رشاشات","هجومية","بنادق صيد","دقيقة","ثقيلة","خاصة","مسافة","Shift الأيسر","Shift الأيمن","Ctrl الأيسر","Ctrl الأيمن","Alt الأيسر","Alt الأيمن","Enter","Tab","رجوع","لوحة الأرقام","موجة","مستوى","تم إسقاط صندوق!","ثانية","ذخيرة","المستوى {0} مطلوب","لا تملك مالًا كافيًا","تم فتح التعديل الذهبي!","السلاح الرئيسي: {0}","علاج","درع","ضرر ×2","سرعة الإطلاق","تجميد","غارة جوية","برج","إيقاف مؤقت","وضع التدريب","قتلى","متابعة","السلاح الرئيسي","الإعدادات","خروج","Esc: متابعة   ·   {0}: تجميد اللعبة دون قائمة","الخروج من اللعبة؟","لا يتم حفظ أي شيء في وضع التدريب.","أرباحك محفوظة:  +{0} $   ·   +{1} XP","ستعود إلى القائمة الرئيسية.","نعم، خروج","لا، رجوع","تدريب: كل الأسلحة، مطوّرة بالكامل، ذخيرة غير محدودة","ضرر","منطقة","ث","مجهّز","انقر: تجهيز","صفحة","أسلحة","<  السابق","التالي  >","المستوى {0}  ·  مكافأة: {1}","مستوى اللعبة","(غير محسوب)","الشخصية","مس.","{0} / {1}  ·  مكافأة واحدة لكل مستوى","[{0}]  استخدام","حدّد مفتاحًا (الإعدادات)","لا توجد مكافآت مخزّنة","المكافأة التالية عند المستوى {0}","انتهت","+5 $  +5 XP","المتبقي","تدريب","رصاصات","قتال قريب  ·  غير محدود","السلاح الرئيسي  ·  غير محدود","الأسلحة النارية: في الصناديق المسقطة  ·  {0}: التقاط  ·  {1}: مكافأة  ·  Esc: إيقاف  ·  {2}: ملء الشاشة","لقد متّ","تدريب  ·  لا يتم حفظ أي شيء","ارتفع المستوى!","العب مجددًا","التطويرات","القائمة الرئيسية","زومبي تم قتلهم","عملات","XP","العب","التخصيص","الخيارات","الشكر","ملء الشاشة  ({0})","الرقم القياسي: موجة {0}","اهتزاز الشاشة","دم","التصويب","نعم","لا","الاتجاه","الفأرة","المفاتيح","المؤثرات","الموسيقى","تصويب بالاتجاه: يطلق الجندي النار مباشرة أمامه في اتجاه حركتك (نقرة أو مفتاح النار).","تصويب بالفأرة: يصوّب الجندي نحو المؤشر (انقر لإطلاق النار).","لعبة من C02. شيفرة ورسومات أصلية صُنعت لهذا المشروع.","لعبة إطلاق نار للبقاء بمنظور جانبي.","{0}/{1} تحرك · {2} قفز · نقرة: هجوم · {3}: التقاط الصناديق · الأسلحة النارية: في الصناديق المسقطة","سلاح قتال قريب","سلاح ناري","تطوير","تجهيز","الأسلحة النارية تسقط فقط في الصناديق المسقطة.","مقفل","لون المعدن  ·  غيّره في أي وقت أو ارجع إلى الشكل الأصلي","اللون والخشب  ·  يُفتحان بالتطوير 4 (تعديل ذهبي + ألوان + خشب)","خشب","تعديل ذهبي","ألوان","تحرك لليسار","تحرك لليمين","قفز","التقاط صندوق","إطلاق النار / هجوم  (إضافة إلى النقر)","ملء الشاشة","استخدام المكافأة المخزّنة","تجميد اللعبة  (دون قائمة)","انقر على خانة ثم اضغط المفتاح الجديد  ·  Esc: إلغاء  ·  Backspace: مسح الخانة","اضغط على مفتاح…","إعادة ضبط","البشرة","الشعر","الأعلى","البنطال","غطاء الرأس","الحذاء","رجل","امرأة","عادي","مبالغ فيه","الزي  (لكل زي نسخة للرجل وأخرى للمرأة)","الأصلي","للمظهر فقط. الأصلي = لون الزي المختار. تغيير الزي يعيد ألوان الملابس.","جندي","كوماندوز","ناجٍ","سوات","صياد","عالم","دراج","انقر على سلاح تملكه: تطوير، لون، تجهيز","الأسلحة النارية: بعد فتحها تسقط في الصناديق","الشخصية  ·  لا يمكن تطوير سرعة الحركة","أقصى صحة  +20","أقصى مستوى","نقاط الصحة","تتم التطويرات هنا فقط، بين المباريات. يرتفع المستوى بقتل الزومبي.","انقر: تطوير","مطلوب","اللغة","قم بتدوير جهازك","انتقل إلى الوضع الأفقي للعب","التقاط","المس للالتقاط","سكين","خنجر","منجل","فأس الحطاب","مضرب بمسامير","مطرقة حربية","مِنجل","منشار كهربائي","بندقية ثنائية الماسورة","قوس ونشاب","قوس صيد","مسدس مسامير","قاذف لهب","قاذف قنابل M79","بندقية ليزر","بندقية بلازما","مسدس ليزر","بندقية رمح"],"zh":["原色","红色","蓝色","绿色","紫色","橙色","粉色","青色","白色","金色","深色","浅色","近战","手枪","冲锋枪","突击","霰弹枪","精确","重型","特殊","空格","左Shift","右Shift","左Ctrl","右Ctrl","左Alt","右Alt","回车","Tab","返回","小键盘","波次","等级","补给箱已投放！","秒","弹药","需要 {0} 级","金钱不足","金色改装已解锁！","主武器：{0}","治疗","护盾","伤害×2","射速","冰冻","空袭","炮塔","暂停","训练模式","击杀","继续","主武器","设置","退出","Esc：继续   ·   {0}：不开菜单直接暂停","退出游戏？","训练模式不保存任何内容。","你的收益会保留：  +{0} $   ·   +{1} XP","你将返回主菜单。","是，退出","否，返回","训练：所有武器，全部满级，弹药无限","伤害","范围","秒","已装备","点击：装备","页","武器","<  上一页","下一页  >","{0} 级  ·  奖励：{1}","游戏等级","（不计入）","角色","级","{0} / {1}  ·  每级1个奖励","[{0}]  使用","设置按键（设置）","没有库存奖励","下一个奖励在 {0} 级","完成","+5 $  +5 XP","剩余","训练","子弹","近战  ·  无限","主武器  ·  无限","枪械：在空投箱中  ·  {0}：拾取  ·  {1}：奖励  ·  Esc：暂停  ·  {2}：全屏","你死了","训练  ·  不保存任何内容","升级了！","再玩一次","升级","主菜单","击杀僵尸","金币","XP","开始游戏","个性化","选项","制作名单","全屏  ({0})","纪录：第 {0} 波","屏幕震动","血液","瞄准","是","否","方向","鼠标","按键","音效","音乐","方向瞄准：士兵朝你移动的方向直线射击（点击或射击键）。","鼠标瞄准：士兵瞄准光标（点击射击）。","C02 出品。为本项目原创的代码与美术。","一款横版生存射击游戏。","{0}/{1} 移动 · {2} 跳跃 · 点击：攻击 · {3}：拾取箱子 · 枪械：在空投箱中","近战武器","枪械","升级","装备","枪械只会出现在空投箱中。","未解锁","金属颜色  ·  随时更改，或恢复原始外观","颜色与木纹  ·  升级4解锁（金色改装 + 颜色 + 木纹）","木纹","金色改装","颜色","向左移动","向右移动","跳跃","拾取箱子","射击 / 攻击  （点击之外）","全屏","使用库存奖励","暂停游戏  （无菜单）","点击一个格子，然后按下新按键  ·  Esc：取消  ·  退格：清除格子","请按一个键…","重置","肤色","头发","上衣","裤子","头饰","鞋子","男","女","正常","夸张","服装  （每套服装都有男女版本）","原色","仅外观。原色 = 所选服装的颜色。更换服装会重置衣物颜色。","士兵","突击队员","幸存者","特警","猎人","科学家","骑手","点击已拥有的武器：升级、颜色、装备","枪械：解锁后会出现在补给箱中","角色  ·  移动速度无法升级","最大生命  +20","满级","生命","升级只能在这里进行，在两局之间。击杀僵尸可提升等级。","点击：升级","需要","语言","请旋转设备","请切换到横屏模式进行游戏","拾取","点击拾取","小刀","匕首","砍刀","伐木斧","钉刺棒球棍","战锤","镰刀","电锯","双管猎枪","弩","狩猎弓","钉枪","火焰喷射器","M79榴弹发射器","激光步枪","等离子步枪","激光手枪","鱼叉枪"],"ja":["オリジナル","赤","青","緑","紫","オレンジ","ピンク","シアン","白","ゴールド","濃色","薄色","近接","ハンドガン","SMG","アサルト","ショットガン","精密","重火器","特殊","スペース","左Shift","右Shift","左Ctrl","右Ctrl","左Alt","右Alt","Enter","Tab","戻る","テンキー","ウェーブ","レベル","コンテナが投下された！","秒","弾薬","レベル{0}が必要","お金が足りません","ゴールドMOD解放！","メイン武器：{0}","回復","シールド","ダメージ×2","連射速度","凍結","空爆","タレット","ポーズ","トレーニングモード","撃破","再開","メイン武器","設定","終了","Esc：再開   ·   {0}：メニューなしでゲームを停止","ゲームを終了しますか？","トレーニングモードでは何も保存されません。","獲得分は保持されます：  +{0} $   ·   +{1} XP","メインメニューに戻ります。","はい、終了","いいえ、戻る","トレーニング：全武器・最大強化・弾薬無制限","ダメージ","範囲","秒","装備中","クリック：装備","ページ","武器","<  前へ","次へ  >","レベル{0}  ·  ボーナス：{1}","ゲームレベル","（加算されません）","キャラクター","Lv.","{0} / {1}  ·  レベルごとにボーナス1つ","[{0}]  使用","キーを設定（設定）","ストックなし","次のボーナスはレベル{0}","クリア","+5 $  +5 XP","残り","トレーニング","弾","近接  ·  無制限","メイン武器  ·  無制限","銃器：投下されたコンテナの中  ·  {0}：拾う  ·  {1}：ボーナス  ·  Esc：ポーズ  ·  {2}：全画面","あなたは死にました","トレーニング  ·  何も保存されません","レベルアップ！","もう一度","強化","メインメニュー","倒したゾンビ","コイン","XP","プレイ","カスタマイズ","オプション","クレジット","全画面  ({0})","記録：ウェーブ{0}","画面の揺れ","血","照準","はい","いいえ","方向","マウス","キー","効果音","音楽","方向照準：兵士は移動方向にまっすぐ撃ちます（クリックまたは発射キー）。","マウス照準：兵士はカーソルに向けて狙います（クリックで発射）。","C02 制作のゲーム。このプロジェクトのために作られたオリジナルのコードと絵。","横視点のサバイバルシューター。","{0}/{1} 移動 · {2} ジャンプ · クリック：攻撃 · {3}：コンテナを拾う · 銃器：投下コンテナの中","近接武器","銃器","強化","装備","銃器は投下されたコンテナからのみ出ます。","ロック中","金属の色  ·  いつでも変更、またはオリジナルに戻せます","色と木材  ·  強化4で解放（ゴールドMOD＋色＋木材）","木材","ゴールドMOD","色","左に移動","右に移動","ジャンプ","コンテナを拾う","撃つ / 攻撃  （クリックに加えて）","全画面","ストックしたボーナスを使う","ゲームを停止  （メニューなし）","枠をクリックして新しいキーを押す  ·  Esc：キャンセル  ·  Backspace：枠をクリア","キーを押してください…","リセット","肌","髪","トップス","ズボン","頭装備","靴","男性","女性","通常","誇張","衣装  （どの衣装にも男性版と女性版があります）","オリジナル","見た目のみ。オリジナル＝選択した衣装の色。衣装を変えると服の色がリセットされます。","兵士","コマンドー","生存者","SWAT","ハンター","科学者","バイカー","所持している武器をクリック：強化、色、装備","銃器：解放するとコンテナから出ます","キャラクター  ·  移動速度は強化できません","最大HP  +20","最大レベル","HP","強化はここ、ゲームの合間にのみ行えます。ゾンビを倒すとレベルが上がります。","クリック：強化","必要","言語","端末を回転してください","プレイするには横向きに切り替えてください","拾う","タップして拾う","ナイフ","短剣","マチェーテ","木こりの斧","釘バット","ウォーハンマー","大鎌","チェーンソー","二連散弾銃","クロスボウ","狩猟用の弓","ネイルガン","火炎放射器","M79グレネードランチャー","レーザーライフル","プラズマライフル","レーザーピストル","銛銃"],"ko":["기본","빨강","파랑","초록","보라","주황","분홍","청록","흰색","금색","어두운","밝은","근접","권총","기관단총","돌격","산탄총","정밀","중화기","특수","스페이스","왼쪽 Shift","오른쪽 Shift","왼쪽 Ctrl","오른쪽 Ctrl","왼쪽 Alt","오른쪽 Alt","Enter","Tab","뒤로","숫자패드","웨이브","레벨","보급 상자 투하!","초","탄약","레벨 {0} 필요","돈이 부족합니다","골드 모드 해금!","주무기: {0}","치료","방어막","데미지 ×2","연사 속도","빙결","공습","터렛","일시정지","훈련 모드","처치","계속","주무기","설정","나가기","Esc: 계속   ·   {0}: 메뉴 없이 게임 정지","게임을 종료할까요?","훈련 모드에서는 아무것도 저장되지 않습니다.","획득한 보상은 유지됩니다:  +{0} $   ·   +{1} XP","메인 메뉴로 돌아갑니다.","예, 나가기","아니요, 돌아가기","훈련: 모든 무기, 최대 강화, 무제한 탄약","데미지","범위","초","장착됨","클릭: 장착","페이지","무기","<  이전","다음  >","레벨 {0}  ·  보너스: {1}","게임 레벨","(집계 안 됨)","캐릭터","Lv.","{0} / {1}  ·  레벨당 보너스 1개","[{0}]  사용","키 설정 (설정)","보관된 보너스 없음","다음 보너스는 레벨 {0}","완료","+5 $  +5 XP","남음","훈련","발","근접  ·  무제한","주무기  ·  무제한","총기: 투하된 상자 안  ·  {0}: 줍기  ·  {1}: 보너스  ·  Esc: 일시정지  ·  {2}: 전체 화면","사망했습니다","훈련  ·  아무것도 저장되지 않음","레벨 업!","다시 하기","강화","메인 메뉴","처치한 좀비","코인","XP","플레이","커스터마이징","옵션","크레딧","전체 화면  ({0})","기록: 웨이브 {0}","화면 흔들림","피","조준","예","아니요","방향","마우스","키","효과음","음악","방향 조준: 병사가 이동하는 방향으로 똑바로 사격합니다 (클릭 또는 발사 키).","마우스 조준: 병사가 커서를 조준합니다 (클릭하여 발사).","C02의 게임. 이 프로젝트를 위해 만든 오리지널 코드와 그림.","횡스크롤 서바이벌 슈터.","{0}/{1} 이동 · {2} 점프 · 클릭: 공격 · {3}: 상자 줍기 · 총기: 투하된 상자 안","근접 무기","총기","강화","장착","총기는 투하된 상자에서만 나옵니다.","잠김","금속 색상  ·  언제든 변경하거나 원래 모습으로 되돌릴 수 있음","색상과 나무  ·  강화 4로 해금 (골드 모드 + 색상 + 나무)","나무","골드 모드","색상","왼쪽으로 이동","오른쪽으로 이동","점프","상자 줍기","사격 / 공격  (클릭 외에)","전체 화면","보관된 보너스 사용","게임 정지  (메뉴 없음)","칸을 클릭한 뒤 새 키를 누르세요  ·  Esc: 취소  ·  Backspace: 칸 지우기","키를 누르세요…","초기화","피부","머리카락","상의","바지","머리 장식","신발","남성","여성","보통","과장","복장  (모든 복장에 남성·여성 버전이 있습니다)","기본","외형 전용. 기본 = 선택한 복장의 색상. 복장을 바꾸면 의상 색이 초기화됩니다.","병사","코만도","생존자","SWAT","사냥꾼","과학자","바이커","보유한 무기를 클릭: 강화, 색상, 장착","총기: 해금하면 상자에서 나옵니다","캐릭터  ·  이동 속도는 강화할 수 없음","최대 체력  +20","최대 레벨","HP","강화는 게임 사이에 여기서만 할 수 있습니다. 좀비를 처치하면 레벨이 오릅니다.","클릭: 강화","필요","언어","기기를 회전하세요","플레이하려면 가로 모드로 전환하세요","줍기","눌러서 줍기","칼","단검","마체테","벌목꾼 도끼","못 박힌 배트","전투 망치","낫","전기톱","쌍열 산탄총","석궁","사냥 활","네일건","화염방사기","M79 유탄발사기","레이저 소총","플라즈마 소총","레이저 권총","작살총"],"hi":["मूल","लाल","नीला","हरा","बैंगनी","नारंगी","गुलाबी","आसमानी","सफ़ेद","सुनहरा","गहरा","हल्का","नज़दीकी लड़ाई","पिस्तौल","एसएमजी","असॉल्ट","शॉटगन","सटीक","भारी","विशेष","स्पेस","बायाँ Shift","दायाँ Shift","बायाँ Ctrl","दायाँ Ctrl","बायाँ Alt","दायाँ Alt","Enter","Tab","वापस","नंबर पैड","लहर","स्तर","क्रेट गिराया गया!","सेकंड","कारतूस","स्तर {0} ज़रूरी है","पैसे पूरे नहीं हैं","सुनहरा मॉड अनलॉक!","मुख्य हथियार: {0}","इलाज","ढाल","नुकसान ×2","फ़ायर रेट","फ़्रीज़","हवाई हमला","टरेट","रोकें","ट्रेनिंग मोड","मार","जारी रखें","मुख्य हथियार","सेटिंग्स","बाहर निकलें","Esc: जारी रखें   ·   {0}: मेनू के बिना गेम रोकें","गेम से बाहर निकलें?","ट्रेनिंग मोड में कुछ भी सेव नहीं होता।","आपकी कमाई सुरक्षित है:  +{0} $   ·   +{1} XP","आप मुख्य मेनू पर लौटेंगे।","हाँ, बाहर निकलें","नहीं, वापस","ट्रेनिंग: सभी हथियार, पूरी तरह अपग्रेड, असीमित कारतूस","नुकसान","क्षेत्र","से","लैस","क्लिक: लैस करें","पृष्ठ","हथियार","<  पिछला","अगला  >","स्तर {0}  ·  बोनस: {1}","गेम स्तर","(गिना नहीं जाता)","किरदार","स्तर","{0} / {1}  ·  हर स्तर पर 1 बोनस","[{0}]  इस्तेमाल करें","कोई कुंजी चुनें (सेटिंग्स)","स्टॉक में कोई बोनस नहीं","अगला बोनस स्तर {0} पर","पूरी हुई","+5 $  +5 XP","बचे हुए","ट्रेनिंग","गोलियाँ","नज़दीकी लड़ाई  ·  असीमित","मुख्य हथियार  ·  असीमित","बंदूकें: गिराए गए क्रेट में  ·  {0}: उठाएँ  ·  {1}: बोनस  ·  Esc: रोकें  ·  {2}: फ़ुल स्क्रीन","आप मर गए","ट्रेनिंग  ·  कुछ भी सेव नहीं होता","स्तर बढ़ा!","फिर खेलें","अपग्रेड","मुख्य मेनू","मारे गए ज़ॉम्बी","सिक्के","XP","खेलें","कस्टमाइज़ेशन","विकल्प","क्रेडिट","फ़ुल स्क्रीन  ({0})","रिकॉर्ड: लहर {0}","स्क्रीन हिलना","खून","निशाना","हाँ","नहीं","दिशा","माउस","कुंजियाँ","इफ़ेक्ट","संगीत","दिशा से निशाना: सैनिक आपकी चाल की दिशा में सीधा गोली चलाता है (क्लिक या फ़ायर कुंजी)।","माउस से निशाना: सैनिक कर्सर की ओर निशाना लगाता है (गोली चलाने के लिए क्लिक करें)।","C02 का गेम। इस प्रोजेक्ट के लिए बनाया गया मौलिक कोड और चित्र।","साइड व्यू वाला सर्वाइवल शूटर।","{0}/{1} चलें · {2} कूदें · क्लिक: हमला · {3}: क्रेट उठाएँ · बंदूकें: गिराए गए क्रेट में","नज़दीकी हथियार","बंदूक","अपग्रेड","लैस करें","बंदूकें सिर्फ़ गिराए गए क्रेट में मिलती हैं।","लॉक","धातु का रंग  ·  कभी भी बदलें या मूल रूप पर लौटें","रंग और लकड़ी  ·  अपग्रेड 4 से खुलते हैं (सुनहरा मॉड + रंग + लकड़ी)","लकड़ी","सुनहरा मॉड","रंग","बाएँ चलें","दाएँ चलें","कूदें","क्रेट उठाएँ","गोली चलाएँ / हमला  (क्लिक के अलावा)","फ़ुल स्क्रीन","स्टॉक किया बोनस इस्तेमाल करें","गेम रोकें  (मेनू के बिना)","किसी खाने पर क्लिक करें, फिर नई कुंजी दबाएँ  ·  Esc: रद्द  ·  Backspace: खाना खाली करें","कोई कुंजी दबाएँ…","रीसेट","त्वचा","बाल","ऊपरी","पैंट","सिर का पहनावा","जूते","पुरुष","महिला","सामान्य","बढ़ा-चढ़ाकर","पोशाक  (हर पोशाक पुरुष और महिला संस्करण में है)","मूल","सिर्फ़ सजावट। मूल = चुनी गई पोशाक का रंग। पोशाक बदलने पर कपड़ों के रंग रीसेट हो जाते हैं।","सैनिक","कमांडो","सर्वाइवर","स्वैट","शिकारी","वैज्ञानिक","बाइकर","अपने हथियार पर क्लिक करें: अपग्रेड, रंग, लैस","बंदूकें: अनलॉक होने के बाद क्रेट में गिरती हैं","किरदार  ·  चलने की गति अपग्रेड नहीं होती","अधिकतम सेहत  +20","अधिकतम स्तर","HP","अपग्रेड सिर्फ़ यहीं, दो खेलों के बीच होते हैं। ज़ॉम्बी मारने से स्तर बढ़ता है।","क्लिक: अपग्रेड","ज़रूरी","भाषा","अपना डिवाइस घुमाएँ","खेलने के लिए लैंडस्केप मोड में जाएँ","उठाएँ","उठाने के लिए छुएँ","चाकू","खंजर","मचेटे","लकड़हारे की कुल्हाड़ी","कीलों वाला बैट","युद्ध हथौड़ा","दरांती","चेनसॉ","दोनाली बंदूक","क्रॉसबो","शिकारी धनुष","नेल गन","फ़्लेमथ्रोअर","M79 ग्रेनेड लॉन्चर","लेज़र राइफ़ल","प्लाज़्मा राइफ़ल","लेज़र पिस्तौल","हार्पून गन"],"id":["Asli","Merah","Biru","Hijau","Ungu","Oranye","Merah muda","Sian","Putih","Emas","Gelap","Terang","Jarak dekat","Pistol","SMG","Serbu","Shotgun","Presisi","Berat","Khusus","Spasi","Shift kiri","Shift kanan","Ctrl kiri","Ctrl kanan","Alt kiri","Alt kanan","Enter","Tab","Kembali","Numpad","Gelombang","Level","Peti dijatuhkan!","detik","amunisi","Butuh level {0}","Uang tidak cukup","Mod emas terbuka!","Senjata utama: {0}","Penyembuhan","Perisai","Damage ×2","Kecepatan tembak","Pembekuan","Serangan udara","Menara","Jeda","Mode latihan","kill","Lanjut","Senjata utama","Pengaturan","Keluar","Esc: lanjut   ·   {0}: bekukan game tanpa menu","Keluar dari permainan?","Di mode latihan tidak ada yang disimpan.","Penghasilanmu tetap tersimpan:  +{0} $   ·   +{1} XP","Kamu akan kembali ke menu utama.","Ya, keluar","Tidak, kembali","Latihan: semua senjata, di-upgrade maksimal, amunisi tanpa batas","Damage","area","dtk","Terpasang","Klik: pasang","Halaman","senjata","<  SEBEL.","LANJUT  >","Level {0}  ·  Bonus: {1}","Level game","(tidak dihitung)","Karakter","Lv.","{0} / {1}  ·  1 bonus per level","[{0}]  Pakai","Atur tombol (Pengaturan)","Tidak ada bonus tersimpan","Bonus berikutnya di level {0}","selesai","+5 $  +5 XP","Tersisa","Latihan","peluru","Jarak dekat  ·  Tanpa batas","Senjata utama  ·  Tanpa batas","Senjata api: di peti yang dijatuhkan  ·  {0}: ambil  ·  {1}: bonus  ·  Esc: jeda  ·  {2}: layar penuh","Kamu mati","Latihan  ·  tidak ada yang disimpan","Naik level!","Main lagi","Upgrade","Menu utama","Zombie terbunuh","Koin","XP","Main","Kustomisasi","Opsi","Kredit","Layar penuh  ({0})","Rekor: gelombang {0}","Layar bergetar","Darah","Bidikan","Ya","Tidak","Arah","Mouse","Tombol","Efek","Musik","Bidikan ARAH: prajurit menembak lurus ke depan, searah gerakanmu (klik atau tombol tembak).","Bidikan MOUSE: prajurit membidik ke kursor (klik untuk menembak).","Game dari C02. Kode dan gambar orisinal dibuat untuk proyek ini.","Game tembak-menembak bertahan hidup tampak samping.","{0}/{1} gerak · {2} lompat · klik: serang · {3}: ambil peti · senjata api: di peti yang dijatuhkan","Senjata jarak dekat","Senjata api","Upgrade","Pasang","Senjata api hanya jatuh dari peti yang dijatuhkan.","Terkunci","Warna logam  ·  ubah kapan saja, atau kembali ke tampilan asli","Warna dan kayu  ·  terbuka dengan upgrade 4 (mod emas + warna + kayu)","Kayu","Mod emas","Warna","Ke kiri","Ke kanan","Lompat","Ambil peti","Tembak / serang  (selain klik)","Layar penuh","Pakai bonus tersimpan","Bekukan game  (tanpa menu)","Klik sebuah kotak lalu tekan tombol baru  ·  Esc: batal  ·  Backspace: hapus kotak","Tekan sebuah tombol…","Atur ulang","Kulit","Rambut","Atasan","Celana","Penutup kepala","Sepatu","Pria","Wanita","Normal","Berlebihan","Pakaian  (setiap pakaian tersedia versi pria dan wanita)","Asli","Hanya kosmetik. ASLI = warna pakaian yang dipilih. Mengganti pakaian mengatur ulang warna bajunya.","Prajurit","Komando","Penyintas","SWAT","Pemburu","Ilmuwan","Pengendara motor","Klik senjata yang kamu miliki: upgrade, warna, pasang","Senjata api: setelah terbuka, jatuh di peti","Karakter  ·  kecepatan gerak tidak bisa di-upgrade","Nyawa maks  +20","Level maks","HP","Upgrade hanya dilakukan di sini, di antara permainan. Level naik dengan membunuh zombie.","Klik: upgrade","dibutuhkan","Bahasa","Putar perangkatmu","Beralih ke mode lanskap untuk bermain","Ambil","Ketuk untuk mengambil","Pisau","Belati","Parang","Kapak penebang","Pemukul berpaku","Palu perang","Sabit","Gergaji mesin","Senapan dua laras","Busur silang","Busur berburu","Pistol paku","Penyembur api","Peluncur granat M79","Senapan laser","Senapan plasma","Pistol laser","Senapan harpun"],"vi":["Gốc","Đỏ","Xanh dương","Xanh lá","Tím","Cam","Hồng","Lục lam","Trắng","Vàng kim","Tối","Sáng","Cận chiến","Súng lục","Tiểu liên","Tấn công","Súng ngắn","Chính xác","Hạng nặng","Đặc biệt","Phím cách","Shift trái","Shift phải","Ctrl trái","Ctrl phải","Alt trái","Alt phải","Enter","Tab","Quay lại","Bàn phím số","Đợt","Cấp","Thùng đã được thả!","giây","đạn","Cần cấp {0}","Không đủ tiền","Đã mở khóa bản độ vàng!","Vũ khí chính: {0}","Hồi máu","Khiên","Sát thương ×2","Tốc độ bắn","Đóng băng","Không kích","Tháp pháo","Tạm dừng","Chế độ luyện tập","hạ gục","Tiếp tục","Vũ khí chính","Cài đặt","Thoát","Esc: tiếp tục   ·   {0}: đóng băng game không cần menu","Thoát ván chơi?","Chế độ luyện tập không lưu gì cả.","Thu nhập của bạn được giữ lại:  +{0} $   ·   +{1} XP","Bạn sẽ quay về menu chính.","Có, thoát","Không, quay lại","Luyện tập: mọi vũ khí, nâng cấp tối đa, đạn không giới hạn","Sát thương","vùng","giây","Đã trang bị","Nhấp: trang bị","Trang","vũ khí","<  TRƯỚC","SAU  >","Cấp {0}  ·  Thưởng: {1}","Cấp game","(không tính)","Nhân vật","Cấp","{0} / {1}  ·  1 phần thưởng mỗi cấp","[{0}]  Dùng","Đặt một phím (Cài đặt)","Không có phần thưởng dự trữ","Phần thưởng tiếp theo ở cấp {0}","hoàn thành","+5 $  +5 XP","Còn lại","Luyện tập","viên đạn","Cận chiến  ·  Vô hạn","Vũ khí chính  ·  Vô hạn","Súng: trong thùng được thả  ·  {0}: nhặt  ·  {1}: thưởng  ·  Esc: tạm dừng  ·  {2}: toàn màn hình","Bạn đã chết","Luyện tập  ·  không lưu gì cả","Lên cấp!","Chơi lại","Nâng cấp","Menu chính","Zombie đã hạ","Xu","XP","Chơi","Tùy chỉnh","Tùy chọn","Danh sách thực hiện","Toàn màn hình  ({0})","Kỷ lục: đợt {0}","Rung màn hình","Máu","Ngắm","Có","Không","Hướng","Chuột","Phím","Hiệu ứng","Nhạc","Ngắm THEO HƯỚNG: người lính bắn thẳng về phía trước, theo hướng bạn di chuyển (nhấp hoặc phím bắn).","Ngắm BẰNG CHUỘT: người lính nhắm vào con trỏ (nhấp để bắn).","Game của C02. Mã và hình vẽ gốc được tạo cho dự án này.","Game bắn súng sinh tồn góc nhìn ngang.","{0}/{1} di chuyển · {2} nhảy · nhấp: tấn công · {3}: nhặt thùng · súng: trong thùng được thả","Vũ khí cận chiến","Súng","Nâng cấp","Trang bị","Súng chỉ rơi ra từ những thùng được thả xuống.","Đã khóa","Màu kim loại  ·  đổi bất cứ lúc nào, hoặc quay về diện mạo gốc","Màu và gỗ  ·  mở khóa bằng nâng cấp 4 (bản độ vàng + màu + gỗ)","Gỗ","Bản độ vàng","Màu sắc","Đi sang trái","Đi sang phải","Nhảy","Nhặt một thùng","Bắn / tấn công  (ngoài việc nhấp)","Toàn màn hình","Dùng phần thưởng đã dự trữ","Đóng băng game  (không menu)","Nhấp vào một ô rồi nhấn phím mới  ·  Esc: hủy  ·  Backspace: xóa ô","Nhấn một phím…","Đặt lại","Da","Tóc","Áo","Quần","Đồ đội đầu","Giày","Nam","Nữ","Bình thường","Phóng đại","Trang phục  (mỗi trang phục có bản nam và nữ)","Gốc","Chỉ để làm đẹp. GỐC = màu của trang phục đã chọn. Đổi trang phục sẽ đặt lại màu quần áo.","Lính","Biệt kích","Người sống sót","SWAT","Thợ săn","Nhà khoa học","Tay đua mô tô","Nhấp vào vũ khí bạn có: nâng cấp, màu, trang bị","Súng: sau khi mở khóa sẽ rơi trong các thùng","Nhân vật  ·  tốc độ di chuyển không thể nâng cấp","Máu tối đa  +20","Cấp tối đa","HP","Nâng cấp chỉ thực hiện ở đây, giữa các ván. Hạ zombie để lên cấp.","Nhấp: nâng cấp","cần có","Ngôn ngữ","Hãy xoay thiết bị của bạn","Chuyển sang chế độ ngang để chơi","Nhặt","Chạm để nhặt","Dao","Dao găm","Dao phát","Rìu thợ rừng","Gậy đinh","Búa chiến","Lưỡi hái","Cưa máy","Súng hai nòng","Nỏ","Cung săn","Súng bắn đinh","Súng phun lửa","Súng phóng lựu M79","Súng laser","Súng plasma","Súng lục laser","Súng lao"],"th":["ดั้งเดิม","แดง","น้ำเงิน","เขียว","ม่วง","ส้ม","ชมพู","ฟ้าอมเขียว","ขาว","ทอง","เข้ม","อ่อน","ประชิดตัว","ปืนพก","ปืนกลมือ","จู่โจม","ปืนลูกซอง","แม่นยำ","หนัก","พิเศษ","Spacebar","Shift ซ้าย","Shift ขวา","Ctrl ซ้าย","Ctrl ขวา","Alt ซ้าย","Alt ขวา","Enter","Tab","กลับ","Numpad","เวฟ","เลเวล","ทิ้งลังแล้ว!","วินาที","กระสุน","ต้องใช้เลเวล {0}","เงินไม่พอ","ปลดล็อกม็อดทองแล้ว!","อาวุธหลัก: {0}","รักษา","โล่","ดาเมจ ×2","ความเร็วยิง","แช่แข็ง","โจมตีทางอากาศ","ป้อมปืน","หยุดชั่วคราว","โหมดฝึก","สังหาร","เล่นต่อ","อาวุธหลัก","การตั้งค่า","ออก","Esc: เล่นต่อ   ·   {0}: หยุดเกมโดยไม่เปิดเมนู","ออกจากเกม?","โหมดฝึกไม่บันทึกอะไรเลย","รายได้ของคุณถูกเก็บไว้:  +{0} $   ·   +{1} XP","คุณจะกลับไปที่เมนูหลัก","ใช่ ออก","ไม่ กลับ","โหมดฝึก: อาวุธทุกชนิด อัปเกรดสูงสุด กระสุนไม่จำกัด","ดาเมจ","พื้นที่","วิ","สวมใส่แล้ว","คลิก: สวมใส่","หน้า","อาวุธ","<  ก่อนหน้า","ถัดไป  >","เลเวล {0}  ·  โบนัส: {1}","เลเวลเกม","(ไม่นับ)","ตัวละคร","เลเวล","{0} / {1}  ·  โบนัส 1 อย่างต่อเลเวล","[{0}]  ใช้","ตั้งปุ่ม (การตั้งค่า)","ไม่มีโบนัสสำรอง","โบนัสถัดไปที่เลเวล {0}","เสร็จสิ้น","+5 $  +5 XP","ที่เหลือ","โหมดฝึก","นัด","ประชิดตัว  ·  ไม่จำกัด","อาวุธหลัก  ·  ไม่จำกัด","อาวุธปืน: ในลังที่ทิ้งลงมา  ·  {0}: เก็บ  ·  {1}: โบนัส  ·  Esc: หยุด  ·  {2}: เต็มจอ","คุณตายแล้ว","โหมดฝึก  ·  ไม่บันทึกอะไรเลย","เลเวลอัป!","เล่นอีกครั้ง","อัปเกรด","เมนูหลัก","ซอมบี้ที่สังหาร","เหรียญ","XP","เล่น","ปรับแต่ง","ตัวเลือก","เครดิต","เต็มจอ  ({0})","สถิติ: เวฟ {0}","จอสั่น","เลือด","การเล็ง","ใช่","ไม่","ทิศทาง","เมาส์","ปุ่ม","เอฟเฟกต์","เพลง","เล็งตามทิศทาง: ทหารยิงตรงไปข้างหน้าตามทิศที่คุณเคลื่อนที่ (คลิกหรือปุ่มยิง)","เล็งด้วยเมาส์: ทหารเล็งไปที่เคอร์เซอร์ (คลิกเพื่อยิง)","เกมโดย C02 โค้ดและภาพต้นฉบับสร้างขึ้นเพื่อโปรเจกต์นี้","เกมยิงเอาชีวิตรอดมุมมองด้านข้าง","{0}/{1} เคลื่อนที่ · {2} กระโดด · คลิก: โจมตี · {3}: เก็บลัง · อาวุธปืน: ในลังที่ทิ้งลงมา","อาวุธประชิด","อาวุธปืน","อัปเกรด","สวมใส่","อาวุธปืนจะตกจากลังที่ทิ้งลงมาเท่านั้น","ล็อก","สีโลหะ  ·  เปลี่ยนได้ทุกเมื่อ หรือกลับไปสีดั้งเดิม","สีและไม้  ·  ปลดล็อกด้วยอัปเกรด 4 (ม็อดทอง + สี + ไม้)","ไม้","ม็อดทอง","สี","เดินซ้าย","เดินขวา","กระโดด","เก็บลัง","ยิง / โจมตี  (นอกจากการคลิก)","เต็มจอ","ใช้โบนัสที่สำรองไว้","หยุดเกม  (ไม่เปิดเมนู)","คลิกช่องแล้วกดปุ่มใหม่  ·  Esc: ยกเลิก  ·  Backspace: ล้างช่อง","กดปุ่มใดก็ได้…","รีเซ็ต","ผิว","ผม","เสื้อ","กางเกง","เครื่องประดับศีรษะ","รองเท้า","ชาย","หญิง","ปกติ","เกินจริง","ชุด  (ทุกชุดมีทั้งแบบชายและหญิง)","ดั้งเดิม","เพื่อความสวยงามเท่านั้น ดั้งเดิม = สีของชุดที่เลือก การเปลี่ยนชุดจะรีเซ็ตสีเสื้อผ้า","ทหาร","คอมมานโด","ผู้รอดชีวิต","สวาท","นักล่า","นักวิทยาศาสตร์","นักบิดมอเตอร์ไซค์","คลิกอาวุธที่มี: อัปเกรด สี สวมใส่","อาวุธปืน: เมื่อปลดล็อกแล้วจะตกในลัง","ตัวละคร  ·  ความเร็วการเคลื่อนที่อัปเกรดไม่ได้","เลือดสูงสุด  +20","เลเวลสูงสุด","HP","อัปเกรดได้ที่นี่เท่านั้น ระหว่างเกม เลเวลเพิ่มขึ้นเมื่อสังหารซอมบี้","คลิก: อัปเกรด","ต้องใช้","ภาษา","หมุนอุปกรณ์ของคุณ","สลับเป็นแนวนอนเพื่อเล่น","เก็บ","แตะเพื่อเก็บ","มีด","กริช","มีดพร้า","ขวานตัดไม้","ไม้เบสบอลตะปู","ค้อนศึก","เคียว","เลื่อยโซ่ยนต์","ปืนลูกซองสองลำกล้อง","หน้าไม้","ธนูล่าสัตว์","ปืนยิงตะปู","เครื่องพ่นไฟ","เครื่องยิงลูกระเบิด M79","ปืนเลเซอร์","ปืนพลาสมา","ปืนพกเลเซอร์","ปืนฉมวก"],"sv":["Original","Röd","Blå","Grön","Lila","Orange","Rosa","Cyan","Vit","Guld","Mörk","Ljus","Närstrid","Pistoler","Kulsprutepistoler","Anfall","Hagelgevär","Precision","Tunga","Special","Mellanslag","Vänster Shift","Höger Shift","Vänster Ctrl","Höger Ctrl","Vänster Alt","Höger Alt","Enter","Tab","Tillbaka","Siffertangenter","Våg","Nivå","Låda släppt!","sekunder","ammunition","Nivå {0} krävs","Inte tillräckligt med pengar","Guldmod upplåst!","Huvudvapen: {0}","Läkning","Sköld","Skada ×2","Eldhastighet","Frysning","Flyganfall","Torn","Paus","Träningsläge","dödade","Fortsätt","Huvudvapen","Inställningar","Avsluta","Esc: fortsätt   ·   {0}: frys spelet utan meny","Avsluta spelet?","I träningsläget sparas ingenting.","Dina intäkter behålls:  +{0} $   ·   +{1} XP","Du återvänder till huvudmenyn.","Ja, avsluta","Nej, tillbaka","Träning: alla vapen, fullt uppgraderade, obegränsad ammunition","Skada","område","s","Utrustad","Klicka: utrusta","Sida","vapen","<  FÖRRA","NÄSTA  >","Nivå {0}  ·  Bonus: {1}","Spelnivå","(räknas inte)","Karaktär","Niv.","{0} / {1}  ·  1 bonus per nivå","[{0}]  Använd","Ange en tangent (Inställningar)","Ingen bonus i lager","Nästa bonus på nivå {0}","klarad","+5 $  +5 XP","Kvar","Träning","kulor","Närstrid  ·  Obegränsad","Huvudvapen  ·  Obegränsad","Skjutvapen: i de släppta lådorna  ·  {0}: plocka upp  ·  {1}: bonus  ·  Esc: paus  ·  {2}: helskärm","Du är död","Träning  ·  ingenting sparas","Ny nivå!","Spela igen","Uppgraderingar","Huvudmeny","Dödade zombier","Mynt","XP","Spela","Anpassning","Alternativ","Medverkande","Helskärm  ({0})","Rekord: våg {0}","Skärmskakning","Blod","Sikte","Ja","Nej","Riktning","Mus","Tangenter","Effekter","Musik","RIKTNINGS-sikte: soldaten skjuter rakt fram, i den riktning du rör dig (klick eller eldtangent).","MUS-sikte: soldaten siktar mot markören (klicka för att skjuta).","Ett spel av C02. Originalkod och originalteckningar skapade för det här projektet.","Ett överlevnadsskjutspel i sidovy.","{0}/{1} rör dig · {2} hoppa · klick: attackera · {3}: plocka upp lådor · skjutvapen: i de släppta lådorna","Närstridsvapen","Skjutvapen","Uppgradering","Utrusta","Skjutvapen faller bara i de släppta lådorna.","Låst","Metallfärg  ·  ändra när som helst, eller gå tillbaka till originalutseendet","Färg och trä  ·  låses upp med uppgradering 4 (guldmod + färger + trä)","Trä","Guldmod","Färger","Gå åt vänster","Gå åt höger","Hoppa","Plocka upp en låda","Skjut / attackera  (utöver klick)","Helskärm","Använd lagrad bonus","Frys spelet  (utan meny)","Klicka på en ruta och tryck på den nya tangenten  ·  Esc: avbryt  ·  Backsteg: rensa rutan","Tryck på en tangent…","Återställ","Hud","Hår","Överdel","Byxor","Huvudbonad","Skor","Man","Kvinna","Normal","Överdriven","Klädsel  (varje klädsel finns i manlig och kvinnlig version)","Original","Bara kosmetiskt. ORIGINAL = färgen på den valda klädseln. När du byter klädsel återställs kläderna.","Soldat","Kommando","Överlevare","SWAT","Jägare","Forskare","Motorcyklist","Klicka på ett vapen du äger: uppgradera, färg, utrusta","Skjutvapen: när de är upplåsta faller de i lådorna","Karaktär  ·  rörelsehastigheten kan inte uppgraderas","Max liv  +20","Max nivå","HP","Uppgraderingar görs bara här, mellan spelen. Din nivå stiger när du dödar zombier.","Klicka: uppgradera","krävs","Språk","Vrid din enhet","Byt till liggande läge för att spela","Plocka upp","Tryck för att plocka upp","Kniv","Dolk","Machete","Skogshuggaryxa","Spikklubba","Krigshammare","Lie","Motorsåg","Dubbelpipigt hagelgevär","Armborst","Jaktbåge","Spikpistol","Eldkastare","M79 granatkastare","Lasergevär","Plasmagevär","Laserpistol","Harpunkanon"],"cs":["Původní","Červená","Modrá","Zelená","Fialová","Oranžová","Růžová","Azurová","Bílá","Zlatá","Tmavé","Světlé","Na blízko","Pistole","Samopaly","Útočné","Brokovnice","Přesné","Těžké","Speciální","Mezerník","Levý Shift","Pravý Shift","Levý Ctrl","Pravý Ctrl","Levý Alt","Pravý Alt","Enter","Tab","Zpět","Num. klávesnice","Vlna","Úroveň","Bedna svržena!","sekund","munice","Vyžadována úroveň {0}","Nedostatek peněz","Zlatý mod odemčen!","Hlavní zbraň: {0}","Léčení","Štít","Poškození ×2","Rychlost střelby","Zmrazení","Nálet","Střílna","Pauza","Tréninkový režim","zabití","Pokračovat","Hlavní zbraň","Nastavení","Ukončit","Esc: pokračovat   ·   {0}: zmrazit hru bez menu","Ukončit hru?","V tréninkovém režimu se nic neukládá.","Tvé výdělky zůstávají:  +{0} $   ·   +{1} XP","Vrátíš se do hlavního menu.","Ano, ukončit","Ne, zpět","Trénink: všechny zbraně, plně vylepšené, neomezená munice","Poškození","oblast","s","Vybaveno","Klik: vybavit","Strana","zbraně","<  PŘEDCH.","DALŠÍ  >","Úroveň {0}  ·  Bonus: {1}","Úroveň hry","(nepočítá se)","Postava","Úr.","{0} / {1}  ·  1 bonus za úroveň","[{0}]  Použít","Nastav klávesu (Nastavení)","Žádný bonus v zásobě","Další bonus na úrovni {0}","dokončena","+5 $  +5 XP","Zbývá","Trénink","nábojů","Na blízko  ·  Neomezeně","Hlavní zbraň  ·  Neomezeně","Střelné zbraně: ve svržených bednách  ·  {0}: sebrat  ·  {1}: bonus  ·  Esc: pauza  ·  {2}: celá obrazovka","Jsi mrtvý","Trénink  ·  nic se neukládá","Nová úroveň!","Hrát znovu","Vylepšení","Hlavní menu","Zabití zombie","Mince","XP","Hrát","Přizpůsobení","Možnosti","Titulky","Celá obrazovka  ({0})","Rekord: vlna {0}","Třes obrazovky","Krev","Míření","Ano","Ne","Směr","Myš","Klávesy","Efekty","Hudba","Míření SMĚREM: voják střílí rovně před sebe ve směru tvého pohybu (klik nebo klávesa střelby).","Míření MYŠÍ: voják míří na kurzor (klikni pro výstřel).","Hra od C02. Původní kód a kresby vytvořené pro tento projekt.","Survival střílečka s pohledem z boku.","{0}/{1} pohyb · {2} skok · klik: útok · {3}: sebrat bedny · střelné zbraně: ve svržených bednách","Zbraň na blízko","Střelná zbraň","Vylepšení","Vybavit","Střelné zbraně padají jen ze svržených beden.","Zamčeno","Barva kovu  ·  měň kdykoli, nebo se vrať k původnímu vzhledu","Barva a dřevo  ·  odemknuto vylepšením 4 (zlatý mod + barvy + dřevo)","Dřevo","Zlatý mod","Barvy","Jít doleva","Jít doprava","Skok","Sebrat bednu","Střelba / útok  (kromě kliknutí)","Celá obrazovka","Použít uložený bonus","Zmrazit hru  (bez menu)","Klikni na políčko a stiskni novou klávesu  ·  Esc: zrušit  ·  Backspace: vymazat políčko","Stiskni klávesu…","Obnovit","Pleť","Vlasy","Horní díl","Kalhoty","Pokrývka hlavy","Boty","Muž","Žena","Normální","Přehnaná","Oblečení  (každé oblečení existuje v mužské a ženské verzi)","Původní","Jen vzhled. PŮVODNÍ = barva zvoleného oblečení. Změnou oblečení se barvy oděvu obnoví.","Voják","Komando","Přeživší","SWAT","Lovec","Vědec","Motorkář","Klikni na zbraň, kterou vlastníš: vylepšit, barva, vybavit","Střelné zbraně: po odemknutí padají v bednách","Postava  ·  rychlost pohybu nelze vylepšit","Max. zdraví  +20","Max. úroveň","ZDR","Vylepšení se dělají jen tady, mezi hrami. Úroveň roste zabíjením zombie.","Klik: vylepšit","vyžadováno","Jazyk","Otoč zařízení","Pro hraní přepni na režim na šířku","Sebrat","Klepni pro sebrání","Nůž","Dýka","Mačeta","Dřevorubecká sekera","Pálka s hřeby","Válečné kladivo","Kosa","Motorová pila","Dvouhlavňová brokovnice","Kuše","Lovecký luk","Hřebíkovačka","Plamenomet","Granátomet M79","Laserová puška","Plazmová puška","Laserová pistole","Harpunová puška"],"ro":["Original","Roșu","Albastru","Verde","Mov","Portocaliu","Roz","Cyan","Alb","Auriu","Închis","Deschis","Corp la corp","Pistoale","Pistoale-mitralieră","Asalt","Pușcă cu pompă","Precizie","Grele","Speciale","Spațiu","Shift stânga","Shift dreapta","Ctrl stânga","Ctrl dreapta","Alt stânga","Alt dreapta","Enter","Tab","Înapoi","Tastatura numerică","Val","Nivel","Ladă lansată!","secunde","muniție","Nivel {0} necesar","Bani insuficienți","Mod auriu deblocat!","Arma principală: {0}","Vindecare","Scut","Daune ×2","Cadență","Înghețare","Atac aerian","Turelă","Pauză","Mod antrenament","eliminări","Continuă","Arma principală","Setări","Ieși","Esc: continuă   ·   {0}: îngheață jocul fără meniu","Ieși din joc?","În modul antrenament nu se salvează nimic.","Câștigurile tale sunt păstrate:  +{0} $   ·   +{1} XP","Te vei întoarce la meniul principal.","Da, ieși","Nu, înapoi","Antrenament: toate armele, complet îmbunătățite, muniție nelimitată","Daune","zonă","s","Echipată","Click: echipează","Pagina","arme","<  ANT.","URM.  >","Nivel {0}  ·  Bonus: {1}","Nivelul jocului","(nu se numără)","Personaj","Niv.","{0} / {1}  ·  1 bonus pe nivel","[{0}]  Folosește","Setează o tastă (Setări)","Niciun bonus în stoc","Următorul bonus la nivelul {0}","terminat","+5 $  +5 XP","Rămase","Antrenament","gloanțe","Corp la corp  ·  Nelimitat","Arma principală  ·  Nelimitat","Arme de foc: în lăzile lansate  ·  {0}: ridică  ·  {1}: bonus  ·  Esc: pauză  ·  {2}: ecran complet","Ai murit","Antrenament  ·  nu se salvează nimic","Nivel nou!","Joacă din nou","Îmbunătățiri","Meniu principal","Zombi eliminați","Monede","XP","Joacă","Personalizare","Opțiuni","Credite","Ecran complet  ({0})","Record: val {0}","Zguduirea ecranului","Sânge","Țintire","Da","Nu","Direcție","Mouse","Taste","Efecte","Muzică","Țintire pe DIRECȚIE: soldatul trage drept înainte, în direcția în care te miști (click sau tasta de foc).","Țintire cu MOUSE-ul: soldatul țintește cursorul (click pentru a trage).","Un joc de C02. Cod și desene originale create pentru acest proiect.","Un shooter de supraviețuire văzut din lateral.","{0}/{1} mișcare · {2} salt · click: atac · {3}: ridică lăzi · arme de foc: în lăzile lansate","Armă corp la corp","Armă de foc","Îmbunătățire","Echipează","Armele de foc cad doar din lăzile lansate.","Blocat","Culoarea metalului  ·  schimb-o oricând sau revino la aspectul original","Culoare și lemn  ·  deblocate cu îmbunătățirea 4 (mod auriu + culori + lemn)","Lemn","Mod auriu","Culori","Mergi la stânga","Mergi la dreapta","Salt","Ridică o ladă","Trage / atacă  (pe lângă click)","Ecran complet","Folosește bonusul din stoc","Îngheață jocul  (fără meniu)","Fă click pe o căsuță și apasă noua tastă  ·  Esc: anulează  ·  Backspace: șterge căsuța","Apasă o tastă…","Resetează","Piele","Păr","Partea de sus","Pantaloni","Acoperământ cap","Încălțăminte","Bărbat","Femeie","Normală","Exagerată","Ținută  (fiecare ținută există în versiune de bărbat și de femeie)","Original","Doar estetic. ORIGINAL = culoarea ținutei alese. La schimbarea ținutei, hainele revin la original.","Soldat","Comando","Supraviețuitor","SWAT","Vânător","Om de știință","Motociclist","Fă click pe o armă pe care o ai: îmbunătățește, culoare, echipează","Arme de foc: odată deblocate, cad în lăzi","Personaj  ·  viteza de mișcare nu se poate îmbunătăți","Viață max.  +20","Nivel max.","VIAȚĂ","Îmbunătățirile se fac doar aici, între jocuri. Nivelul crește eliminând zombi.","Click: îmbunătățește","necesar","Limbă","Rotește dispozitivul","Treci în modul peisaj pentru a juca","Ridică","Atinge pentru a ridica","Cuțit","Pumnal","Macetă","Topor de pădurar","Bâtă cu țepi","Ciocan de război","Coasă","Drujbă","Pușcă cu două țevi","Arbaletă","Arc de vânătoare","Pistol de cuie","Aruncător de flăcări","Lansator de grenade M79","Pușcă laser","Pușcă cu plasmă","Pistol laser","Pușcă cu harpon"],"el":["Αρχικό","Κόκκινο","Μπλε","Πράσινο","Μωβ","Πορτοκαλί","Ροζ","Κυανό","Λευκό","Χρυσό","Σκούρο","Ανοιχτό","Σώμα με σώμα","Πιστόλια","Υποπολυβόλα","Επίθεσης","Καραμπίνες","Ακριβείας","Βαριά","Ειδικά","Space","Αριστερό Shift","Δεξί Shift","Αριστερό Ctrl","Δεξί Ctrl","Αριστερό Alt","Δεξί Alt","Enter","Tab","Πίσω","Αριθμητικό","Κύμα","Επίπεδο","Ρίχτηκε κιβώτιο!","δευτερόλεπτα","πυρομαχικά","Απαιτείται επίπεδο {0}","Δεν έχεις αρκετά χρήματα","Ξεκλειδώθηκε το χρυσό mod!","Κύριο όπλο: {0}","Θεραπεία","Ασπίδα","Ζημιά ×2","Ρυθμός βολής","Πάγωμα","Αεροπορική επίθεση","Πυργίσκος","Παύση","Λειτουργία εξάσκησης","εξολοθρεύσεις","Συνέχεια","Κύριο όπλο","Ρυθμίσεις","Έξοδος","Esc: συνέχεια   ·   {0}: πάγωμα του παιχνιδιού χωρίς μενού","Έξοδος από το παιχνίδι;","Στη λειτουργία εξάσκησης δεν αποθηκεύεται τίποτα.","Τα κέρδη σου διατηρούνται:  +{0} $   ·   +{1} XP","Θα επιστρέψεις στο κύριο μενού.","Ναι, έξοδος","Όχι, πίσω","Εξάσκηση: όλα τα όπλα, πλήρως αναβαθμισμένα, απεριόριστα πυρομαχικά","Ζημιά","περιοχή","δ","Εξοπλισμένο","Κλικ: εξοπλισμός","Σελίδα","όπλα","<  ΠΡΟΗΓ.","ΕΠΟΜ.  >","Επίπεδο {0}  ·  Μπόνους: {1}","Επίπεδο παιχνιδιού","(δεν μετράει)","Χαρακτήρας","Επ.","{0} / {1}  ·  1 μπόνους ανά επίπεδο","[{0}]  Χρήση","Όρισε ένα πλήκτρο (Ρυθμίσεις)","Κανένα μπόνους στην αποθήκη","Επόμενο μπόνους στο επίπεδο {0}","ολοκληρώθηκε","+5 $  +5 XP","Απομένουν","Εξάσκηση","σφαίρες","Σώμα με σώμα  ·  Απεριόριστο","Κύριο όπλο  ·  Απεριόριστο","Πυροβόλα: στα κιβώτια που ρίχνονται  ·  {0}: μάζεμα  ·  {1}: μπόνους  ·  Esc: παύση  ·  {2}: πλήρης οθόνη","Πέθανες","Εξάσκηση  ·  δεν αποθηκεύεται τίποτα","Νέο επίπεδο!","Παίξε ξανά","Αναβαθμίσεις","Κύριο μενού","Νεκροί ζόμπι","Νομίσματα","XP","Παίξε","Εξατομίκευση","Επιλογές","Συντελεστές","Πλήρης οθόνη  ({0})","Ρεκόρ: κύμα {0}","Κούνημα οθόνης","Αίμα","Σκόπευση","Ναι","Όχι","Κατεύθυνση","Ποντίκι","Πλήκτρα","Εφέ","Μουσική","Σκόπευση ΚΑΤΕΥΘΥΝΣΗΣ: ο στρατιώτης πυροβολεί ευθεία μπροστά, προς την κατεύθυνση κίνησής σου (κλικ ή πλήκτρο βολής).","Σκόπευση ΠΟΝΤΙΚΙΟΥ: ο στρατιώτης στοχεύει τον δρομέα (κλικ για βολή).","Ένα παιχνίδι της C02. Πρωτότυπος κώδικας και σχέδια για αυτό το έργο.","Ένα shooter επιβίωσης με πλάγια όψη.","{0}/{1} κίνηση · {2} άλμα · κλικ: επίθεση · {3}: μάζεμα κιβωτίων · πυροβόλα: στα κιβώτια που ρίχνονται","Όπλο σώμα με σώμα","Πυροβόλο όπλο","Αναβάθμιση","Εξοπλισμός","Τα πυροβόλα πέφτουν μόνο από τα κιβώτια που ρίχνονται.","Κλειδωμένο","Χρώμα μετάλλου  ·  άλλαξέ το όποτε θες ή γύρνα στην αρχική εμφάνιση","Χρώμα και ξύλο  ·  ξεκλειδώνονται με την αναβάθμιση 4 (χρυσό mod + χρώματα + ξύλο)","Ξύλο","Χρυσό mod","Χρώματα","Κίνηση αριστερά","Κίνηση δεξιά","Άλμα","Μάζεμα κιβωτίου","Βολή / επίθεση  (εκτός από το κλικ)","Πλήρης οθόνη","Χρήση αποθηκευμένου μπόνους","Πάγωμα παιχνιδιού  (χωρίς μενού)","Κάνε κλικ σε ένα πλαίσιο και πάτα το νέο πλήκτρο  ·  Esc: ακύρωση  ·  Backspace: εκκαθάριση πλαισίου","Πάτα ένα πλήκτρο…","Επαναφορά","Δέρμα","Μαλλιά","Επάνω μέρος","Παντελόνι","Κάλυμμα κεφαλής","Παπούτσια","Άνδρας","Γυναίκα","Κανονική","Υπερβολική","Στολή  (κάθε στολή υπάρχει σε ανδρική και γυναικεία έκδοση)","Αρχικό","Μόνο αισθητικό. ΑΡΧΙΚΟ = χρώμα της επιλεγμένης στολής. Αλλάζοντας στολή, τα ρούχα επανέρχονται.","Στρατιώτης","Κομάντο","Επιζών","SWAT","Κυνηγός","Επιστήμονας","Μοτοσικλετιστής","Κάνε κλικ σε όπλο που έχεις: αναβάθμιση, χρώμα, εξοπλισμός","Πυροβόλα: μόλις ξεκλειδωθούν, πέφτουν στα κιβώτια","Χαρακτήρας  ·  η ταχύτητα κίνησης δεν αναβαθμίζεται","Μέγ. ζωή  +20","Μέγ. επίπεδο","HP","Οι αναβαθμίσεις γίνονται μόνο εδώ, ανάμεσα στα παιχνίδια. Το επίπεδο ανεβαίνει σκοτώνοντας ζόμπι.","Κλικ: αναβάθμιση","απαιτείται","Γλώσσα","Γύρισε τη συσκευή σου","Πέρασε σε οριζόντια λειτουργία για να παίξεις","Μάζεμα","Πάτα για να μαζέψεις","Μαχαίρι","Στιλέτο","Ματσέτα","Τσεκούρι ξυλοκόπου","Ρόπαλο με καρφιά","Πολεμικό σφυρί","Δρεπάνι","Αλυσοπρίονο","Δίκαννο","Βαλλίστρα","Κυνηγετικό τόξο","Πιστόλι καρφιών","Φλογοβόλο","Εκτοξευτής χειροβομβίδων M79","Τουφέκι λέιζερ","Τουφέκι πλάσματος","Πιστόλι λέιζερ","Ψαροντούφεκο"],"he":["מקורי","אדום","כחול","ירוק","סגול","כתום","ורוד","טורקיז","לבן","זהב","כהה","בהיר","קרב מגע","אקדחים","תת-מקלעים","סער","רובי ציד","דיוק","כבדים","מיוחדים","רווח","Shift שמאלי","Shift ימני","Ctrl שמאלי","Ctrl ימני","Alt שמאלי","Alt ימני","Enter","Tab","חזרה","לוח מספרים","גל","שלב","ארגז הושלך!","שניות","תחמושת","נדרש שלב {0}","אין מספיק כסף","מוד הזהב נפתח!","נשק ראשי: {0}","ריפוי","מגן","נזק ×2","קצב ירי","הקפאה","תקיפה אווירית","צריח","השהיה","מצב אימון","חיסולים","המשך","נשק ראשי","הגדרות","יציאה","Esc: המשך   ·   {0}: הקפאת המשחק ללא תפריט","לצאת מהמשחק?","במצב אימון לא נשמר דבר.","הרווחים שלך נשמרים:  +{0} $   ·   +{1} XP","תחזור לתפריט הראשי.","כן, יציאה","לא, חזרה","אימון: כל הנשקים, משודרגים עד הסוף, תחמושת ללא הגבלה","נזק","שטח","שנ׳","מצויד","לחיצה: צייד","עמוד","נשקים","<  הקודם","הבא  >","שלב {0}  ·  בונוס: {1}","שלב משחק","(לא נספר)","דמות","שלב","{0} / {1}  ·  בונוס אחד לכל שלב","[{0}]  שימוש","הגדר מקש (הגדרות)","אין בונוס במלאי","הבונוס הבא בשלב {0}","הושלם","+5 $  +5 XP","נותרו","אימון","כדורים","קרב מגע  ·  ללא הגבלה","נשק ראשי  ·  ללא הגבלה","כלי נשק: בארגזים שמושלכים  ·  {0}: איסוף  ·  {1}: בונוס  ·  Esc: השהיה  ·  {2}: מסך מלא","מתת","אימון  ·  לא נשמר דבר","עלית שלב!","שחק שוב","שדרוגים","תפריט ראשי","זומבים שחוסלו","מטבעות","XP","שחק","התאמה אישית","אפשרויות","קרדיטים","מסך מלא  ({0})","שיא: גל {0}","רעידת מסך","דם","כיוון","כן","לא","כיוון","עכבר","מקשים","אפקטים","מוזיקה","כיוון לפי תנועה: החייל יורה ישר קדימה, בכיוון שבו אתה זז (לחיצה או מקש ירי).","כיוון בעכבר: החייל מכוון אל הסמן (לחץ כדי לירות).","משחק של C02. קוד ואיורים מקוריים שנוצרו לפרויקט זה.","משחק הישרדות יריות במבט צדדי.","{0}/{1} תנועה · {2} קפיצה · לחיצה: תקיפה · {3}: איסוף ארגזים · כלי נשק: בארגזים שמושלכים","נשק קרב מגע","נשק חם","שדרוג","צייד","כלי נשק נופלים רק מארגזים שמושלכים.","נעול","צבע המתכת  ·  שנה בכל עת, או חזור למראה המקורי","צבע ועץ  ·  נפתחים בשדרוג 4 (מוד זהב + צבעים + עץ)","עץ","מוד זהב","צבעים","לך שמאלה","לך ימינה","קפוץ","אסוף ארגז","ירי / תקיפה  (בנוסף ללחיצה)","מסך מלא","השתמש בבונוס מהמלאי","הקפא את המשחק  (בלי תפריט)","לחץ על משבצת ואז על המקש החדש  ·  Esc: ביטול  ·  Backspace: ניקוי המשבצת","לחץ על מקש…","איפוס","עור","שיער","חלק עליון","מכנסיים","כיסוי ראש","נעליים","גבר","אישה","רגיל","מוגזם","תלבושת  (לכל תלבושת יש גרסת גבר וגרסת אישה)","מקורי","קוסמטי בלבד. מקורי = צבע התלבושת שנבחרה. החלפת תלבושת מאפסת את צבעי הבגדים.","חייל","קומנדו","שורד","סווט","צייד","מדען","אופנוען","לחץ על נשק שברשותך: שדרוג, צבע, ציוד","כלי נשק: לאחר הפתיחה הם נופלים בארגזים","דמות  ·  אי אפשר לשדרג את מהירות התנועה","חיים מקס׳  +20","שלב מקס׳","חיים","שדרוגים נעשים רק כאן, בין משחקים. השלב עולה בחיסול זומבים.","לחיצה: שדרג","נדרש","שפה","סובב את המכשיר","עבור למצב לרוחב כדי לשחק","אסוף","הקש כדי לאסוף","סכין","פגיון","מצ׳טה","גרזן חוטב עצים","מחבט עם מסמרים","פטיש קרב","מגל","משור שרשרת","רובה ציד כפול","קשת ברונות","קשת ציד","אקדח מסמרים","להביור","משגר רימונים M79","רובה לייזר","רובה פלזמה","אקדח לייזר","רובה צלצל"],"hu":["Eredeti","Piros","Kék","Zöld","Lila","Narancs","Rózsaszín","Cián","Fehér","Arany","Sötét","Világos","Közelharc","Pisztolyok","Géppisztolyok","Gyalogsági","Sörétes puskák","Pontos","Nehéz","Speciális","Szóköz","Bal Shift","Jobb Shift","Bal Ctrl","Jobb Ctrl","Bal Alt","Jobb Alt","Enter","Tab","Vissza","Numerikus","Hullám","Szint","Láda ledobva!","másodperc","lőszer","{0}. szint szükséges","Nincs elég pénz","Arany mod feloldva!","Fő fegyver: {0}","Gyógyítás","Pajzs","Sebzés ×2","Tűzgyorsaság","Fagyasztás","Légicsapás","Torony","Szünet","Gyakorló mód","kill","Folytatás","Fő fegyver","Beállítások","Kilépés","Esc: folytatás   ·   {0}: játék befagyasztása menü nélkül","Kilépsz a játékból?","Gyakorló módban semmi sem mentődik.","A keresményeid megmaradnak:  +{0} $   ·   +{1} XP","Visszatérsz a főmenübe.","Igen, kilépés","Nem, vissza","Gyakorlás: minden fegyver, teljesen fejlesztve, korlátlan lőszer","Sebzés","terület","mp","Felszerelve","Katt: felszerel","Oldal","fegyver","<  ELŐZŐ","KÖVETKEZŐ  >","{0}. szint  ·  Bónusz: {1}","Játékszint","(nem számít)","Karakter","Szt.","{0} / {1}  ·  szintenként 1 bónusz","[{0}]  Használat","Állíts be egy billentyűt (Beállítások)","Nincs bónusz a készletben","Következő bónusz a(z) {0}. szinten","befejezve","+5 $  +5 XP","Hátralévő","Gyakorlás","golyó","Közelharc  ·  Korlátlan","Fő fegyver  ·  Korlátlan","Lőfegyverek: a ledobott ládákban  ·  {0}: felvétel  ·  {1}: bónusz  ·  Esc: szünet  ·  {2}: teljes képernyő","Meghaltál","Gyakorlás  ·  semmi sem mentődik","Szintlépés!","Újra","Fejlesztések","Főmenü","Megölt zombik","Érmék","XP","Játék","Testreszabás","Opciók","Készítők","Teljes képernyő  ({0})","Rekord: {0}. hullám","Képernyőremegés","Vér","Célzás","Igen","Nem","Irány","Egér","Billentyűk","Effektek","Zene","IRÁNY célzás: a katona egyenesen előre lő, a mozgásod irányában (kattintás vagy tűz billentyű).","EGÉR célzás: a katona a kurzorra céloz (kattints a lövéshez).","A C02 játéka. Eredeti kód és rajzok, ehhez a projekthez készítve.","Oldalnézetes túlélő lövöldözős játék.","{0}/{1} mozgás · {2} ugrás · kattintás: támadás · {3}: ládák felvétele · lőfegyverek: a ledobott ládákban","Közelharci fegyver","Lőfegyver","Fejlesztés","Felszerel","A lőfegyverek csak a ledobott ládákból esnek ki.","Zárolva","Fém színe  ·  bármikor módosítható, vagy visszaállítható az eredeti kinézet","Szín és fa  ·  a 4. fejlesztéssel oldható fel (arany mod + színek + fa)","Fa","Arany mod","Színek","Balra","Jobbra","Ugrás","Láda felvétele","Lövés / támadás  (a kattintás mellett)","Teljes képernyő","Tárolt bónusz használata","Játék befagyasztása  (menü nélkül)","Kattints egy mezőre, majd nyomd meg az új billentyűt  ·  Esc: mégse  ·  Backspace: mező törlése","Nyomj meg egy billentyűt…","Visszaállítás","Bőr","Haj","Felső","Nadrág","Fejfedő","Cipő","Férfi","Női","Normál","Eltúlzott","Ruha  (minden ruha elérhető férfi és női változatban)","Eredeti","Csak kozmetikai. EREDETI = a kiválasztott ruha színe. Ruhaváltáskor a ruhák színe visszaáll.","Katona","Kommandós","Túlélő","SWAT","Vadász","Tudós","Motoros","Kattints egy birtokolt fegyverre: fejlesztés, szín, felszerelés","Lőfegyverek: feloldás után a ládákban hullanak","Karakter  ·  a mozgási sebesség nem fejleszthető","Max. élet  +20","Max. szint","ÉP","A fejlesztések csak itt, a játékok között végezhetők. A szint zombik megölésével nő.","Katt: fejleszt","szükséges","Nyelv","Fordítsd el az eszközt","A játékhoz válts fekvő módra","Felvétel","Érintsd meg a felvételhez","Kés","Tőr","Machete","Favágó fejsze","Szöges ütő","Harci kalapács","Kasza","Láncfűrész","Duplacsövű puska","Számszeríj","Vadászíj","Szögbelövő","Lángszóró","M79 gránátvető","Lézerpuska","Plazmapuska","Lézerpisztoly","Szigonypuska"]};
+let touchUsed=false;const coarse=()=>{try{return matchMedia('(pointer:coarse)').matches}catch(e){return false}};
+const touchOn=()=>touchUsed||coarse();const aimDir=()=>touchOn()||SET.aim==='dir';   // sur mobile : tir droit dans le sens du déplacement
+// --- Moteur de traduction ---
+// Les textes du jeu sont écrits en français : tr('texte', args…) cherche la traduction (insensible à la casse), sinon garde le français.
+// Le texte dessiné sur le canvas passe aussi par ce filtre : les libellés fixes sont traduits automatiquement.
+const DICT={};
+for(const c in I18N){const m=new Map();I18N_FR.forEach((k,i)=>m.set(k.toLowerCase(),I18N[c][i]));DICT[c]=m}
+let LANG='fr';const HC=new Map();
+{const _u=String.prototype.toUpperCase;String.prototype.toUpperCase=function(){const r=_u.call(this);return LANG==='el'?r.normalize('NFD').replace(/[\u0300\u0301]/g,'').normalize('NFC'):r}}   // en grec, les capitales n'ont pas d'accent
+function detectLang(){
+  const list=(navigator.languages&&navigator.languages.length)?navigator.languages:[navigator.language||'en'];
+  for(const l of list){
+    let c=String(l).toLowerCase().split('-')[0];if(c==='iw') c='he';if(c==='in') c='id';
+    if(LANGS.some(x=>x.c===c)) return c;
+  }
+  return 'en';                                  // langue non gérée : anglais, modifiable dans le menu principal
+}
+function setLang(c){if(!LANGS.some(x=>x.c===c)) c='en';LANG=c;HC.clear();try{document.documentElement.lang=c}catch(e){}if(typeof READY!=='undefined'&&READY) fit()}
+setLang(SET.lang&&LANGS.some(x=>x.c===SET.lang)?SET.lang:detectLang());
+function tr(s){
+  let v=s;
+  if(LANG!=='fr'){const d=DICT[LANG],t=d&&d.get(String(s).toLowerCase());if(t!==undefined) v=t}
+  for(let i=1;i<arguments.length;i++) v=v.split('{'+(i-1)+'}').join(arguments[i]);
+  return v;
+}
+function trHook(t){
+  if(LANG==='fr'||typeof t!=='string'||t.length<2) return t;
+  let c=HC.get(t);if(c!==undefined) return c;
+  const v=DICT[LANG].get(t.toLowerCase());let r=t;
+  if(v!==undefined) r=(t===t.toUpperCase()&&t!==t.toLowerCase())?v.toUpperCase():v;
+  HC.set(t,r);return r;
+}
+{
+  const P=CanvasRenderingContext2D.prototype,_ft=P.fillText,_mt=P.measureText;
+  P.fillText=function(t,x,y,mw){
+    t=trHook(t);
+    if(mw===undefined&&LANG!=='fr'&&typeof t==='string'){            // un texte traduit plus long que prévu est comprimé au lieu de sortir de l'écran
+      const al=this.textAlign;let av=al==='right'||al==='end'?x-8:al==='center'?2*Math.min(x,960-x)-16:960-8-x;
+      if(av>40) mw=av;
+    }
+    return mw===undefined?_ft.call(this,t,x,y):_ft.call(this,t,x,y,mw);
+  };
+  P.measureText=function(t){return _mt.call(this,trHook(t))};
+}
+// --- Drapeaux dessinés en vectoriel (les émojis de drapeaux ne s'affichent pas sous Windows) ---
+function drawFlag(code,x,y,w,h){
+  const R=(c,a,b,cw,ch)=>{ctx.fillStyle=c;ctx.fillRect(x+a*w,y+b*h,cw*w+.5,ch*h+.5)};
+  const H3=(a,b,c)=>{R(a,0,0,1,1/3);R(b,0,1/3,1,1/3);R(c,0,2/3,1,1/3)};
+  const V3=(a,b,c)=>{R(a,0,0,1/3,1);R(b,1/3,0,1/3,1);R(c,2/3,0,1/3,1)};
+  const circ=(c,cx,cy,r)=>{ctx.fillStyle=c;ctx.beginPath();ctx.arc(x+cx*w,y+cy*h,r*h,0,7);ctx.fill()};
+  const star=(c,cx,cy,r,rot)=>{ctx.fillStyle=c;ctx.beginPath();const o=rot==null?-Math.PI/2:rot;for(let i=0;i<10;i++){const a=o+i*Math.PI/5,rr=i%2?r*.4:r;ctx.lineTo(x+cx*w+Math.cos(a)*rr*h,y+cy*h+Math.sin(a)*rr*h)}ctx.closePath();ctx.fill()};
+  const line=(c,lw,a,b,cc,d)=>{ctx.strokeStyle=c;ctx.lineWidth=lw;ctx.beginPath();ctx.moveTo(x+a*w,y+b*h);ctx.lineTo(x+cc*w,y+d*h);ctx.stroke()};
+  ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();
+  switch(code){
+    case 'fr':V3('#0055a4','#fff','#ef4135');break;
+    case 'gb':R('#012169',0,0,1,1);line('#fff',h*.22,0,0,1,1);line('#fff',h*.22,1,0,0,1);line('#c8102e',h*.08,0,0,1,1);line('#c8102e',h*.08,1,0,0,1);line('#fff',h*.34,.5,0,.5,1);line('#fff',h*.34,0,.5,1,.5);line('#c8102e',h*.2,.5,0,.5,1);line('#c8102e',h*.2,0,.5,1,.5);break;
+    case 'es':R('#c60b1e',0,0,1,1);R('#ffc400',0,.25,1,.5);break;
+    case 'de':H3('#000','#dd0000','#ffce00');break;
+    case 'it':V3('#009246','#fff','#ce2b37');break;
+    case 'pt':R('#006600',0,0,.4,1);R('#ff0000',.4,0,.6,1);circ('#ffd800',.4,.5,.22);circ('#ff0000',.4,.5,.12);circ('#fff',.4,.5,.06);break;
+    case 'nl':H3('#ae1c28','#fff','#21468b');break;
+    case 'pl':R('#fff',0,0,1,.5);R('#dc143c',0,.5,1,.5);break;
+    case 'ru':H3('#fff','#0039a6','#d52b1e');break;
+    case 'ua':R('#0057b7',0,0,1,.5);R('#ffd700',0,.5,1,.5);break;
+    case 'tr':R('#e30a17',0,0,1,1);circ('#fff',.38,.5,.27);circ('#e30a17',.45,.5,.22);star('#fff',.6,.5,.13,0);break;
+    case 'sa':R('#006c35',0,0,1,1);R('#fff',.18,.3,.64,.07);R('#fff',.22,.45,.56,.05);R('#fff',.18,.7,.64,.05);R('#fff',.3,.62,.4,.05);break;
+    case 'cn':R('#de2910',0,0,1,1);star('#ffde00',.17,.28,.18);star('#ffde00',.35,.1,.05);star('#ffde00',.42,.2,.05);star('#ffde00',.42,.34,.05);star('#ffde00',.35,.44,.05);break;
+    case 'jp':R('#fff',0,0,1,1);circ('#bc002d',.5,.5,.3);break;
+    case 'kr':{R('#fff',0,0,1,1);const cx=x+w/2,cy=y+h/2,r=h*.27;ctx.fillStyle='#cd2e3a';ctx.beginPath();ctx.arc(cx,cy,r,Math.PI,0);ctx.fill();ctx.fillStyle='#0047a0';ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI);ctx.fill();
+      ctx.fillStyle='#cd2e3a';ctx.beginPath();ctx.arc(cx-r/2,cy,r/2,0,Math.PI);ctx.fill();ctx.fillStyle='#0047a0';ctx.beginPath();ctx.arc(cx+r/2,cy,r/2,Math.PI,0);ctx.fill();
+      ctx.fillStyle='#000';for(const [sx,sy] of[[-1,-1],[1,-1],[-1,1],[1,1]]){ctx.save();ctx.translate(cx+sx*w*.34,cy+sy*h*.3);ctx.rotate(sx*sy*Math.PI/5);for(let i=-1;i<=1;i++) ctx.fillRect(-w*.07,i*h*.09-h*.02,w*.14,h*.04);ctx.restore()}break}
+    case 'in':H3('#ff9933','#fff','#138808');ctx.strokeStyle='#000080';ctx.lineWidth=1;ctx.beginPath();ctx.arc(x+w/2,y+h/2,h*.12,0,7);ctx.stroke();for(let i=0;i<8;i++){const a=i*Math.PI/4;ctx.beginPath();ctx.moveTo(x+w/2,y+h/2);ctx.lineTo(x+w/2+Math.cos(a)*h*.12,y+h/2+Math.sin(a)*h*.12);ctx.stroke()}break;
+    case 'id':R('#e70011',0,0,1,.5);R('#fff',0,.5,1,.5);break;
+    case 'vn':R('#da251d',0,0,1,1);star('#ffff00',.5,.52,.3);break;
+    case 'th':R('#a51931',0,0,1,1);R('#f4f5f8',0,1/6,1,4/6);R('#2d2a4a',0,1/3,1,1/3);break;
+    case 'se':R('#006aa7',0,0,1,1);R('#fecc00',.3,0,.14,1);R('#fecc00',0,.43,1,.14);break;
+    case 'cz':R('#fff',0,0,1,.5);R('#d7141a',0,.5,1,.5);ctx.fillStyle='#11457e';ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+w*.5,y+h/2);ctx.lineTo(x,y+h);ctx.fill();break;
+    case 'ro':V3('#002b7f','#fcd116','#ce1126');break;
+    case 'gr':for(let i=0;i<9;i++) R(i%2?'#fff':'#0d5eaf',0,i/9,1,1/9);R('#0d5eaf',0,0,.34,5/9);R('#fff',.136,0,.068,5/9);R('#fff',0,.2,.34,.068);break;
+    case 'il':R('#fff',0,0,1,1);R('#0038b8',0,.1,1,.1);R('#0038b8',0,.8,1,.1);ctx.strokeStyle='#0038b8';ctx.lineWidth=Math.max(1,h*.05);ctx.beginPath();for(const s of[1,-1]){ctx.moveTo(x+w/2,y+h/2-s*h*.2);ctx.lineTo(x+w/2+h*.17,y+h/2+s*h*.1);ctx.lineTo(x+w/2-h*.17,y+h/2+s*h*.1);ctx.closePath()}ctx.stroke();break;
+    case 'hu':H3('#ce2939','#fff','#477050');break;
+    default:R('#888',0,0,1,1);
+  }
+  ctx.restore();ctx.strokeStyle='rgba(0,0,0,.65)';ctx.lineWidth=1;ctx.strokeRect(x+.5,y+.5,w-1,h-1);
+}
+function langInfo(){return LANGS.find(l=>l.c===LANG)||LANGS[1]}
+function drawLang(){
+  ctx.fillStyle='#000000e0';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
+  ctx.fillStyle='#000';ctx.font='400 38px '+TITLE;ctx.fillText(tr('Langue').toUpperCase(),43,61);ctx.fillStyle='#e9e1d0';ctx.fillText(tr('Langue').toUpperCase(),40,58);
+  ctx.fillStyle='#7a2c1c';ctx.fillRect(40,66,200,3);
+  const cw=168,ch=66,gx=10,gy=8;
+  LANGS.forEach((l,i)=>{
+    const x=40+(i%5)*(cw+gx),y=84+Math.floor(i/5)*(ch+gy),on=l.c===LANG,hot=mouse.x>=x&&mouse.x<=x+cw&&mouse.y>=y&&mouse.y<=y+ch;
+    menuRects.push({x,y,w:cw,h:ch,act:()=>{SET.lang=l.c;setLang(l.c);saveOpts();state='menu'}});
+    panel(x,y,cw,ch,{top:on?'#4a2018':hot?'#3a2e28':'#26211e',bot:on?'#2a100c':'#14100e',edge:on?'#e2542e':hot?'#a8553a':'#4a3a2e',norivets:true});
+    drawFlag(l.f,x+10,y+14,54,38);
+    ctx.fillStyle=on?'#fff':'#d8d2c8';ctx.font='700 16px '+FONT;ctx.textAlign='left';ctx.fillText(l.n,x+74,y+39,cw-82);
+  });
+  btn(menuRects,40,484,170,44,'RETOUR',{act:()=>state='menu',size:20});
+}
+
 let bindListen=null,nearC=null;
 function keyName(c){
   if(!c) return '—';
@@ -219,11 +338,11 @@ function keyName(c){
   if(m[c]) return m[c];
   if(/^Key[A-Z]$/.test(c)) return c.slice(3);
   if(/^Digit\d$/.test(c)) return c.slice(5);
-  if(/^Numpad/.test(c)) return 'PAVÉ '+c.slice(6);
+  if(/^Numpad/.test(c)) return tr('Pavé').toUpperCase()+' '+c.slice(6);
   return c.toUpperCase();
 }
 const kn=a=>keyName(KEYS[a].find(k=>k)||'');
-const kd=a=>KEYS[a].some(c=>c&&keys[c]);
+const kd=a=>KEYS[a].some(c=>c&&keys[c])||!!tctl[a];
 function captureKey(code){
   const b=bindListen;bindListen=null;
   if(code==='Escape') return;
@@ -289,7 +408,7 @@ function startWave(){
     else if(wave>=3 && r>1-pt) t='tank';
     spawnQueue.push(t);
   }
-  spawnTimer=60; flash('Vague '+wave);
+  spawnTimer=60; flash(tr('Vague')+' '+wave);
 }
 function flash(t){msg=t;msgT=120}
 
@@ -310,7 +429,7 @@ addEventListener('keydown',e=>{
   else if(state==='trainpick' && e.code==='Escape') state='pause';
   else if(state==='weapon' && e.code==='Escape') state='upgrades';
   else if(state==='keys' && e.code==='Escape') state='options';
-  else if((state==='options'||state==='credits'||state==='upgrades'||state==='custom') && e.code==='Escape') state=(state==='options'&&optFrom==='pause')?'pause':'menu';
+  else if((state==='options'||state==='credits'||state==='upgrades'||state==='custom'||state==='lang') && e.code==='Escape') state=(state==='options'&&optFrom==='pause')?'pause':'menu';
 });
 addEventListener('keyup',e=>keys[e.code]=false);
 let sliderActive=null;
@@ -319,19 +438,84 @@ cv.addEventListener('mousemove',e=>{
   mouse.x=(e.clientX-r.left)*W/r.width; mouse.y=(e.clientY-r.top)*H/r.height;
   if(sliderActive) sliderActive.act();
 });
+// --- Mobile : commandes tactiles (déplacement, saut, tir), toucher sur les caisses et les bonus ---
+const tctl={left:false,right:false,jump:false,fire:false};
+const tpts=new Map();
+const TB={left:{x:78,y:H-150,r:46},right:{x:188,y:H-150,r:46},jump:{x:W-210,y:H-126,r:42},fire:{x:W-100,y:H-166,r:58}};
+const TPAUSE={x:W-56,y:84,w:44,h:44},STOCK={x:W-262,y:H-76,w:248,h:62};
+const MENU_STATES=['menu','options','credits','upgrades','weapon','keys','custom','lang','pause','trainpick','over'];
+let autoTarget=null;
+const inR=(p,r)=>p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h;
+function tpos(t){const r=cv.getBoundingClientRect();return{x:(t.clientX-r.left)*W/r.width,y:(t.clientY-r.top)*H/r.height}}
+function tHit(x,y){for(const k in TB){const b=TB[k];if(Math.hypot(x-b.x,y-b.y)<=b.r*1.3) return k}return null}
+function tRecalc(){tctl.left=tctl.right=tctl.jump=tctl.fire=false;for(const v of tpts.values()) if(v) tctl[v]=true}
+function takeCrate(c){pickCrate(c);c.dead=true;crates=crates.filter(k=>!k.dead);nearC=null;autoTarget=null}
+function tapCrate(x,y){                           // toucher une caisse : la ramasse si on est à portée, sinon le soldat s'y rend
+  for(const c of crates){
+    if(Math.abs(x-c.x)<40&&y>c.y-84&&y<c.y+16){
+      if(Math.hypot(player.x-c.x,(player.y-30)-(c.y-12))<110) takeCrate(c); else autoTarget=c;
+      return true;
+    }
+  }
+  return false;
+}
+function menuPress(){
+  for(const r of menuRects) if(mouse.x>=r.x&&mouse.x<=r.x+r.w&&mouse.y>=r.y&&mouse.y<=r.y+r.h){sfx('click');r.act();if(r.slider) sliderActive=r;return true}
+  return false;
+}
 cv.addEventListener('mousedown',()=>{
   audioInit();
-  const list=(state==='menu'||state==='options'||state==='credits'||state==='upgrades'||state==='weapon'||state==='keys'||state==='custom'||state==='pause'||state==='trainpick'||state==='over')?menuRects:null;
-  if(list){
-    for(const r of list) if(mouse.x>=r.x&&mouse.x<=r.x+r.w&&mouse.y>=r.y&&mouse.y<=r.y+r.h){
-      sfx('click');r.act();if(r.slider) sliderActive=r;
-      break;
-    }
-    return;
-  }
+  if(MENU_STATES.includes(state)){menuPress();return}
+  if(state==='play'&&stock.length&&inR(mouse,STOCK)){useBonus();return}       // clic sur le bonus en stock = l'utiliser
   mouse.down=true;
 });
 addEventListener('mouseup',()=>{mouse.down=false;sliderActive=null});
+cv.addEventListener('touchstart',e=>{
+  e.preventDefault();touchUsed=true;audioInit();
+  for(const t of e.changedTouches){
+    const p=tpos(t);mouse.x=p.x;mouse.y=p.y;
+    if(MENU_STATES.includes(state)){menuPress();continue}
+    if(state!=='play'||paused) continue;
+    if(inR(p,TPAUSE)){openPause();continue}
+    if(stock.length&&inR(p,STOCK)){useBonus();continue}
+    const k=tHit(p.x,p.y);
+    if(k){tpts.set(t.identifier,k);tRecalc();continue}
+    tapCrate(p.x,p.y);
+  }
+  fit();
+},{passive:false});
+cv.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  for(const t of e.changedTouches){
+    const p=tpos(t);mouse.x=p.x;mouse.y=p.y;
+    if(sliderActive){sliderActive.act();continue}
+    if(state==='play'&&tpts.has(t.identifier)){tpts.set(t.identifier,tHit(p.x,p.y));tRecalc()}
+  }
+},{passive:false});
+const tEnd=e=>{e.preventDefault();audioInit();for(const t of e.changedTouches) tpts.delete(t.identifier);tRecalc();sliderActive=null};
+cv.addEventListener('touchend',tEnd,{passive:false});cv.addEventListener('touchcancel',tEnd,{passive:false});
+function drawTouch(){
+  const disc=(b,on)=>{ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,7);ctx.fillStyle=on?'rgba(226,84,46,.6)':'rgba(16,12,10,.5)';ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=on?'#ff8a5a':'rgba(255,255,255,.4)';ctx.stroke()};
+  ctx.save();
+  for(const k in TB) disc(TB[k],tctl[k]);
+  ctx.fillStyle='rgba(255,255,255,.9)';ctx.strokeStyle='rgba(255,255,255,.9)';ctx.lineWidth=5;ctx.lineCap='round';ctx.lineJoin='round';
+  let b=TB.left;ctx.beginPath();ctx.moveTo(b.x+14,b.y-20);ctx.lineTo(b.x-14,b.y);ctx.lineTo(b.x+14,b.y+20);ctx.closePath();ctx.fill();
+  b=TB.right;ctx.beginPath();ctx.moveTo(b.x-14,b.y-20);ctx.lineTo(b.x+14,b.y);ctx.lineTo(b.x-14,b.y+20);ctx.closePath();ctx.fill();
+  b=TB.jump;ctx.beginPath();ctx.moveTo(b.x-18,b.y+8);ctx.lineTo(b.x,b.y-10);ctx.lineTo(b.x+18,b.y+8);ctx.stroke();ctx.beginPath();ctx.moveTo(b.x-18,b.y+20);ctx.lineTo(b.x,b.y+2);ctx.lineTo(b.x+18,b.y+20);ctx.stroke();
+  b=TB.fire;ctx.beginPath();ctx.arc(b.x,b.y,22,0,7);ctx.stroke();ctx.beginPath();ctx.arc(b.x,b.y,5,0,7);ctx.fill();
+  for(const [dx,dy] of[[1,0],[-1,0],[0,1],[0,-1]]){ctx.beginPath();ctx.moveTo(b.x+dx*14,b.y+dy*14);ctx.lineTo(b.x+dx*32,b.y+dy*32);ctx.stroke()}
+  const p=TPAUSE;ctx.fillStyle='rgba(16,12,10,.55)';ctx.beginPath();ctx.roundRect(p.x,p.y,p.w,p.h,8);ctx.fill();ctx.strokeStyle='rgba(255,255,255,.4)';ctx.lineWidth=2;ctx.stroke();
+  ctx.fillStyle='#fff';ctx.fillRect(p.x+13,p.y+11,6,22);ctx.fillRect(p.x+25,p.y+11,6,22);
+  ctx.restore();
+}
+// --- Adaptation automatique à tous les écrans : le jeu garde son format 16:9 et occupe le maximum de place ---
+const rotEl=document.getElementById('rot');
+function updateRot(vw,vh){
+  const show=vh>vw*1.02&&touchOn();
+  rotEl.style.display=show?'flex':'none';
+  if(show){document.getElementById('rot1').textContent=tr('Tourne ton appareil');document.getElementById('rot2').textContent=tr('Passe en mode paysage pour jouer');if(state==='play') openPause()}
+}
+
 
 // --- Caisses larguées du ciel : seule source d'armes à feu en partie. Munitions (5 à 100) OU durée (10 à 40 s) ---
 // Seules les armes à feu déjà achetées peuvent tomber dans une caisse
@@ -351,7 +535,7 @@ function pickCrate(c){
   if(g&&g.w===c.w&&((g.time>0)===(c.time>0))){g.ammo+=c.ammo;g.time+=c.time;g.a0+=c.ammo;g.t0+=c.time}
   else player.gun={w:c.w,ammo:c.ammo,time:c.time,a0:c.ammo,t0:c.time};
   player.w=c.w;
-  flash(w.name.toUpperCase()+'  ·  '+(c.time?Math.round(c.time/1000)+' SECONDES':c.ammo+' MUNITIONS'));
+  flash(tr(w.name).toUpperCase()+'  ·  '+(c.time?Math.round(c.time/1000)+' '+tr('secondes').toUpperCase():c.ammo+' '+tr('munitions').toUpperCase()));
   burst(c.x,c.y-14,'#ffd45a',14);sfx('crate');
 }
 function useAmmo(){
@@ -363,7 +547,7 @@ function updateCrates(dt,p){
   if(p.gun&&p.gun.time>0){p.gun.time-=dt;if(p.gun.time<=0) dropGun('TEMPS ÉCOULÉ')}
   crateT-=dt;
   if(crateT<=0){spawnCrate();crateT=15000+rnd()*20000}
-  nearC=null;let best=48;                      // caisse à portée : elle se ramasse avec la touche, plus automatiquement
+  nearC=null;let best=touchOn()?96:48;                      // caisse à portée : elle se ramasse avec la touche, plus automatiquement
   for(const c of crates){
     if(!c.landed){
       c.vy=Math.min(2.4,c.vy+.04);c.y+=c.vy;c.x+=Math.sin(tick*.03+c.ph)*.4;
@@ -399,7 +583,7 @@ function drawCrates(){
     }
   }
   if(nearC&&!nearC.dead){
-    const c=nearC,k=KEYS.pick.find(x=>x),txt=k?'['+keyName(k)+']  RAMASSER':'DÉFINIS UNE TOUCHE (OPTIONS)';
+    const c=nearC,k=KEYS.pick.find(x=>x),txt=touchOn()?tr('Touche pour ramasser').toUpperCase():k?'['+keyName(k)+']  '+tr('Ramasser').toUpperCase():tr('Définis une touche (Options)').toUpperCase();
     ctx.font='700 15px '+FONT;const w=ctx.measureText(txt).width+22,x=c.x-w/2,y=c.y-(c.landed?66:104)+Math.sin(tick*.15)*2;
     panel(x,y,w,26,{norivets:true,edge:'#c9a227'});ctx.fillStyle='#ffd45a';ctx.textAlign='center';ctx.fillText(txt,c.x,y+19);ctx.textAlign='left';
   }
@@ -407,7 +591,7 @@ function drawCrates(){
 function buyWeapon(i){
   const w=WEAPONS[i];
   if(isOwned(i)){upSel=i;state='weapon';return}                       // arme possédée : page de détail (améliorations, couleur, équiper)
-  if(curLevel()<w.lvl){flash('Niveau '+w.lvl+' requis');return}
+  if(curLevel()<w.lvl){flash(tr('Niveau {0} requis',w.lvl));return}
   if(save.bank<w.cost){flash('Pas assez d\'argent');return}
   save.bank-=w.cost;save.own[w.name]=true;sfx('buy');
   if(w.melee) save.melee=w.name;
@@ -670,7 +854,7 @@ function sfx(name){
 function shoot(){
   const wp=WEAPONS[player.w];
   const px=player.x, py=player.y-48;
-  const base=SET.aim==='dir'?(player.face>0?0:Math.PI):Math.atan2(mouse.y-py,mouse.x-px);
+  const base=aimDir()?(player.face>0?0:Math.PI):Math.atan2(mouse.y-py,mouse.x-px);
   for(let i=0;i<wp.pellets;i++){
     const a=base+(Math.random()-.5)*wp.spread*2;
     bullets.push({x:px+Math.cos(base)*22,y:py+Math.sin(base)*22,
@@ -819,19 +1003,19 @@ function drawBonusHud(){
   items.forEach(([k,t,d],i)=>{
     const x=10+i*76,y=80;panel(x,y,70,34,{norivets:true,grunge:.6});
     bonusIcon(k,x+18,y+17,11);
-    ctx.fillStyle=t<2500&&tick%20<10?'#ff7a6a':'#f2efe8';ctx.font='700 16px '+FONT;ctx.textAlign='left';ctx.fillText(Math.ceil(t/1000)+' s',x+34,y+23);
+    ctx.fillStyle=t<2500&&tick%20<10?'#ff7a6a':'#f2efe8';ctx.font='700 16px '+FONT;ctx.textAlign='left';ctx.fillText(Math.ceil(t/1000)+' '+tr('s'),x+34,y+23);
     ctx.fillStyle=BON[k].c;ctx.fillRect(x+4,y+30,62*t/d,2);
   });
 }
 // --- Menu pause (Échap) et mode Entraînement ---
-function openPause(){msgT=0;state='pause';pauseConfirm=false;mouse.down=false;sfx('click')}
+function openPause(){tpts.clear();tRecalc();autoTarget=null;msgT=0;state='pause';pauseConfirm=false;mouse.down=false;sfx('click')}
 function closePause(){state='play';pauseConfirm=false;mouse.down=false}
 function quitToMenu(){
   if(!training&&wave>0){save.bank+=money;save.xp+=runXp;save.best=Math.max(save.best,wave);persist()}   // les gains de la partie sont conservés
   pauseConfirm=false;reset(true);
 }
 function setMain(i){
-  trainMain=i;player.melee=i;player.w=i;player.gun=null;player.cd=0;flash('ARME PRINCIPALE : '+WEAPONS[i].name);state='pause';
+  trainMain=i;player.melee=i;player.w=i;player.gun=null;player.cd=0;flash(tr('Arme principale : {0}',tr(WEAPONS[i].name)));state='pause';
 }
 function drawPause(){
   menuRects=[];
@@ -839,7 +1023,7 @@ function drawPause(){
   const rg=ctx.createRadialGradient(W/2,H/2,80,W/2,H/2,H);rg.addColorStop(0,'rgba(80,0,0,0)');rg.addColorStop(1,'rgba(80,0,0,.4)');ctx.fillStyle=rg;ctx.fillRect(0,0,W,H);
   barbed(0,W,14,.9);
   ctx.textAlign='center';ctx.font='400 64px '+TITLE;ctx.fillStyle='#000';ctx.fillText('PAUSE',W/2+3,103);ctx.fillStyle='#e9e1d0';ctx.fillText('PAUSE',W/2,100);
-  ctx.fillStyle='#8a8178';ctx.font='500 16px '+FONT;ctx.fillText(training?'MODE ENTRAÎNEMENT':'VAGUE '+wave+'   ·   $'+money+'   ·   '+kills+' TUÉS',W/2,128);
+  ctx.fillStyle='#8a8178';ctx.font='500 16px '+FONT;ctx.fillText(training?'MODE ENTRAÎNEMENT':tr('Vague').toUpperCase()+' '+wave+'   ·   $'+money+'   ·   '+kills+' '+tr('tués').toUpperCase(),W/2,128);
   const x=W/2-170,w=340;
   if(!pauseConfirm){
     let y=152;
@@ -847,12 +1031,12 @@ function drawPause(){
     if(training){btn(menuRects,x,y,w,50,'ARME PRINCIPALE',{act:()=>{trainPage=0;state='trainpick'},size:24,sub:WEAPONS[player.melee].name.toUpperCase()});y+=58}
     btn(menuRects,x,y,w,50,'PARAMÈTRES',{act:()=>{optFrom='pause';state='options'},size:24});y+=58;
     btn(menuRects,x,y,w,50,'QUITTER',{act:()=>{pauseConfirm=true},size:24});
-    ctx.textAlign='center';ctx.fillStyle='#6b625b';ctx.font='500 14px '+FONT;ctx.fillText('Échap : continuer   ·   '+kn('pause')+' : figer le jeu sans menu',W/2,H-22);
+    ctx.textAlign='center';ctx.fillStyle='#6b625b';ctx.font='500 14px '+FONT;ctx.fillText(tr('Échap : continuer   ·   {0} : figer le jeu sans menu',kn('pause')),W/2,H-22);
   } else {
     panel(W/2-270,150,540,250,{grunge:.8});hazard(W/2-270,150,540,8);
     ctx.textAlign='center';ctx.fillStyle='#e9e1d0';ctx.font='400 34px '+TITLE;ctx.fillText('QUITTER LA PARTIE ?',W/2,212);
     ctx.fillStyle='#b9b1a6';ctx.font='500 17px '+FONT;
-    ctx.fillText(training?'Rien n\'est sauvegardé en mode entraînement.':'Tes gains sont conservés :  +'+money+' $   ·   +'+runXp+' XP',W/2,246);
+    ctx.fillText(training?'Rien n\'est sauvegardé en mode entraînement.':tr('Tes gains sont conservés :  +{0} $   ·   +{1} XP',money,runXp),W/2,246);
     ctx.fillText('Tu reviendras au menu principal.',W/2,270);
     btn(menuRects,W/2-250,300,240,50,'OUI, QUITTER',{act:quitToMenu,size:22});
     btn(menuRects,W/2+10,300,240,50,'NON, RETOUR',{act:()=>{pauseConfirm=false},size:22});
@@ -870,7 +1054,7 @@ function drawTrainPick(){
     const x=40+ci*(tw+tg),y=86,on=ci===trainCat,hot=mouse.x>=x&&mouse.x<=x+tw&&mouse.y>=y&&mouse.y<=y+24;
     menuRects.push({x,y,w:tw,h:24,act:()=>{trainCat=ci;trainPage=0}});
     panel(x,y,tw,24,{top:on?'#4a2018':hot?'#3a2e28':'#26211e',bot:on?'#2a100c':'#14100e',edge:on?'#e2542e':'#4a3a2e',norivets:true});if(on) hazard(x+2,y+2,tw-4,3);
-    ctx.fillStyle=on?'#fff':'#a89f94';ctx.font='700 14px '+FONT;ctx.textAlign='center';ctx.fillText(c,x+tw/2,y+17);
+    ctx.fillStyle=on?'#fff':'#a89f94';ctx.font='700 14px '+FONT;ctx.textAlign='center';ctx.fillText(c,x+tw/2,y+17,tw-8);
   });
   ctx.textAlign='left';
   const list=[];WEAPONS.forEach((w,i)=>{if(w.cat===CAT[trainCat]) list.push(i)});
@@ -885,10 +1069,10 @@ function drawTrainPick(){
     ctx.fillStyle='#0a0807';ctx.fillRect(x+9,y+9,cw-18,72);
     ctx.save();ctx.beginPath();ctx.rect(x+8,y+8,cw-16,74);ctx.clip();drawWeaponIcon(i,x+cw/2,y+45,cw-30,62,skinOf(i),woodOf(i));ctx.restore();
     ctx.fillStyle='#f2efe8';ctx.font='700 16px '+FONT;ctx.fillText(wp.name.toUpperCase(),x+10,y+102);
-    ctx.fillStyle='#b9b1a6';ctx.font='500 13px '+FONT;ctx.fillText('DÉGÂTS '+Math.round(wp.dmg*wBoost(i))+(wp.pellets>1?' x'+wp.pellets:'')+'  ·  '+(1000/wp.rate).toFixed(1)+' /S',x+10,y+118);
-    ctx.fillStyle=eq?'#9fd18a':'#e0a526';ctx.font='700 14px '+FONT;ctx.fillText(eq?'ÉQUIPÉE':'CLIC : ÉQUIPER',x+10,y+134);
+    ctx.fillStyle='#b9b1a6';ctx.font='500 13px '+FONT;ctx.fillText(tr('Dégâts').toUpperCase()+' '+Math.round(wp.dmg*wBoost(i))+(wp.pellets>1?' x'+wp.pellets:'')+'  ·  '+(1000/wp.rate).toFixed(1)+' /'+tr('s').toUpperCase(),x+10,y+118);
+    ctx.fillStyle=eq?'#9fd18a':'#e0a526';ctx.font='700 14px '+FONT;ctx.fillText(eq?'ÉQUIPÉE':'CLIC : ÉQUIPER',x+10,y+134,cw-20);
   }
-  ctx.fillStyle='#8a8178';ctx.font='500 14px '+FONT;ctx.fillText('PAGE '+(trainPage+1)+' / '+pages+'   ·   '+list.length+' ARMES',40,440);
+  ctx.fillStyle='#8a8178';ctx.font='500 14px '+FONT;ctx.fillText(tr('Page').toUpperCase()+' '+(trainPage+1)+' / '+pages+'   ·   '+list.length+' '+tr('armes').toUpperCase(),40,440);
   if(pages>1){
     btn(menuRects,W-300,424,120,26,'<  PRÉC.',{act:()=>trainPage=(trainPage+pages-1)%pages,size:14});
     btn(menuRects,W-170,424,130,26,'SUIV.  >',{act:()=>trainPage=(trainPage+1)%pages,size:14});
@@ -908,7 +1092,7 @@ function gainChar(n){
     charXp-=charNeed(charLvl);charLvl++;
     const t=LEVEL_BONUS[rndInt(LEVEL_BONUS.length)];
     if(stock.length<8) stock.push(t);
-    charPulse=45;sfx('bonus');flash('NIVEAU '+charLvl+'  ·  BONUS : '+BON[t].n);
+    charPulse=45;sfx('bonus');flash(tr('Niveau {0}  ·  Bonus : {1}',charLvl,tr(BON[t].n)));
   }
 }
 function useBonus(){
@@ -919,12 +1103,12 @@ function drawLevelHud(){
   const x=304,y=10,w=380;
   panel(x,y,w,64,{});
   const gx=save.xp+(training?0:runXp),L=levelOf(gx),a=xpForLevel(L),b=xpForLevel(L+1);
-  ctx.textAlign='left';ctx.fillStyle='#d8c27a';ctx.font='700 13px '+FONT;ctx.fillText('NIVEAU DE JEU  '+L,x+14,y+17);
-  ctx.textAlign='right';ctx.fillStyle='#8a8178';ctx.font='500 12px '+FONT;ctx.fillText(Math.floor(gx-a)+' / '+(b-a)+' XP'+(training?'  (non compté)':''),x+w-14,y+17);
+  ctx.textAlign='left';ctx.fillStyle='#d8c27a';ctx.font='700 13px '+FONT;ctx.fillText(tr('Niveau de jeu').toUpperCase()+'  '+L,x+14,y+17);
+  ctx.textAlign='right';ctx.fillStyle='#8a8178';ctx.font='500 12px '+FONT;ctx.fillText(Math.floor(gx-a)+' / '+(b-a)+' XP'+(training?'  '+tr('(non compté)'):''),x+w-14,y+17);
   drawXpBar(x+14,y+22,w-28,8,gx,0);
   const need=charNeed(charLvl),f=Math.min(1,charXp/need);
-  ctx.textAlign='left';ctx.fillStyle=charPulse>0?'#ffd45a':'#f2efe8';ctx.font='700 13px '+FONT;ctx.fillText('PERSONNAGE  NIV. '+charLvl,x+14,y+46);
-  ctx.textAlign='right';ctx.fillStyle='#8a8178';ctx.font='500 12px '+FONT;ctx.fillText(charXp+' / '+need+'  ·  1 bonus par niveau',x+w-14,y+46);
+  ctx.textAlign='left';ctx.fillStyle=charPulse>0?'#ffd45a':'#f2efe8';ctx.font='700 13px '+FONT;ctx.fillText(tr('Personnage').toUpperCase()+'  '+tr('Niv.').toUpperCase()+' '+charLvl,x+14,y+46);
+  ctx.textAlign='right';ctx.fillStyle='#8a8178';ctx.font='500 12px '+FONT;ctx.fillText(tr('{0} / {1}  ·  1 bonus par niveau',charXp,need),x+w-14,y+46);
   const bx=x+14,by=y+51,bw=w-28;
   ctx.fillStyle='#120e0b';ctx.fillRect(bx,by,bw,7);
   if(charPulse>0){ctx.shadowColor='#e2542e';ctx.shadowBlur=14*charPulse/45;charPulse--}
@@ -937,11 +1121,11 @@ function drawLevelHud(){
   if(stock.length){
     bonusIcon(stock[0],sx+32,sy+31,19);
     ctx.fillStyle='#f2efe8';ctx.font='700 17px '+FONT;ctx.fillText(BON[stock[0]].n,sx+62,sy+26);
-    ctx.fillStyle=tick%50<30?'#ffd45a':'#c9a227';ctx.font='700 14px '+FONT;ctx.fillText(k?'['+keyName(k)+']  UTILISER':'DÉFINIS UNE TOUCHE (OPTIONS)',sx+62,sy+46);
+    ctx.fillStyle=tick%50<30?'#ffd45a':'#c9a227';ctx.font='700 14px '+FONT;ctx.fillText(k?tr('[{0}]  Utiliser',keyName(k)).toUpperCase():'DÉFINIS UNE TOUCHE (OPTIONS)',sx+62,sy+46);
     for(let i=1;i<stock.length;i++) bonusIcon(stock[i],sx+240-(stock.length-i)*22+8,sy+12,8);
   } else {
     ctx.fillStyle='#6b625b';ctx.font='700 15px '+FONT;ctx.fillText('AUCUN BONUS EN STOCK',sx+14,sy+27);
-    ctx.fillStyle='#8a8178';ctx.font='500 13px '+FONT;ctx.fillText('Prochain bonus au niveau '+(charLvl+1),sx+14,sy+47);
+    ctx.fillStyle='#8a8178';ctx.font='500 13px '+FONT;ctx.fillText(tr('Prochain bonus au niveau {0}',charLvl+1),sx+14,sy+47);
   }
 }
 let paused=false;
@@ -952,11 +1136,12 @@ function update(dt){
   updateBonus(dt);
   // déplacement
   let mv=(kd('right')?1:0)-(kd('left')?1:0);
+  if(autoTarget){if(mv!==0||!crates.includes(autoTarget)) autoTarget=null;else{const dx=autoTarget.x-p.x;if(Math.abs(dx)<14) takeCrate(autoTarget);else mv=dx>0?1:-1}}
   p.x+=mv*4; p.x=Math.max(20,Math.min(W-20,p.x));
   if(mv) p.step+=0.25*Math.abs(mv);
   if(kd('jump') && p.y>=GROUND) p.vy=-13;
   p.vy+=GRAV; p.y+=p.vy; if(p.y>GROUND){p.y=GROUND;p.vy=0}
-  if(SET.aim==='dir'){ if(mv) p.dir=mv>0?1:-1; p.face=p.dir||1 }          // visée « direction » : on tire dans le sens du déplacement
+  if(aimDir()){ if(mv) p.dir=mv>0?1:-1; p.face=p.dir||1 }          // visée « direction » : on tire dans le sens du déplacement
   else p.face=mouse.x>=p.x?1:-1;
   // tir
   p.cd-=dt; p.hurtCd-=dt; p.swing-=dt;
@@ -1001,7 +1186,7 @@ function update(dt){
   zombies=zombies.filter(z=>z.hp>0);
   // fin de vague
   if(state==='play' && !spawnQueue.length && !zombies.length){
-    if(waveBreak===0){waveBreak=150;gainChar(5);if(!training){money+=5;runXp+=5}sfx('wave');flash(training?'Vague '+wave+' terminée':'Vague '+wave+' terminée  ·  +5 $  +5 XP')}
+    if(waveBreak===0){waveBreak=150;gainChar(5);if(!training){money+=5;runXp+=5}sfx('wave');flash(tr('Vague')+' '+wave+' '+tr('terminée')+(training?'':'  ·  '+tr('+5 $  +5 XP')))}
     else if(--waveBreak===0) startWave();
   }
   for(const q of particles){q.x+=q.vx;q.y+=q.vy;q.vy+=.3;q.life--}
@@ -1197,7 +1382,7 @@ function bar(x,y,w,v,max,col){
 }
 function draw(){
   tick++;
-  if(state==='menu'||state==='options'||state==='credits'||state==='upgrades'||state==='weapon'||state==='keys'||state==='custom'){drawMenu();overlayFx(0);drawCursor();return}
+  if(state==='menu'||state==='options'||state==='credits'||state==='upgrades'||state==='weapon'||state==='keys'||state==='custom'||state==='lang'){drawMenu();overlayFx(0);drawCursor();return}
   ctx.save();
   if(shake>.5){ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake*=.88}
   drawBackground();ash();
@@ -1211,7 +1396,7 @@ function draw(){
   drawCrates();drawBonusWorld();
   // joueur
   const py=p.y-48;
-  p.aim=SET.aim==='dir'?(p.face>0?0:Math.PI):Math.atan2(mouse.y-py,mouse.x-p.x);
+  p.aim=aimDir()?(p.face>0?0:Math.PI):Math.atan2(mouse.y-py,mouse.x-p.x);
   if(p.hurtCd>0 && Math.floor(p.hurtCd/60)%2) ctx.globalAlpha=.4;
   drawSoldier(p);
   ctx.globalAlpha=1;drawBonusPlayer();
@@ -1232,13 +1417,13 @@ function draw(){
   ctx.fillStyle='#b3241c';ctx.fillRect(20,20,22,22);ctx.fillStyle='#f2efe8';ctx.fillRect(29,24,4,14);ctx.fillRect(24,29,14,4);
   ctx.textAlign='left';ctx.fillStyle='#e8e0d0';ctx.font='700 20px '+FONT;ctx.fillText(Math.ceil(p.hp)+' / '+p.maxhp,50,39);
   segBar(20,48,262,12,p.hp,p.maxhp,hpR<.35&&tick%24<12?'#ff4a3a':'#c9372c',22);
-  ctx.textAlign='right';ctx.fillStyle='#9a9086';ctx.font='500 13px '+FONT;ctx.fillText(kills+' TUÉS',282,36);ctx.textAlign='left';
+  ctx.textAlign='right';ctx.fillStyle='#9a9086';ctx.font='500 13px '+FONT;ctx.fillText(kills+' '+tr('tués').toUpperCase(),282,36);ctx.textAlign='left';
   drawBonusHud();drawLevelHud();
   // --- HUD : vague, argent, zombies restants
   panel(W-262,10,252,64,{});hazard(W-262,10,8,64);
   ctx.textAlign='left';ctx.fillStyle='#8a8178';ctx.font='500 12px '+FONT;ctx.fillText('RESTANTS',W-244,32);
   ctx.fillStyle='#e8e0d0';ctx.font='700 26px '+FONT;ctx.fillText(state==='play'?String(zombies.length+spawnQueue.length):'-',W-244,60);
-  ctx.textAlign='right';ctx.fillStyle='#e8e0d0';ctx.font='400 24px '+TITLE;ctx.fillText('VAGUE '+wave,W-22,38);
+  ctx.textAlign='right';ctx.fillStyle='#e8e0d0';ctx.font='400 24px '+TITLE;ctx.fillText(tr('Vague').toUpperCase()+' '+wave,W-22,38);
   ctx.fillStyle='#e0a526';ctx.font='700 20px '+FONT;ctx.fillText(training?'ENTRAÎNEMENT':'$'+money,W-22,62);ctx.textAlign='left';
   // --- HUD : arme en main
   const g=p.gun,wpn=WEAPONS[p.w];
@@ -1249,10 +1434,11 @@ function draw(){
   if(g){
     const t=g.time>0,left=t?g.time:g.ammo,tot=t?g.t0:g.a0,low=left/tot<.2&&tick%20<10;
     segBar(126,H-40,216,10,left,tot,low?'#ff4a3a':'#e0a526',16);
-    ctx.textAlign='right';ctx.fillStyle=low?'#ff7a6a':'#ffd45a';ctx.font='700 16px '+FONT;ctx.fillText(t?Math.ceil(left/1000)+' S':left+' BALLES',346,H-52);ctx.textAlign='left';
+    ctx.textAlign='right';ctx.fillStyle=low?'#ff7a6a':'#ffd45a';ctx.font='700 16px '+FONT;ctx.fillText(t?Math.ceil(left/1000)+' '+tr('s').toUpperCase():left+' '+tr('balles').toUpperCase(),346,H-52);ctx.textAlign='left';
   } else {ctx.fillStyle='#8a8178';ctx.font='500 14px '+FONT;ctx.fillText(wpn.melee?'MÊLÉE  ·  ILLIMITÉ':'ARME PRINCIPALE  ·  ILLIMITÉ',126,H-30)}
   ctx.fillStyle='#b9b1a6';ctx.font='500 12px '+FONT;
-  ctx.fillText('Armes à feu : dans les caisses larguées  ·  '+kn('pick')+' : ramasser  ·  '+kn('bonus')+' : bonus  ·  Échap : pause  ·  '+kn('full')+' : plein écran',16,H-4);
+  if(!touchOn()) ctx.fillText(tr('Armes à feu : dans les caisses larguées  ·  {0} : ramasser  ·  {1} : bonus  ·  Échap : pause  ·  {2} : plein écran',kn('pick'),kn('bonus'),kn('full')),16,H-4);
+  if(touchOn()&&state==='play') drawTouch();
   // --- annonce (vague, caisse...) avec rayures de danger
   if(msgT>0){
     const age=120-msgT,sc=age<14?1.5-age/28:1;
@@ -1281,7 +1467,7 @@ function draw(){
     if(overPulse>0) overPulse--;
     const bw=440,bx=W/2-bw/2,by=305,info=drawXpBar(bx,by,bw,16,overXp,overPulse);
     const sc=1+(overPulse>0?.35*overPulse/45:0);
-    ctx.save();ctx.translate(bx,by-12);ctx.scale(sc,sc);ctx.fillStyle=overPulse>0?'#ffd45a':'#f2efe8';ctx.font='700 24px '+FONT;ctx.textAlign='left';ctx.fillText('NIVEAU '+info.L,0,0);ctx.restore();
+    ctx.save();ctx.translate(bx,by-12);ctx.scale(sc,sc);ctx.fillStyle=overPulse>0?'#ffd45a':'#f2efe8';ctx.font='700 24px '+FONT;ctx.textAlign='left';ctx.fillText(tr('Niveau').toUpperCase()+' '+info.L,0,0);ctx.restore();
     ctx.textAlign='right';ctx.fillStyle='#d8d2c8';ctx.font='500 15px '+FONT;ctx.fillText(Math.floor(overXp-info.a)+' / '+(info.b-info.a)+' XP',bx+bw,by-12);
     if(overPulse>0){ctx.textAlign='center';ctx.globalAlpha=Math.min(1,overPulse/20);ctx.fillStyle='#ffd45a';ctx.font='700 22px '+FONT;ctx.fillText('NIVEAU SUPÉRIEUR !',W/2,by-12);ctx.globalAlpha=1;
       ctx.fillStyle='rgba(255,220,120,'+(.16*overPulse/45)+')';ctx.fillRect(0,0,W,H)}
@@ -1365,7 +1551,8 @@ function ash(){
   }
 }
 function drawCursor(){
-  if(state==='play'&&SET.aim==='dir'){ctx.fillStyle='rgba(255,74,58,.85)';ctx.beginPath();ctx.arc(mouse.x,mouse.y,3,0,7);ctx.fill();return}
+  if(touchUsed) return;
+  if(state==='play'&&aimDir()){ctx.fillStyle='rgba(255,74,58,.85)';ctx.beginPath();ctx.arc(mouse.x,mouse.y,3,0,7);ctx.fill();return}
   const x=mouse.x,y=mouse.y,path=()=>{ctx.beginPath();ctx.arc(x,y,9,0,7);
     for(const [dx,dy] of[[1,0],[-1,0],[0,1],[0,-1]]){ctx.moveTo(x+dx*12,y+dy*12);ctx.lineTo(x+dx*19,y+dy*19)}};
   ctx.save();ctx.lineCap='round';path();ctx.strokeStyle='rgba(0,0,0,.75)';ctx.lineWidth=4.5;ctx.stroke();
@@ -1381,8 +1568,8 @@ function btn(list,x,y,w,h,label,opts){
   else if(!opts.dim){ctx.fillStyle='#7a2c1c';ctx.fillRect(x+3,y+3,3,h-6)}
   const tx=x+(hot?20:16);
   ctx.textAlign='left';ctx.fillStyle=opts.dim?'#6b625b':'#f2efe8';
-  ctx.font='700 '+(opts.size||22)+'px '+FONT;ctx.fillText(label,tx,y+(opts.sub?h/2-2:h/2+8));
-  if(opts.sub){ctx.font='500 15px '+FONT;ctx.fillStyle=opts.dim?'#6b625b':'#d8a64a';ctx.fillText(opts.sub,tx,y+h/2+18)}
+  ctx.font='700 '+(opts.size||22)+'px '+FONT;ctx.fillText(label,tx,y+(opts.sub?h/2-2:h/2+8),w-(tx-x)-12);
+  if(opts.sub){ctx.font='500 15px '+FONT;ctx.fillStyle=opts.dim?'#6b625b':'#d8a64a';ctx.fillText(opts.sub,tx,y+h/2+18,w-(tx-x)-12)}
 }
 function embers(){
   for(let i=0;i<40;i++){
@@ -1399,6 +1586,7 @@ function drawMenu(){
   if(state==='upgrades'){drawUpgrades();return}
   if(state==='weapon'){drawWeaponDetail();return}
   if(state==='keys'){drawKeys();return}
+  if(state==='lang'){drawLang();return}
   if(state==='custom'){drawCustom();return}
   // silhouette du soldat à droite (dessin original)
   player.x=720;player.y=GROUND;player.face=-1;player.aim=Math.PI+.1;player.w=MENU_GUN;player.cd=0;player.swing=0;
@@ -1420,16 +1608,19 @@ function drawMenu(){
     btn(menuRects,70,364,300,38,'PERSONNALISATION',{act:()=>state='custom',size:22});
     btn(menuRects,70,406,300,38,'OPTIONS',{act:()=>{optFrom='menu';state='options'},size:22});
     btn(menuRects,70,448,300,38,'CRÉDITS',{act:()=>state='credits',size:22});
-    btn(menuRects,W-220,H-60,180,38,'PLEIN ÉCRAN  ('+kn('full')+')',{act:toggleFull,size:15});
+    {const li=langInfo(),x=W-210,y=H-104,w=170,h=36,hot=mouse.x>=x&&mouse.x<=x+w&&mouse.y>=y&&mouse.y<=y+h;menuRects.push({x,y,w,h,act:()=>state='lang'});
+     panel(x,y,w,h,{top:hot?'#4a2018':'#2d2723',bot:hot?'#2a100c':'#17120f',edge:hot?'#e2542e':'#4a3a2e',norivets:true});drawFlag(li.f,x+10,y+6,34,24);
+     ctx.fillStyle='#f2efe8';ctx.font='700 15px '+FONT;ctx.textAlign='left';ctx.fillText(li.n,x+54,y+24,w-62)}
+    btn(menuRects,W-220,H-60,180,38,tr('Plein écran  ({0})',kn('full')).toUpperCase(),{act:toggleFull,size:15});
     ctx.fillStyle='#e0a526';ctx.font='700 24px '+FONT;ctx.textAlign='right';
-    ctx.fillText('NIVEAU '+curLevel()+'   ·   $'+save.bank+'   ·   RECORD : VAGUE '+save.best,W-40,50);ctx.textAlign='left';
+    ctx.fillText(tr('Niveau').toUpperCase()+' '+curLevel()+'   ·   $'+save.bank+'   ·   '+tr('Record : vague {0}',save.best).toUpperCase(),W-40,50);ctx.textAlign='left';
   } else if(state==='options'){
     ctx.fillStyle='#e9e1d0';ctx.font='400 34px '+TITLE;ctx.fillText('OPTIONS',70,262);
-    btn(menuRects,70,276,360,44,'TREMBLEMENT : '+(SET.shake?'OUI':'NON'),{act:()=>{SET.shake=!SET.shake;saveOpts()},size:20});
-    btn(menuRects,70,326,360,44,'SANG : '+(SET.blood?'OUI':'NON'),{act:()=>{SET.blood=!SET.blood;saveOpts()},size:20});
-    btn(menuRects,70,376,360,44,'VISÉE : '+(SET.aim==='dir'?'DIRECTION':'SOURIS'),{act:()=>{SET.aim=SET.aim==='dir'?'mouse':'dir';saveOpts()},size:20});
+    btn(menuRects,70,276,360,44,tr('Tremblement').toUpperCase()+' : '+tr(SET.shake?'Oui':'Non').toUpperCase(),{act:()=>{SET.shake=!SET.shake;saveOpts()},size:20});
+    btn(menuRects,70,326,360,44,tr('Sang').toUpperCase()+' : '+tr(SET.blood?'Oui':'Non').toUpperCase(),{act:()=>{SET.blood=!SET.blood;saveOpts()},size:20});
+    btn(menuRects,70,376,360,44,tr('Visée').toUpperCase()+' : '+tr(aimDir()?'Direction':'Souris').toUpperCase(),{act:()=>{SET.aim=SET.aim==='dir'?'mouse':'dir';saveOpts()},size:20});
     btn(menuRects,470,276,300,44,'TOUCHES',{act:()=>{bindListen=null;state='keys'},size:20});
-    btn(menuRects,470,326,300,44,'EFFETS : '+(SET.vol>0?Math.round(SET.vol*100)+' %':'NON'),{act:()=>{const L=[1,.6,.3,0];SET.vol=L[(L.indexOf(SET.vol)+1)%4]??1;setVol();saveOpts();audioInit();sfx('click')},size:20});
+    btn(menuRects,470,326,300,44,tr('Effets').toUpperCase()+' : '+(SET.vol>0?Math.round(SET.vol*100)+' %':tr('Non').toUpperCase()),{act:()=>{const L=[1,.6,.3,0];SET.vol=L[(L.indexOf(SET.vol)+1)%4]??1;setVol();saveOpts();audioInit();sfx('click')},size:20});
     btn(menuRects,470,376,300,44,'RETOUR',{act:()=>state=optFrom==='pause'?'pause':'menu',size:20});
     // musique : curseur de volume + bouton activer / désactiver
     panel(70,430,700,46,{grunge:.7,norivets:true});
@@ -1441,9 +1632,9 @@ function drawMenu(){
     const tx=sx+sw*SET.mvol,hotS=sliderActive||(mouse.x>=sx-10&&mouse.x<=sx+sw+10&&mouse.y>=437&&mouse.y<=469);
     ctx.fillStyle=hotS?'#fff':'#d8d2c8';ctx.beginPath();ctx.roundRect(tx-6,sy-12,12,24,3);ctx.fill();ctx.strokeStyle='#000';ctx.stroke();
     ctx.fillStyle='#d8d2c8';ctx.font='700 16px '+FONT;ctx.fillText(Math.round(SET.mvol*100)+' %',sx+sw+16,459);
-    btn(menuRects,598,434,168,38,'MUSIQUE : '+(SET.music?'OUI':'NON'),{act:()=>{SET.music=!SET.music;musicApply();saveOpts()},size:15});
+    btn(menuRects,598,434,168,38,tr('Musique').toUpperCase()+' : '+tr(SET.music?'Oui':'Non').toUpperCase(),{act:()=>{SET.music=!SET.music;musicApply();saveOpts()},size:15});
     ctx.fillStyle='#b9b1a6';ctx.font='500 14px '+FONT;
-    ctx.fillText(SET.aim==='dir'?'Visée DIRECTION : le soldat tire droit devant lui, dans le sens où tu te déplaces (clic ou touche de tir).':'Visée SOURIS : le soldat vise vers le curseur (clic pour tirer).',70,495);
+    ctx.fillText(aimDir()?'Visée DIRECTION : le soldat tire droit devant lui, dans le sens où tu te déplaces (clic ou touche de tir).':'Visée SOURIS : le soldat vise vers le curseur (clic pour tirer).',70,495);
   } else {
     ctx.fillStyle='#e9e1d0';ctx.font='400 34px '+TITLE;ctx.fillText('CRÉDITS',70,270);
     ctx.font='500 20px '+FONT;ctx.fillStyle='#d8d2c8';
@@ -1454,7 +1645,7 @@ function drawMenu(){
   }
   hazard(0,H-8,W,8);
   ctx.fillStyle='#8a8178';ctx.font='500 15px '+FONT;
-  ctx.fillText(kn('left')+'/'+kn('right')+' déplacer · '+kn('jump')+' sauter · clic : attaquer · '+kn('pick')+' : ramasser les caisses · armes à feu : dans les caisses larguées',70,H-24);
+  if(!touchOn()) ctx.fillText(tr('{0}/{1} déplacer · {2} sauter · clic : attaquer · {3} : ramasser les caisses · armes à feu : dans les caisses larguées',kn('left'),kn('right'),kn('jump'),kn('pick')),70,H-24);
 }
 // ===== Armes réalistes : dessinées une fois sur un canvas hors-écran (1 unité = 2 px), origine = détente sur l'axe du canon =====
 const ICON_W=640,ICON_H=320,OX=260,OY=150,ICONS={};
@@ -1902,15 +2093,15 @@ function weaponCard(i,x,y,w,h){
   if(locked) padlock(x+w/2,y+56,1.4,'#8a8178');
   ctx.textAlign='left';
   ctx.fillStyle=locked?'#6b625b':'#f2efe8';ctx.font='700 17px '+FONT;
-  ctx.fillText(wp.name.toUpperCase(),x+10,y+122);
+  ctx.fillText(wp.name.toUpperCase(),x+10,y+122,w-20);
   ctx.font='500 14px '+FONT;ctx.fillStyle=locked?'#6b625b':'#b9b1a6';
   const rps=(1000/wp.rate).toFixed(1);
-  ctx.fillText(wp.melee?'DÉGÂTS '+Math.round(wp.dmg*wBoost(i))+'  ·  '+rps+' /S':'DÉGÂTS '+Math.round(wp.dmg*wBoost(i))+(wp.pellets>1?' x'+wp.pellets:'')+(wp.aoe?' ZONE':'')+'  ·  '+rps+' /S',x+10,y+140);
+  ctx.fillText(tr('Dégâts').toUpperCase()+' '+Math.round(wp.dmg*wBoost(i))+(wp.melee?'':(wp.pellets>1?' x'+wp.pellets:'')+(wp.aoe?' '+tr('zone').toUpperCase():''))+'  ·  '+rps+' /'+tr('s').toUpperCase(),x+10,y+140,w-20);
   ctx.font='700 15px '+FONT;
   ctx.fillStyle=lvl>=wp.lvl?'#9fd18a':'#e2542e';
-  ctx.fillText('NIVEAU '+wp.lvl+(lvl>=wp.lvl?'  ✓':'  REQUIS'),x+10,y+h-30);
+  ctx.fillText(tr('Niveau').toUpperCase()+' '+wp.lvl+(lvl>=wp.lvl?'  ✓':'  '+tr('requis').toUpperCase()),x+10,y+h-30,w-20);
   ctx.font='700 20px '+FONT;
-  if(own){ctx.fillStyle=eq?'#9fd18a':'#b9b1a6';ctx.fillText(eq?'ÉQUIPÉE':'CLIC : AMÉLIORER',x+10,y+h-8);
+  if(own){ctx.fillStyle=eq?'#9fd18a':'#b9b1a6';ctx.fillText(eq?'ÉQUIPÉE':'CLIC : AMÉLIORER',x+10,y+h-8,w-80);
     const ul=upLvl(i);for(let n=0;n<4;n++){ctx.fillStyle=n<ul?(n===3?'#ffd45a':'#e0a526'):'#3a322d';ctx.fillRect(x+w-62+n*13,y+h-18,10,10)}}
   else{ctx.fillStyle=locked?'#6b625b':save.bank>=wp.cost?'#e0a526':'#c9372c';ctx.fillText('$'+wp.cost,x+10,y+h-8)}
 }
@@ -1918,7 +2109,7 @@ function drawWeaponDetail(){
   const i=upSel,wp=WEAPONS[i],lvl=upLvl(i),sk=skinOf(i),u=save.up[wp.name]||{};
   ctx.fillStyle='#000000cc';ctx.fillRect(0,0,W,H);ctx.textAlign='left';
   ctx.fillStyle='#000';ctx.font='400 38px '+TITLE;ctx.fillText(wp.name.toUpperCase(),43,61);ctx.fillStyle='#e9e1d0';ctx.fillText(wp.name.toUpperCase(),40,58);
-  ctx.fillStyle='#8a8178';ctx.font='500 16px '+FONT;ctx.fillText((wp.melee?'ARME DE MÊLÉE':'ARME À FEU')+'  ·  NIVEAU '+wp.lvl,40,82);
+  ctx.fillStyle='#8a8178';ctx.font='500 16px '+FONT;ctx.fillText(tr(wp.melee?'Arme de mêlée':'Arme à feu').toUpperCase()+'  ·  '+tr('Niveau').toUpperCase()+' '+wp.lvl,40,82);
   ctx.textAlign='right';ctx.fillStyle='#e0a526';ctx.font='700 30px '+FONT;ctx.fillText('$'+save.bank,W-40,50);ctx.textAlign='left';
   // visuel de l'arme avec sa couleur actuelle
   panel(40,100,420,200,{edge:sk==='gold'?'#c9a227':'#4a3a2e'});ctx.fillStyle='#0a0807';ctx.fillRect(50,110,400,180);ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.strokeRect(50,110,400,180);
@@ -1929,17 +2120,17 @@ function drawWeaponDetail(){
     ctx.fillStyle='rgba(255,245,200,'+a+')';ctx.fillRect(sx-7,sy-1,14,2);ctx.fillRect(sx-1,sy-7,2,14);
   }
   ctx.fillStyle='#d8d2c8';ctx.font='500 18px '+FONT;
-  ctx.fillText('DÉGÂTS  '+wp.dmg+(lvl?'  →  '+Math.round(wp.dmg*wBoost(i)):'')+(wp.pellets>1?'  x'+wp.pellets:''),40,326);
+  ctx.fillText(tr('Dégâts').toUpperCase()+'  '+wp.dmg+(lvl?'  →  '+Math.round(wp.dmg*wBoost(i)):'')+(wp.pellets>1?'  x'+wp.pellets:''),40,326);
   if(wp.melee){const eq=save.melee===wp.name;btn(menuRects,40,340,240,44,eq?'ÉQUIPÉE':'ÉQUIPER',{act:()=>{save.melee=wp.name;persist()},dim:eq,size:20})}
   else{ctx.fillStyle='#8a8178';ctx.font='500 14px '+FONT;ctx.fillText('Les armes à feu tombent uniquement dans les caisses larguées.',40,354)}
   // les 4 améliorations
-  const names=['DÉGÂTS ×1.15','DÉGÂTS ×1.30','DÉGÂTS ×1.45','DÉGÂTS ×1.90  +  MOD OR  +  COULEURS'];
+  const dg=tr('Dégâts').toUpperCase(),names=[dg+' ×1.15',dg+' ×1.30',dg+' ×1.45',dg+' ×1.90  +  '+tr('Mod or').toUpperCase()+'  +  '+tr('Couleurs').toUpperCase()];
   for(let k=1;k<=4;k++){
     const y=100+(k-1)*62,done=k<=lvl,next=k===lvl+1,cost=upCost(i,k),gk=k===4;
     const hot=next&&mouse.x>=490&&mouse.x<=920&&mouse.y>=y&&mouse.y<=y+54;
     menuRects.push({x:490,y,w:430,h:54,act:next?buyUp:()=>{}});
     panel(490,y,430,54,{top:done?'#243a1e':hot?'#4a2018':next?'#2a2522':'#1a1614',bot:done?'#121e0f':hot?'#2a100c':'#15110f',edge:done?'#4f7d3a':next?(hot?'#e2542e':(gk?'#c9a227':'#4a3a2e')):'#2c2622',norivets:true,grunge:next||done?.9:.5});
-    ctx.font='700 18px '+FONT;ctx.fillStyle=done?'#9fd18a':next?(gk?'#ffd45a':'#f2efe8'):'#6b625b';ctx.fillText('AMÉLIORATION '+k,504,y+23);
+    ctx.font='700 18px '+FONT;ctx.fillStyle=done?'#9fd18a':next?(gk?'#ffd45a':'#f2efe8'):'#6b625b';ctx.fillText(tr('Amélioration').toUpperCase()+' '+k,504,y+23);
     ctx.font='500 14px '+FONT;ctx.fillStyle=done?'#7fa070':next?'#b9b1a6':'#5a534c';ctx.fillText(names[k-1],504,y+43);
     ctx.textAlign='right';ctx.font='700 22px '+FONT;
     if(done){ctx.fillStyle='#9fd18a';ctx.fillText('✓',906,y+34)}
@@ -1959,7 +2150,7 @@ function drawWeaponDetail(){
     if(k.c&&ok){const g=ctx.createLinearGradient(0,y,0,y+44);g.addColorStop(0,'rgba(255,255,255,.28)');g.addColorStop(1,'rgba(0,0,0,.35)');ctx.fillStyle=g;ctx.fillRect(x,y,w,44)}
     ctx.strokeStyle=on?'#fff':hot?'#e2542e':'#0008';ctx.lineWidth=on?3:2;ctx.strokeRect(x+1,y+1,w-2,42);
     ctx.fillStyle=k.id==='white'||k.id==='gold'||k.id==='cyan'||k.id==='orange'?'#1a1a1a':'#fff';ctx.globalAlpha=ok?1:.4;
-    ctx.font='700 14px '+FONT;ctx.textAlign='center';ctx.fillText(k.n,x+w/2,y+27);ctx.globalAlpha=1;ctx.textAlign='left';
+    ctx.font='700 14px '+FONT;ctx.textAlign='center';ctx.fillText(k.n,x+w/2,y+27,w-8);ctx.globalAlpha=1;ctx.textAlign='left';
   });
   btn(menuRects,40,484,200,44,'RETOUR',{act:()=>state='upgrades'});
   // bois : d'origine, foncé ou clair (pour contraster avec la couleur du métal)
@@ -1971,7 +2162,7 @@ function drawWeaponDetail(){
     const base=k.c||'#8a5a2b';ctx.fillStyle=okW?base:shade(base,-.7);ctx.fillRect(x,y,w,44);
     if(okW){const g=ctx.createLinearGradient(0,y,0,y+44);g.addColorStop(0,'rgba(255,255,255,.25)');g.addColorStop(1,'rgba(0,0,0,.35)');ctx.fillStyle=g;ctx.fillRect(x,y,w,44)}
     ctx.strokeStyle=on?'#fff':hot?'#e2542e':'#0008';ctx.lineWidth=on?3:2;ctx.strokeRect(x+1,y+1,w-2,42);
-    ctx.fillStyle=k.id==='light'?'#1a1a1a':'#fff';ctx.globalAlpha=okW?1:.4;ctx.font='700 14px '+FONT;ctx.textAlign='center';ctx.fillText(k.n,x+w/2,y+27);ctx.globalAlpha=1;ctx.textAlign='left';
+    ctx.fillStyle=k.id==='light'?'#1a1a1a':'#fff';ctx.globalAlpha=okW?1:.4;ctx.font='700 14px '+FONT;ctx.textAlign='center';ctx.fillText(k.n,x+w/2,y+27,w-8);ctx.globalAlpha=1;ctx.textAlign='left';
   });
   if(msgT>0){msgT--;ctx.fillStyle='#e2542e';ctx.font='700 20px '+FONT;ctx.fillText(msg.toUpperCase(),650,512)}
 }
@@ -1985,13 +2176,13 @@ function drawKeys(){
   ACTIONS.forEach(([a,label],i)=>{
     const y=106+i*45;
     panel(40,y,880,40,{norivets:true,grunge:.7});
-    ctx.fillStyle='#e8e0d0';ctx.font='700 20px '+FONT;ctx.textAlign='left';ctx.fillText(label,60,y+28);
+    ctx.fillStyle='#e8e0d0';ctx.font='700 20px '+FONT;ctx.textAlign='left';ctx.fillText(label,60,y+28,480);
     for(let sl=0;sl<2;sl++){
       const x=560+sl*180,w=164,on=!!bindListen&&bindListen.action===a&&bindListen.slot===sl,hot=mouse.x>=x&&mouse.x<=x+w&&mouse.y>=y+2&&mouse.y<=y+40;
       menuRects.push({x,y:y+2,w,h:38,act:()=>{bindListen={action:a,slot:sl}}});
       panel(x,y+2,w,38,{top:on?'#4a2018':hot?'#3a2e28':'#26211e',bot:on?'#2a100c':'#14100e',edge:on||hot?'#e2542e':'#4a3a2e',norivets:true});
       ctx.textAlign='center';
-      if(on){ctx.globalAlpha=.6+.4*Math.sin(tick*.2);ctx.fillStyle='#ffd45a';ctx.font='700 13px '+FONT;ctx.fillText('APPUIE SUR UNE TOUCHE…',x+w/2,y+27);ctx.globalAlpha=1}
+      if(on){ctx.globalAlpha=.6+.4*Math.sin(tick*.2);ctx.fillStyle='#ffd45a';ctx.font='700 13px '+FONT;ctx.fillText('APPUIE SUR UNE TOUCHE…',x+w/2,y+27,w-8);ctx.globalAlpha=1}
       else{ctx.fillStyle=KEYS[a][sl]?'#f2efe8':'#5a534c';ctx.font='700 18px '+FONT;ctx.fillText(keyName(KEYS[a][sl]),x+w/2,y+28)}
       ctx.textAlign='left';
     }
@@ -2007,7 +2198,7 @@ function selBtn(x,y,w,h,label,on,act,size){
   const hot=mouse.x>=x&&mouse.x<=x+w&&mouse.y>=y&&mouse.y<=y+h;
   menuRects.push({x,y,w,h,act});
   panel(x,y,w,h,{top:on?'#4a2018':hot?'#3a2e28':'#26211e',bot:on?'#2a100c':'#14100e',edge:on?'#e2542e':hot?'#a8553a':'#4a3a2e',norivets:true});if(on) hazard(x+2,y+2,w-4,3);
-  ctx.fillStyle=on?'#fff':'#b4aba0';ctx.font='700 '+(size||16)+'px '+FONT;ctx.textAlign='center';ctx.fillText(label,x+w/2,y+h/2+6);ctx.textAlign='left';
+  ctx.fillStyle=on?'#fff':'#b4aba0';ctx.font='700 '+(size||16)+'px '+FONT;ctx.textAlign='center';ctx.fillText(label,x+w/2,y+h/2+6,w-10);ctx.textAlign='left';
 }
 function drawCustom(){
   ctx.fillStyle='#000000d8';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
@@ -2054,7 +2245,7 @@ function drawUpgrades(){
   upShown=Math.min(save.xp,upShown+Math.max(.4,(save.xp-upShown)*.06));
   const info=drawXpBar(W-260,72,220,8,upShown,0),L=info.L,a=info.a,b=info.b;
   ctx.textAlign='right';ctx.fillStyle='#e0a526';ctx.font='700 30px '+FONT;ctx.fillText('$'+save.bank,W-40,44);
-  ctx.fillStyle='#d8d2c8';ctx.font='500 15px '+FONT;ctx.fillText('NIVEAU '+L+'   ·   '+Math.floor(upShown-a)+' / '+(b-a)+' XP',W-40,64);
+  ctx.fillStyle='#d8d2c8';ctx.font='500 15px '+FONT;ctx.fillText(tr('Niveau').toUpperCase()+' '+L+'   ·   '+Math.floor(upShown-a)+' / '+(b-a)+' XP',W-40,64);
   ctx.textAlign='left';
   // onglets par catégorie
   const tw=106,tg=4;
@@ -2062,7 +2253,7 @@ function drawUpgrades(){
     const x=40+ci*(tw+tg),y=86,on=ci===upCat,hot=mouse.x>=x&&mouse.x<=x+tw&&mouse.y>=y&&mouse.y<=y+24;
     menuRects.push({x,y,w:tw,h:24,act:()=>{upCat=ci;upPage=0}});
     panel(x,y,tw,24,{top:on?'#4a2018':hot?'#3a2e28':'#26211e',bot:on?'#2a100c':'#14100e',edge:on?'#e2542e':'#4a3a2e',norivets:true});if(on) hazard(x+2,y+2,tw-4,3);
-    ctx.fillStyle=on?'#fff':'#a89f94';ctx.font='700 14px '+FONT;ctx.textAlign='center';ctx.fillText(c,x+tw/2,y+17);
+    ctx.fillStyle=on?'#fff':'#a89f94';ctx.font='700 14px '+FONT;ctx.textAlign='center';ctx.fillText(c,x+tw/2,y+17,tw-8);
   });
   ctx.textAlign='left';
   const list=[];WEAPONS.forEach((w,i)=>{if(w.cat===CAT[upCat]) list.push(i)});
@@ -2071,14 +2262,14 @@ function drawUpgrades(){
   const cw=168,gap=10,x0=40;
   for(let k=0;k<5;k++){const idx=list[upPage*5+k]; if(idx!==undefined) weaponCard(idx,x0+k*(cw+gap),122,cw,200)}
   ctx.fillStyle='#8a8178';ctx.font='500 14px '+FONT;
-  ctx.fillText('PAGE '+(upPage+1)+' / '+pages+'   ·   '+list.length+' ARMES   ·   '+(upCat===0?'clique sur une arme possédée : améliorer, couleur, équiper':'armes à feu : une fois débloquées, elles tombent dans les caisses'),40,344);
+  ctx.fillText(tr('Page').toUpperCase()+' '+(upPage+1)+' / '+pages+'   ·   '+list.length+' '+tr('armes').toUpperCase()+'   ·   '+tr(upCat===0?'Clique sur une arme possédée : améliorer, couleur, équiper':'Armes à feu : une fois débloquées, elles tombent dans les caisses'),40,344);
   if(pages>1){
     btn(menuRects,W-300,328,120,24,'<  PRÉC.',{act:()=>upPage=(upPage+pages-1)%pages,size:14});
     btn(menuRects,W-170,328,130,24,'SUIV.  >',{act:()=>upPage=(upPage+1)%pages,size:14});
   }
   ctx.fillStyle='#8a8178';ctx.font='500 15px '+FONT;ctx.fillText('PERSONNAGE  ·  la vitesse de déplacement ne s\'améliore pas',40,378);
   const hpMax=save.hpLvl>=MAX_UP;
-  btn(menuRects,40,386,430,54,'VIE MAX  +20',{act:buyHp,sub:hpMax?'NIVEAU MAX':'NIV. '+save.hpLvl+'  ·  '+(100+20*save.hpLvl)+' PV  ·  $'+hpCost(),dim:hpMax,size:20});
+  btn(menuRects,40,386,430,54,'VIE MAX  +20',{act:buyHp,sub:hpMax?tr('Niveau max').toUpperCase():tr('Niv.').toUpperCase()+' '+save.hpLvl+'  ·  '+(100+20*save.hpLvl)+' '+tr('PV')+'  ·  $'+hpCost(),dim:hpMax,size:20});
   btn(menuRects,40,462,200,46,'RETOUR',{act:()=>reset(true)});
   ctx.fillStyle='#8a8178';ctx.font='500 14px '+FONT;
   ctx.fillText('Les améliorations se font uniquement ici, entre deux parties. Le niveau monte en tuant des zombies.',260,490);
@@ -2094,6 +2285,7 @@ function loop(t){
 reset(true);
 makeTextures();
 if(document.fonts){document.fonts.load('700 20px Oswald');document.fonts.load('400 20px "Black Ops One"')}
+READY=true;fit();
 requestAnimationFrame(loop);
 </script>
 </body>

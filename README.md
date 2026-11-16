@@ -25,6 +25,8 @@ Ou télécharge le dépôt et ouvre `index.html` dans un navigateur moderne.
 - Mode Entraînement : toutes les armes au maximum, arme principale au choix, rien n'est sauvegardé
 - Deux barres d'XP : niveau de jeu (global) et niveau du personnage (par partie) ; chaque niveau donne un bonus stocké, utilisable à la demande (touche Q)
 - Caisses du ciel : tirage au sort uniforme parmi les armes à feu débloquées, le kit de soin et le bouclier
+- 25 langues (détection automatique de la langue de l'appareil, changement depuis le menu principal avec les drapeaux)
+- Mobile : boutons tactiles (déplacement, saut, tir), toucher sur les caisses et les bonus, écran adapté à toutes les tailles
 - Visée souris ou tir dans la direction du déplacement, touches configurables, pause (Échap / P)
 
 Jeu et graphismes originaux, inspirés par le genre des shooters de survie.
