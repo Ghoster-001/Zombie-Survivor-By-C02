@@ -19,6 +19,8 @@ Ou télécharge le dépôt et ouvre `index.html` dans un navigateur moderne.
 - Sons synthétisés propres à chaque famille d'arme (réglage du volume dans Options)
 - Musique de fond en boucle (curseur de volume et bouton on/off dans Options)
 - 8 bonus lâchés par les zombies : soin, bouclier, dégâts x2, cadence, gel, frappe aérienne, tourelle, butin
+- Menu pause (Échap : continuer, paramètres, quitter avec confirmation) ; P fige le jeu sans menu
+- Mode Entraînement : toutes les armes au maximum, arme principale au choix, rien n'est sauvegardé
 - Visée souris ou tir dans la direction du déplacement, touches configurables, pause (Échap / P)
 
 Jeu et graphismes originaux, inspirés par le genre des shooters de survie.
