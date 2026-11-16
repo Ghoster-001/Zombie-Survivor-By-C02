@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>Zombie Survivor</title>
+<title>The Infected Grounds</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Black+Ops+One&display=swap">
 <style>
@@ -1249,13 +1249,13 @@ function drawMenu(){
   drawSoldier(player);ctx.restore();
   ctx.textAlign='left';
   barbed(0,W,16,1);barbed(0,W,22,1.3);
-  ctx.font='400 88px '+TITLE;
-  ctx.fillStyle='#000';ctx.fillText('ZOMBIE',73,131);ctx.fillStyle='#e9e1d0';ctx.fillText('ZOMBIE',70,128);
-  ctx.fillStyle='#000';ctx.fillText('SURVIVOR',73,209);ctx.fillStyle='#b3241c';ctx.fillText('SURVIVOR',70,206);
+  ctx.font='400 30px '+TITLE;ctx.fillStyle='#000';ctx.fillText('THE',73,83);ctx.fillStyle='#d8d0c0';ctx.fillText('THE',70,80);ctx.font='400 76px '+TITLE;
+  ctx.fillStyle='#000';ctx.fillText('INFECTED',73,146);ctx.fillStyle='#e9e1d0';ctx.fillText('INFECTED',70,143);
+  ctx.fillStyle='#000';ctx.fillText('GROUNDS',73,212);ctx.fillStyle='#b3241c';ctx.fillText('GROUNDS',70,209);
   ctx.strokeStyle='rgba(10,8,8,.55)';ctx.lineWidth=1.4;                           // rayures sur le titre
   for(let k=0;k<16;k++){const x=70+(k*37)%430,y=70+(k*53)%140;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+26,y+9);ctx.stroke()}
-  for(let k=0;k<5;k++){const x=84+k*92,len=10+((k*31)%22)+Math.sin(tick*.03+k)*3;ctx.fillStyle='#7a1812';ctx.fillRect(x,209,4,len);ctx.beginPath();ctx.arc(x+2,209+len,3.4,0,7);ctx.fill()}
-  ctx.fillStyle='rgba(233,225,208,.5)';ctx.font='500 15px '+FONT;if('letterSpacing' in ctx) ctx.letterSpacing='5px';ctx.fillText('SURVIVRE OU MOURIR',72,230);if('letterSpacing' in ctx) ctx.letterSpacing='0px';
+  for(let k=0;k<5;k++){const x=84+k*92,len=6+((k*31)%16)+Math.sin(tick*.03+k)*3;ctx.fillStyle='#7a1812';ctx.fillRect(x,211,4,len);ctx.beginPath();ctx.arc(x+2,211+len,3.4,0,7);ctx.fill()}
+  ctx.fillStyle='rgba(233,225,208,.5)';ctx.font='500 15px '+FONT;if('letterSpacing' in ctx) ctx.letterSpacing='5px';ctx.fillText('CHAPITRE : ZOMBIES SIEGE',72,232);if('letterSpacing' in ctx) ctx.letterSpacing='0px';
   if(state==='menu'){
     btn(menuRects,70,238,300,38,'JOUER',{act:()=>{training=false;reset(false)},size:22});
     btn(menuRects,70,280,300,38,'AMÉLIORATIONS',{act:openUpgrades,size:22});
@@ -1290,8 +1290,9 @@ function drawMenu(){
   } else {
     ctx.fillStyle='#e9e1d0';ctx.font='400 34px '+TITLE;ctx.fillText('CRÉDITS',70,270);
     ctx.font='500 20px '+FONT;ctx.fillStyle='#d8d2c8';
-    ctx.fillText('Jeu original, code et dessins créés pour ce projet.',70,310);
-    ctx.fillText('Un shooter de survie en vue de côté.',70,340);
+    ctx.fillText('THE INFECTED GROUNDS  ·  chapitre : ZOMBIES SIEGE',70,308);
+    ctx.fillText('Un jeu by C02. Code et dessins originaux créés pour ce projet.',70,338);
+    ctx.fillText('Un shooter de survie en vue de côté.',70,368);
     btn(menuRects,70,422,160,48,'RETOUR',{act:()=>state='menu'});
   }
   hazard(0,H-8,W,8);

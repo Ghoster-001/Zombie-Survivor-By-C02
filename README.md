@@ -1,6 +1,8 @@
-<p align="center"><a href="https://ghoster-001.github.io/Zombie-Survivor-By-C02/"><img src="assets/logo.png" width="260" alt="Zombie Survivor By C02 - cliquer pour jouer"></a></p>
+<p align="center"><a href="https://ghoster-001.github.io/Zombie-Survivor-By-C02/"><img src="assets/logo.png" width="260" alt="The Infected Grounds - Zombies Siege - cliquer pour jouer"></a></p>
 
-# Zombie Survivor By C02
+# The Infected Grounds — Zombies Siege
+
+*By C02*
 
 <p align="center"><a href="https://ghoster-001.github.io/Zombie-Survivor-By-C02/"><b>▶ JOUER AU JEU</b></a></p>
 
