@@ -1255,7 +1255,7 @@ function drawMenu(){
   ctx.strokeStyle='rgba(10,8,8,.55)';ctx.lineWidth=1.4;                           // rayures sur le titre
   for(let k=0;k<16;k++){const x=70+(k*37)%430,y=70+(k*53)%140;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+26,y+9);ctx.stroke()}
   for(let k=0;k<5;k++){const x=84+k*92,len=6+((k*31)%16)+Math.sin(tick*.03+k)*3;ctx.fillStyle='#7a1812';ctx.fillRect(x,211,4,len);ctx.beginPath();ctx.arc(x+2,211+len,3.4,0,7);ctx.fill()}
-  ctx.fillStyle='rgba(233,225,208,.5)';ctx.font='500 15px '+FONT;if('letterSpacing' in ctx) ctx.letterSpacing='5px';ctx.fillText('CHAPITRE : ZOMBIES SIEGE',72,232);if('letterSpacing' in ctx) ctx.letterSpacing='0px';
+  ctx.fillStyle='rgba(233,225,208,.5)';ctx.font='500 15px '+FONT;if('letterSpacing' in ctx) ctx.letterSpacing='5px';ctx.fillText('ZOMBIES SIEGE',72,232);if('letterSpacing' in ctx) ctx.letterSpacing='0px';
   if(state==='menu'){
     btn(menuRects,70,238,300,38,'JOUER',{act:()=>{training=false;reset(false)},size:22});
     btn(menuRects,70,280,300,38,'AMÉLIORATIONS',{act:openUpgrades,size:22});
@@ -1290,7 +1290,7 @@ function drawMenu(){
   } else {
     ctx.fillStyle='#e9e1d0';ctx.font='400 34px '+TITLE;ctx.fillText('CRÉDITS',70,270);
     ctx.font='500 20px '+FONT;ctx.fillStyle='#d8d2c8';
-    ctx.fillText('THE INFECTED GROUNDS  ·  chapitre : ZOMBIES SIEGE',70,308);
+    ctx.fillText('THE INFECTED GROUNDS  ·  ZOMBIES SIEGE',70,308);
     ctx.fillText('Un jeu by C02. Code et dessins originaux créés pour ce projet.',70,338);
     ctx.fillText('Un shooter de survie en vue de côté.',70,368);
     btn(menuRects,70,422,160,48,'RETOUR',{act:()=>state='menu'});
