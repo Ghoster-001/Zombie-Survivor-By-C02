@@ -171,7 +171,7 @@ const ZTYPES = {
 };
 
 // --- État ---
-const SET={shake:true,blood:true,aim:'mouse',vol:.6};   // aim : 'mouse' (visée à la souris) ou 'dir' (tir droit dans le sens du déplacement)
+const SET={shake:true,blood:true,aim:'mouse',vol:.6,music:true,mvol:.5};   // aim : 'mouse' (visée à la souris) ou 'dir' (tir droit dans le sens du déplacement)
 // Progression conservée entre les parties (menu Améliorations uniquement)
 const SAVE_KEY='zs_save_v5';
 let save={bank:0,xp:0,own:{'Couteau':true,'Glock 17':true},melee:'Couteau',up:{},hpLvl:0,dmgLvl:0,best:0};
@@ -208,7 +208,7 @@ const KEYS={};
 function loadKeys(){for(const a in DEFAULT_KEYS) KEYS[a]=(save.keys&&Array.isArray(save.keys[a]))?[save.keys[a][0]||'',save.keys[a][1]||'']:DEFAULT_KEYS[a].slice()}
 loadKeys();Object.assign(SET,save.opts||{});
 function saveKeys(){save.keys=JSON.parse(JSON.stringify(KEYS));persist()}
-function saveOpts(){save.opts={shake:SET.shake,blood:SET.blood,aim:SET.aim,vol:SET.vol};persist()}
+function saveOpts(){save.opts={shake:SET.shake,blood:SET.blood,aim:SET.aim,vol:SET.vol,music:SET.music,mvol:SET.mvol};persist()}
 function resetKeys(){for(const a in DEFAULT_KEYS) KEYS[a]=DEFAULT_KEYS[a].slice();saveKeys()}
 let bindListen=null,nearC=null;
 function keyName(c){
@@ -307,23 +307,25 @@ addEventListener('keydown',e=>{
   else if((state==='options'||state==='credits'||state==='upgrades'||state==='custom') && e.code==='Escape') state='menu';
 });
 addEventListener('keyup',e=>keys[e.code]=false);
+let sliderActive=null;
 cv.addEventListener('mousemove',e=>{
   const r=cv.getBoundingClientRect();
   mouse.x=(e.clientX-r.left)*W/r.width; mouse.y=(e.clientY-r.top)*H/r.height;
+  if(sliderActive) sliderActive.act();
 });
 cv.addEventListener('mousedown',()=>{
   audioInit();
   const list=(state==='menu'||state==='options'||state==='credits'||state==='upgrades'||state==='weapon'||state==='keys'||state==='custom'||state==='over')?menuRects:null;
   if(list){
     for(const r of list) if(mouse.x>=r.x&&mouse.x<=r.x+r.w&&mouse.y>=r.y&&mouse.y<=r.y+r.h){
-      sfx('click');r.act();
+      sfx('click');r.act();if(r.slider) sliderActive=r;
       break;
     }
     return;
   }
   mouse.down=true;
 });
-addEventListener('mouseup',()=>mouse.down=false);
+addEventListener('mouseup',()=>{mouse.down=false;sliderActive=null});
 
 // --- Caisses larguées du ciel : seule source d'armes à feu en partie. Munitions (5 à 100) OU durée (10 à 40 s) ---
 // Seules les armes à feu déjà achetées peuvent tomber dans une caisse
@@ -458,10 +460,17 @@ function audioBuild(c){
   AVERB=c.createConvolver();AVERB.buffer=ir;const vg=c.createGain();vg.gain.value=.5;AVERB.connect(vg);vg.connect(AMASTER);
 }
 function audioInit(){
+  if(!started){started=true;musicApply()}
   if(AC){if(AC.state==='suspended'&&AC.resume) AC.resume();return}
   const C=window.AudioContext||window.webkitAudioContext;if(!C) return;
   try{audioBuild(new C())}catch(e){AC=null}
 }
+// Musique de fond en boucle (fichier fourni), volume et activation réglables dans Options
+let MUSIC=null;
+try{MUSIC=new Audio('assets/Apocalypse_Zombie.mp3');MUSIC.loop=true;MUSIC.preload='auto'}catch(e){MUSIC=null}
+function musicApply(){if(!MUSIC) return;MUSIC.volume=Math.max(0,Math.min(1,SET.mvol));if(SET.music&&SET.mvol>0){const p=MUSIC.play();if(p&&p.catch)p.catch(()=>{})}else MUSIC.pause()}
+document.addEventListener('visibilitychange',()=>{if(!MUSIC) return;if(document.hidden) MUSIC.pause();else if(started) musicApply()});
+let started=false;
 function setVol(){if(AMASTER) AMASTER.gain.value=.55*SET.vol}
 const snd=()=>AC&&SET.vol>0;
 function env(g,t,dur,vol,att){g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(vol,t+(att||.002));g.gain.exponentialRampToValueAtTime(.0001,t+dur)}
@@ -1052,15 +1061,26 @@ function drawMenu(){
     ctx.fillStyle='#e0a526';ctx.font='700 24px '+FONT;ctx.textAlign='right';
     ctx.fillText('NIVEAU '+curLevel()+'   ·   $'+save.bank+'   ·   RECORD : VAGUE '+save.best,W-40,50);ctx.textAlign='left';
   } else if(state==='options'){
-    ctx.fillStyle='#e9e1d0';ctx.font='400 34px '+TITLE;ctx.fillText('OPTIONS',70,270);
-    btn(menuRects,70,288,360,50,'TREMBLEMENT : '+(SET.shake?'OUI':'NON'),{act:()=>{SET.shake=!SET.shake;saveOpts()},size:20});
-    btn(menuRects,70,346,360,50,'SANG : '+(SET.blood?'OUI':'NON'),{act:()=>{SET.blood=!SET.blood;saveOpts()},size:20});
-    btn(menuRects,70,404,360,50,'VISÉE : '+(SET.aim==='dir'?'DIRECTION':'SOURIS'),{act:()=>{SET.aim=SET.aim==='dir'?'mouse':'dir';saveOpts()},size:20});
-    btn(menuRects,470,288,300,50,'TOUCHES',{act:()=>{bindListen=null;state='keys'},size:20});
-    btn(menuRects,470,346,300,50,'SON : '+(SET.vol>0?Math.round(SET.vol*100)+' %':'NON'),{act:()=>{const L=[1,.6,.3,0];SET.vol=L[(L.indexOf(SET.vol)+1)%4]??1;setVol();saveOpts();audioInit();sfx('click')},size:20});
-    btn(menuRects,470,404,300,50,'RETOUR',{act:()=>state='menu',size:20});
+    ctx.fillStyle='#e9e1d0';ctx.font='400 34px '+TITLE;ctx.fillText('OPTIONS',70,262);
+    btn(menuRects,70,276,360,44,'TREMBLEMENT : '+(SET.shake?'OUI':'NON'),{act:()=>{SET.shake=!SET.shake;saveOpts()},size:20});
+    btn(menuRects,70,326,360,44,'SANG : '+(SET.blood?'OUI':'NON'),{act:()=>{SET.blood=!SET.blood;saveOpts()},size:20});
+    btn(menuRects,70,376,360,44,'VISÉE : '+(SET.aim==='dir'?'DIRECTION':'SOURIS'),{act:()=>{SET.aim=SET.aim==='dir'?'mouse':'dir';saveOpts()},size:20});
+    btn(menuRects,470,276,300,44,'TOUCHES',{act:()=>{bindListen=null;state='keys'},size:20});
+    btn(menuRects,470,326,300,44,'EFFETS : '+(SET.vol>0?Math.round(SET.vol*100)+' %':'NON'),{act:()=>{const L=[1,.6,.3,0];SET.vol=L[(L.indexOf(SET.vol)+1)%4]??1;setVol();saveOpts();audioInit();sfx('click')},size:20});
+    btn(menuRects,470,376,300,44,'RETOUR',{act:()=>state='menu',size:20});
+    // musique : curseur de volume + bouton activer / désactiver
+    panel(70,430,700,46,{grunge:.7,norivets:true});
+    ctx.fillStyle='#e8e0d0';ctx.font='700 18px '+FONT;ctx.textAlign='left';ctx.fillText('MUSIQUE',88,459);
+    const sx=190,sw=330,sy=453,mv=SET.music?SET.mvol:0;
+    menuRects.push({x:sx-10,y:437,w:sw+20,h:32,slider:true,act:()=>{SET.mvol=Math.max(0,Math.min(1,(mouse.x-sx)/sw));if(SET.mvol>0&&!SET.music) SET.music=true;musicApply();saveOpts()}});
+    ctx.fillStyle='#0b0908';ctx.fillRect(sx,sy-4,sw,8);ctx.strokeStyle='#4a3a2e';ctx.lineWidth=1;ctx.strokeRect(sx+.5,sy-3.5,sw-1,7);
+    ctx.fillStyle=SET.music?'#e2542e':'#5a4a40';ctx.fillRect(sx,sy-4,sw*SET.mvol,8);
+    const tx=sx+sw*SET.mvol,hotS=sliderActive||(mouse.x>=sx-10&&mouse.x<=sx+sw+10&&mouse.y>=437&&mouse.y<=469);
+    ctx.fillStyle=hotS?'#fff':'#d8d2c8';ctx.beginPath();ctx.roundRect(tx-6,sy-12,12,24,3);ctx.fill();ctx.strokeStyle='#000';ctx.stroke();
+    ctx.fillStyle='#d8d2c8';ctx.font='700 16px '+FONT;ctx.fillText(Math.round(SET.mvol*100)+' %',sx+sw+16,459);
+    btn(menuRects,598,434,168,38,'MUSIQUE : '+(SET.music?'OUI':'NON'),{act:()=>{SET.music=!SET.music;musicApply();saveOpts()},size:15});
     ctx.fillStyle='#b9b1a6';ctx.font='500 14px '+FONT;
-    ctx.fillText(SET.aim==='dir'?'Visée DIRECTION : le soldat tire droit devant lui, dans le sens où tu te déplaces (clic ou touche de tir).':'Visée SOURIS : le soldat vise vers le curseur (clic pour tirer).',70,478);
+    ctx.fillText(SET.aim==='dir'?'Visée DIRECTION : le soldat tire droit devant lui, dans le sens où tu te déplaces (clic ou touche de tir).':'Visée SOURIS : le soldat vise vers le curseur (clic pour tirer).',70,495);
   } else {
     ctx.fillStyle='#e9e1d0';ctx.font='400 34px '+TITLE;ctx.fillText('CRÉDITS',70,270);
     ctx.font='500 20px '+FONT;ctx.fillStyle='#d8d2c8';
