@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="38%" r="70%"><stop offset="0" stop-color="#3a1519"/><stop offset=".6" stop-color="#17101a"/><stop offset="1" stop-color="#0b0a10"/></radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#e2542e" stop-opacity=".55"/><stop offset="1" stop-color="#e2542e" stop-opacity="0"/></radialGradient>
+    <clipPath id="c"><circle cx="256" cy="256" r="238"/></clipPath>
+  </defs>
+  <circle cx="256" cy="256" r="252" fill="#0b0a10"/>
+  <circle cx="256" cy="256" r="238" fill="url(#bg)"/>
+  <g clip-path="url(#c)">
+    <circle cx="256" cy="190" r="150" fill="url(#glow)"/>
+    <path d="M0 330 L30 290 L52 304 L80 268 L110 300 L140 262 L172 296 L200 276 L230 306 L262 270 L296 302 L330 260 L360 296 L392 270 L420 300 L452 266 L480 296 L512 280 L512 512 L0 512Z" fill="#1d1621" opacity=".9"/>
+    <path d="M0 340 L512 340 L512 512 L0 512Z" fill="#120e10" opacity=".55"/>
+  </g>
+  <!-- cercle hazard -->
+  <circle cx="256" cy="256" r="238" fill="none" stroke="#b3241c" stroke-width="10"/>
+  <circle cx="256" cy="256" r="238" fill="none" stroke="#0b0a10" stroke-width="10" stroke-dasharray="14 18" opacity=".8"/>
+  <circle cx="256" cy="256" r="226" fill="none" stroke="#e9e1d0" stroke-width="2" opacity=".5"/>
+  <!-- zombie -->
+  <ellipse cx="256" cy="192" rx="68" ry="78" fill="#7fb069" stroke="#0b0a10" stroke-width="5"/>
+  <path d="M190 160 Q200 108 256 106 Q312 108 322 160 Q300 136 256 134 Q212 136 190 160Z" fill="#2f3b25" stroke="#0b0a10" stroke-width="4"/>
+  <path d="M286 118 L296 150 L276 132Z M226 120 L214 148 L238 134Z" fill="#2f3b25"/>
+  <circle cx="230" cy="182" r="19" fill="#f4f4d8" stroke="#0b0a10" stroke-width="4"/>
+  <circle cx="284" cy="184" r="15" fill="#f4f4d8" stroke="#0b0a10" stroke-width="4"/>
+  <circle cx="234" cy="184" r="8" fill="#c0252b"/><circle cx="281" cy="186" r="6.5" fill="#c0252b"/>
+  <path d="M214 160 L246 168 M274 170 L304 164" stroke="#0b0a10" stroke-width="6" stroke-linecap="round"/>
+  <path d="M256 196 L248 214 L260 214" fill="none" stroke="#3d5a35" stroke-width="4" stroke-linecap="round"/>
+  <path d="M216 232 Q256 250 296 232 L292 262 Q256 278 220 262Z" fill="#2a0e0e" stroke="#0b0a10" stroke-width="4"/>
+  <path d="M222 236 L230 250 L238 238 L248 252 L258 240 L268 252 L278 240 L288 250 L292 236 Z" fill="#f2efe8"/>
+  <path d="M300 205 l14 10 -10 8 12 9" fill="none" stroke="#7a1812" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M226 262 v22 M252 268 v14 M280 262 v26" stroke="#b3241c" stroke-width="5" stroke-linecap="round"/>
+  <!-- réticule -->
+  <g fill="none" stroke="#e2542e" stroke-width="6" stroke-linecap="round">
+    <circle cx="256" cy="192" r="112"/>
+    <path d="M256 58 V96 M256 288 V326 M122 192 H160 M352 192 H390"/>
+  </g>
+  <circle cx="256" cy="192" r="4" fill="#e2542e"/>
+  <!-- titre -->
+  <g font-family="'Black Ops One','Impact','Arial Black',sans-serif" text-anchor="middle">
+    <text x="259" y="375" font-size="68" fill="#000">ZOMBIE</text>
+    <text x="256" y="372" font-size="68" fill="#e9e1d0">ZOMBIE</text>
+    <text x="259" y="434" font-size="50" fill="#000">SURVIVOR</text>
+    <text x="256" y="431" font-size="50" fill="#b3241c">SURVIVOR</text>
+  </g>
+  <path d="M200 380 v14 M262 380 v9 M318 380 v16" stroke="#7a1812" stroke-width="5" stroke-linecap="round"/>
+  <rect x="190" y="450" width="132" height="26" rx="3" fill="#0b0a10" stroke="#e0a526" stroke-width="2"/>
+  <text x="256" y="469" font-family="'Oswald','Arial Narrow',Arial,sans-serif" font-weight="700" font-size="18" letter-spacing="4" text-anchor="middle" fill="#e0a526">BY C02</text>
+</svg>

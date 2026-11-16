@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.png" width="260" alt="Zombie Survivor By C02"></p>
+
 # Zombie Survivor By C02
 
 Shooter de survie zombie en vue de côté, jouable dans le navigateur (HTML5 canvas, JavaScript pur, un seul fichier).
