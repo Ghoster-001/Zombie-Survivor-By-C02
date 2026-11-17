@@ -27,6 +27,8 @@ Ou télécharge le dépôt et ouvre `index.html` dans un navigateur moderne.
 - Caisses du ciel : tirage au sort uniforme parmi les armes à feu débloquées, le kit de soin et le bouclier
 - 25 langues (détection automatique de la langue de l'appareil, changement depuis le menu principal avec les drapeaux)
 - Mobile : boutons tactiles (déplacement, saut, tir), toucher sur les caisses et les bonus ; la zone de jeu s'adapte au format de l'écran (jusqu'aux bords, sans bandes noires)
+- Manettes : onglet « Manettes connectées » pour activer / désactiver chaque manette (volant, casque, périphérique virtuel…), calibrage automatique au repos
+- C02 Anti-Cheat v1.1 : surveillance aussi en 3D (vitesse, cadence de tir) et contrôle des données des armes et zombies
 - Mode 3D « monde libre » (bouton MODE 2D/3D/VR, V0.61) : FPS en ville ouverte, première ou troisième personne (touche V), déplacement libre avant / arrière / côtés (ZQSD ou WASD, souris pour viser, Espace pour sauter, Maj pour courir), vagues de zombies, 201 armes, caisses, boosts, XP et crédits du compte ; Three.js chargé à la demande (connexion requise) ; tactile et manette gérés ; le multijoueur reste réservé au mode 2D
 - Visée souris ou tir dans la direction du déplacement, touches configurables, pause (Échap / P)
 - Cartes (6), difficultés, boss toutes les 5 manches, manche finale du magicien qui débloque la carte suivante
