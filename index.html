@@ -3204,7 +3204,7 @@ function drawMenuBody(){
   }
   if(state==='menu'){
     drawProfileCard();
-    {const it=[['JOUER',()=>{mapTrain=false;training=false;NM.on=false;state='maps'}],['NIGHTMARE  ·  infini',()=>{if(MP.on) return;mapTrain=false;training=false;state='nmsetup'}],['MULTIJOUEUR'+(gameMode==='3D'?'  ·  2D seulement':''),()=>{MP.msg='';MP.status='off';state='mpmenu'}],['ARSENAL',openUpgrades],['ENTRAÎNEMENT',()=>{mapTrain=true;state='maps'}],['PERSONNALISATION',()=>state='custom'],['BOUTIQUE',()=>state='shop'],['OPTIONS',()=>{optFrom='menu';state='options'}],['CRÉDITS',()=>state='credits'],['QUITTER',()=>state='quit']];
+    {const it=[['JOUER',()=>{mapTrain=false;training=false;NM.on=false;state='maps'}],['NIGHTMARE  ·  infini',()=>{if(MP.on) return;mapTrain=false;training=false;state='nmsetup'}],['MULTIJOUEUR'+(gameMode==='3D'?'  ·  3D : coop / battle royale':''),()=>{MP.msg='';MP.status='off';state='mpmenu'}],['ARSENAL',openUpgrades],['ENTRAÎNEMENT',()=>{mapTrain=true;state='maps'}],['PERSONNALISATION',()=>state='custom'],['BOUTIQUE',()=>state='shop'],['OPTIONS',()=>{optFrom='menu';state='options'}],['CRÉDITS',()=>state='credits'],['QUITTER',()=>state='quit']];
      it.forEach(([lab,act],k)=>btn(menuRects,70,232+k*31,300,28,lab,{act,size:18}))}
     {const li=langInfo(),x=W-210,y=H-104,w=170,h=36,hot=mouse.x>=x&&mouse.x<=x+w&&mouse.y>=y&&mouse.y<=y+h;menuRects.push({x,y,w,h,act:()=>state='lang'});
      panel(x,y,w,h,{top:hot?'#4a2018':'#2d2723',bot:hot?'#2a100c':'#17120f',edge:hot?'#e2542e':'#4a3a2e',norivets:true});drawFlag(li.f,x+10,y+6,34,24);
@@ -5440,14 +5440,15 @@ function drawMpMenu(){
   ctx.fillStyle='#000000d8';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
   ctx.fillStyle='#000';ctx.font='400 38px '+TITLE;ctx.fillText('MULTIJOUEUR',43,61);ctx.fillStyle='#e9e1d0';ctx.fillText('MULTIJOUEUR',40,58);ctx.fillStyle='#7a2c1c';ctx.fillRect(40,66,230,3);
   ctx.fillStyle='#d8d2c8';ctx.font='500 16px '+FONT;ctx.fillText('Coopération de 2 à 4 joueurs : survivez ensemble. Chacun garde sa progression et ses gains.',40,98);
-  const ok=ACG.ok()&&gameMode==='2D';
-  btn(menuRects,40,124,420,96,'HÔTE',{act:mpStartHost,size:28,sub:'créer une partie et obtenir un code',dim:!ok});
+  const ok=ACG.ok()&&(gameMode==='2D'||gameMode==='3D');
+  btn(menuRects,40,124,420,96,'HÔTE',{act:mpStartHost,size:28,sub:gameMode==='3D'?'salon 3D : coop ou Battle Royale (10 joueurs)':'créer une partie et obtenir un code',dim:!ok});
   btn(menuRects,500,124,420,96,'REJOINDRE',{act:()=>{joinCode='';state='mpjoin'},size:28,sub:'entrer le code d\'un ami',dim:!ok});
   btn(menuRects,500,236,420,44,'REMOTE PLAY  ›',{act:()=>{if(gameMode==='2D') state='rpsetup'},size:20,sub:'plusieurs joueurs sur le même écran, un téléphone chacun',dim:gameMode!=='2D'});
   btn(menuRects,40,236,420,44,'PSEUDO : '+cleanName(mpName()),{act:()=>renamePseudo(),size:18});
   ctx.fillStyle='#b9b1a6';ctx.font='500 14px '+FONT;
   ['Hôte : tu crées le salon, tu choisis la carte et la difficulté, puis tu lances quand tout le monde est prêt.','Invités : tu entres le code, tu te mets « prêt », et la partie démarre.','Caisses : le premier qui les prend les garde. Cadeaux de Noël : tout le monde reçoit le bonus.','Les zombies sont plus nombreux et plus résistants selon le nombre de joueurs.'].forEach((t,i)=>ctx.fillText(t,40,312+i*24,880));
-  if(gameMode!=='2D'){ctx.fillStyle='#e0a526';ctx.font='700 15px '+FONT;ctx.fillText('Le multijoueur n\'est pas disponible en mode '+gameMode+' : repasse en mode 2D (menu principal).',40,396,880)}
+  if(gameMode==='3D'){ctx.fillStyle='#9fd18a';ctx.font='700 15px '+FONT;ctx.fillText('MODE 3D actif : crée un salon (HÔTE) puis choisis COOP ou BATTLE ROYALE avec le bouton « MODE 3D ». Les invités rejoignent avec le code.',40,396,880)}
+  else if(gameMode!=='2D'){ctx.fillStyle='#e0a526';ctx.font='700 15px '+FONT;ctx.fillText('Le multijoueur n\'est pas disponible en mode '+gameMode+' : repasse en mode 2D ou 3D (menu principal).',40,396,880)}
   ctx.fillStyle=ok?'#9fd18a':'#e2542e';ctx.font='700 14px '+FONT;
   ctx.fillText(ok?'● '+ACG.NAME+' v'+ACG.VER+' : actif, ta sauvegarde est conforme':'● '+ACG.NAME+' : '+ACG.why(),40,420,880);
   if(MP.msg&&MP.status==='err'){ctx.fillStyle='#e2542e';ctx.font='700 16px '+FONT;ctx.fillText(MP.msg,40,446,880)}
