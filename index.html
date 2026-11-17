@@ -155,7 +155,7 @@ function resWanted(vw){
 }
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.67';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.68';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -466,7 +466,11 @@ const ACG=(()=>{
   function check(s){
     const a=s.ac;let bad=false;
     if(a&&a.s){if(a.s!==sign(canon(s))){st.sig='bad';bad=true;note('Signature de la sauvegarde invalide : données modifiées hors du jeu')}else st.sig='ok'}
-    else if(marker()){st.sig='bad';bad=true;note('Signature de la sauvegarde absente alors que ce navigateur en avait une')}
+    else if(marker()){
+      let imp=false;try{imp=localStorage.getItem('zs_acimp')==='1'}catch(e){}
+      if(imp){st.sig='new';try{localStorage.removeItem('zs_acimp')}catch(e){}note('Sauvegarde importée par le jeu : nouvelle signature')}      // import fait depuis le jeu (contrôlé par le coffre) : on re-signe
+      else{st.sig='bad';bad=true;note('Signature de la sauvegarde absente alors que ce navigateur en avait une')}
+    }
     else st.sig='new';                                                  // première utilisation depuis l'arrivée de l'anti-triche : on accepte et on signe
     if(a&&a.f){st.sig='bad';bad=true;note('Sauvegarde déjà marquée comme modifiée')}
     const p=plaus(s);if(p.length){st.plaus='bad';bad=true;note('Valeurs impossibles : '+p.slice(0,4).join(', '))}
