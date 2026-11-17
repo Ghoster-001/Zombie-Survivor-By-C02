@@ -30,7 +30,7 @@ if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.proto
 let RES=Math.max(1,Math.min(2,window.devicePixelRatio||1));if(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) RES=Math.min(RES,1.5);   // résolution interne adaptée : plus fluide sur mobile
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.40';   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.41';   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -68,7 +68,7 @@ function toggleFull(){
 // --- Données de configuration (à modifier facilement) ---
 const SKINS=[{id:'orig',n:'ORIGINAL'},{id:'gold',n:'OR',c:'#e0a820'},{id:'red',n:'ROUGE',c:'#c9372c'},{id:'blue',n:'BLEU',c:'#2f6fd0'},{id:'green',n:'VERT',c:'#3da05a'},{id:'purple',n:'VIOLET',c:'#8a4fd0'},{id:'orange',n:'ORANGE',c:'#e0832a'},{id:'pink',n:'ROSE',c:'#e05a9a'},{id:'cyan',n:'CYAN',c:'#2fc7d6'},{id:'white',n:'BLANC',c:'#e8e8ee'}];
 const WOODS=[{id:'orig',n:'ORIGINAL'},{id:'dark',n:'FONCÉ',c:'#4e2d16'},{id:'light',n:'CLAIR',c:'#d6b27c'}];
-const CAT=['MÊLÉE','PISTOLETS','PM','ASSAUT','POMPES','PRÉCISION','LOURDES','SPÉCIAL'];
+const CAT=['MÊLÉE','PISTOLETS','PM','ASSAUT','POMPES','PRÉCISION','LOURDES','SPÉCIAL','AKIMBO'];
 const KINDS={
   pistol:{len:22,thick:7},revolver:{len:24,thick:8},deagle:{len:26,thick:9},nailgun:{len:20,thick:8},
   smg:{len:26,thick:7},ak:{len:44,thick:8},m4:{len:44,thick:8},lmg:{len:48,thick:9},
@@ -76,11 +76,22 @@ const KINDS={
   minigun:{len:54,thick:14},crossbow:{len:30,thick:8},bow:{len:24,thick:5},flamer:{len:40,thick:11},
   launcher:{len:48,thick:12},rail:{len:50,thick:8},laser:{len:40,thick:6},
 };
+// portée utile (px) : ni trop courte ni infinie — l'écran fait ~960 px de large
+const RANGE={pistol:640,revolver:720,deagle:780,nailgun:480,smg:640,ak:960,m4:1000,lmg:1000,shotgun:500,dmr:1250,barrett:1450,minigun:900,crossbow:850,bow:780,flamer:150,launcher:950,rail:1600,laser:1150};
 const PALS=[['#2a2a2e','#8a5a30'],['#33363a','#6b4a2a'],['#2f3a2c','#7a5a30'],['#3a3a3a','#a07040'],['#2a303a','#5a3a22'],['#44413a','#8a6a40']];
 const WEAPONS=[];
 function M(name,kind,dmg,rate,reach,o){WEAPONS.push(Object.assign({cat:'MÊLÉE',name,kind,melee:true,dmg,rate,reach,auto:true},o||{}))}
 function G(cat,name,kind,dmg,rate,spread,speed,pierce,auto,o){
-  WEAPONS.push(Object.assign({cat,name,kind,dmg,rate,pellets:1,spread,speed,pierce,auto:!!auto},KINDS[kind],o||{}));
+  WEAPONS.push(Object.assign({cat,name,kind,dmg,rate,pellets:1,spread,speed,pierce,auto:!!auto,range:RANGE[kind]||800},KINDS[kind],o||{}));
+}
+const NEWWS={},NEWWSG={};   // sons des nouvelles armes (fusionnés avec WS / WSG plus bas)
+function N(cat,name,kind,dmg,rate,spread,speed,pierce,auto,snd,o){G(cat,name,kind,dmg,rate,spread,speed,pierce,auto,o);if(kind==='shotgun'&&snd&&snd.length===4&&typeof snd[0]==='number') NEWWSG[name]=snd; else if(snd) NEWWS[name]=snd}
+// Akimbo : deux armes, une par main, qui tirent chacune leur tour
+function D(name,a,b){
+  const A=WEAPONS.find(w=>w.name===a),B=WEAPONS.find(w=>w.name===b);if(!A||!B) throw new Error('akimbo '+name);
+  const av=k=>(A[k]+B[k])/2;
+  WEAPONS.push({cat:'AKIMBO',name,kind:'dual',hands:[a,b],dmg:Math.round(av('dmg')*10)/10,rate:Math.round(av('rate')*.6),pellets:Math.round(av('pellets')),spread:av('spread'),speed:av('speed'),
+    pierce:Math.max(A.pierce,B.pierce),auto:A.auto&&B.auto,len:32,thick:8,range:Math.round(av('range')),hi:[WEAPONS.indexOf(A),WEAPONS.indexOf(B)]});
 }
 // Mêlée (le couteau est toujours l'arme n°1)
 M('Couteau','knife',28,280,62,{blade:23});
@@ -190,6 +201,84 @@ G('SPÉCIAL','Fusil laser','laser',10,55,.01,40,6,1,{col:'#ff4a4a',size:2});
 G('SPÉCIAL','Fusil à plasma','laser',28,220,.02,18,1,1,{aoe:45,col:'#7dff6a',size:4});
 G('SPÉCIAL','Fusil harpon','crossbow',85,1100,0,22,3,0,{col:'#cfd5dd',size:3});
 G('SPÉCIAL','Pistolet laser','laser',7,120,.02,40,3,0,{col:'#ff4a4a',size:2,len:24});
+
+// ===== Nouvelles armes (une voix propre à chacune : calibre + mécanisme + micro-variations) =====
+N('PISTOLETS','Browning Hi-Power','pistol',14,300,.03,17,1,0,['p9','s',{fb:.97,tl:1.05}]);
+N('PISTOLETS','Walther P38','pistol',12,320,.03,16,1,0,['p9','s',{fc:1.03,v:.95}]);
+N('PISTOLETS','Walther PPK','pistol',9,250,.04,15,1,0,['c22','s',{fb:1.1,v:1.2}]);
+N('PISTOLETS','Luger P08','pistol',13,360,.03,17,1,0,['p9','s',{fc:.9,fb:1.1}]);
+N('PISTOLETS','Glock 19','pistol',12,300,.03,16,1,0,['p9','s',{fc:1.08,fb:.92}]);
+N('PISTOLETS','HK Mark 23','pistol',20,420,.02,18,2,0,['p45','s',{fb:.85,tl:1.2,v:1.1}]);
+N('PISTOLETS','Beretta 93R','pistol',8,95,.09,16,1,1,['p9','r',{v:.85,tl:.8}]);
+N('PISTOLETS','Colt Single Action Army','revolver',40,600,.025,18,2,0,['p45','',{fb:.9,tl:1.3}]);
+N('PISTOLETS','Ruger Redhawk','revolver',48,620,.02,19,3,0,['p44','',{fc:1.05}]);
+N('PISTOLETS','Colt Anaconda','revolver',44,560,.02,19,2,0,['p44','',{fb:1.1,tl:.9}]);
+N('PISTOLETS','Webley Mk VI','revolver',34,540,.03,17,2,0,['p45','',{fc:.9,v:.95}]);
+N('PISTOLETS','S&W Model 500','revolver',70,950,.03,22,4,0,['p50','',{fb:.8,tl:1.15}]);
+N('PM','Mini-Uzi','smg',5,62,.17,17,1,1,['p9s','r',{fb:1.2,tl:.85}]);
+N('PM','Micro Uzi','smg',5,52,.2,16,1,1,['p9s','r',{fc:.95,fb:1.3,tl:.7}]);
+N('PM','MP5K','smg',7,80,.1,18,1,1,['p9s','k',{fc:1.05,fb:1.1}]);
+N('PM','Sterling L2A3','smg',8,100,.1,17,1,1,['p9s','r',{fb:.9}]);
+N('PM','Beretta M12','smg',8,95,.1,17,1,1,['p9s','r',{fc:.92}]);
+N('PM','CZ Scorpion EVO','smg',8,78,.09,18,1,1,['p9','k']);
+N('PM','M3 Grease Gun','smg',10,160,.13,16,1,1,['p45','r',{fb:.85,tl:1.2}]);
+N('PM','Sten','smg',8,105,.14,16,1,1,['p9s','r',{fc:.85,v:1.1}]);
+N('PM','PP-19 Vityaz','smg',8,68,.09,17,1,1,['p9s','r',{fb:.9}]);
+N('PM','Carl Gustaf m/45','smg',9,95,.1,17,1,1,['p9s','r',{fb:.95}]);
+N('PM','B&T MP9','smg',6,60,.09,18,1,1,['p9s','k',{v:.8}]);
+N('ASSAUT','M16A1','m4',12,95,.05,21,1,1,['r556','k',{fc:1.1,fb:.92}]);
+N('ASSAUT','M4 CQB','m4',11,82,.06,20,1,1,['r556','k',{fc:1.12,tl:.8}]);
+N('ASSAUT','AK-103','ak',14,100,.06,19,1,1,['r762s','g',{fb:1.05}]);
+N('ASSAUT','AK-105','ak',12,88,.06,20,1,1,['r545','g',{fc:1.08}]);
+N('ASSAUT','RK 62','ak',14,108,.06,19,1,1,['r762s','g',{fc:.93}]);
+N('ASSAUT','Type 56','ak',13,112,.08,19,1,1,['r762s','g',{fb:.95,tl:.95}]);
+N('ASSAUT','SCAR-L','m4',11,84,.04,21,1,1,['r556','k',{fb:1.1}]);
+N('ASSAUT','Bushmaster ACR','m4',11,86,.04,21,1,1,['r556','k',{fc:.97,v:.95}]);
+N('ASSAUT','XM8','m4',10,84,.05,21,1,1,['r556','k',{fc:1.03,v:.85}]);
+N('ASSAUT','L85A2','m4',11,92,.04,21,1,1,['r556','k',{fb:.9,fc:.9}]);
+N('ASSAUT','CZ 805 Bren','m4',12,88,.04,21,1,1,['r556','g']);
+N('ASSAUT','Beretta ARX-160','m4',11,82,.045,21,1,1,['r556','k',{fb:1.02,tl:.9}]);
+N('ASSAUT','Daewoo K2','m4',11,86,.05,21,1,1,['r556','g',{fc:.96}]);
+N('POMPES','Ithaca 37','shotgun',10,720,.34,15,1,0,[88,.36,1500,'p'],{pellets:8});
+N('POMPES','Mossberg 590','shotgun',9,680,.34,15,1,0,[92,.35,1600,'p'],{pellets:8});
+N('POMPES','Remington 1100','shotgun',8,420,.32,15,1,0,[95,.3,1650,'g'],{pellets:8});
+N('POMPES','Beretta 1301','shotgun',8,380,.3,15,1,0,[100,.28,1700,'g'],{pellets:8});
+N('POMPES','Fabarm STF12','shotgun',9,430,.32,15,1,0,[96,.3,1650,'g'],{pellets:8});
+N('POMPES','Franchi SPAS-15','shotgun',9,480,.3,16,1,0,[90,.32,1600,'g'],{pellets:8});
+N('POMPES','Browning BPS','shotgun',10,740,.34,15,1,0,[86,.36,1520,'p'],{pellets:8});
+N('POMPES','Winchester 1897','shotgun',10,820,.36,15,1,0,[82,.4,1350,'p'],{pellets:9});
+N('POMPES','Stoeger Coach Gun','shotgun',15,950,.44,14,1,0,[70,.5,1200,'d'],{pellets:12});
+N('POMPES',"Mare's Leg",'shotgun',11,650,.36,15,1,0,[80,.36,1450,'l'],{pellets:6,oneHand:true,len:26,range:420});
+N('POMPES','Canon scié','shotgun',13,800,.5,14,1,0,[68,.45,1250,'d'],{pellets:10,oneHand:true,len:22,range:340});
+N('POMPES','Ithaca Stakeout','shotgun',9,620,.38,15,1,0,[88,.3,1500,'p'],{pellets:6,oneHand:true,len:24,range:400});
+N('PRÉCISION','Springfield M1903','dmr',62,900,0,27,3,0,['r762','b',{fc:.95,tl:1.15}]);
+N('PRÉCISION','M1 Garand','dmr',30,240,.015,23,2,0,['r762','g',{fc:1.05,tl:1.1}]);
+N('PRÉCISION','SVT-40','dmr',28,260,.02,22,2,0,['r762s','g']);
+N('PRÉCISION','HK PSG1','dmr',50,520,0,26,3,0,['r762','k',{fb:.95,tl:1.1}]);
+N('PRÉCISION','Sako TRG-42','dmr',90,1000,0,29,5,0,['r338','b',{v:.95}]);
+N('PRÉCISION','Tikka T3','dmr',44,650,.005,25,2,0,['r762','b',{fc:1.08}]);
+N('PRÉCISION','Arctic Warfare','dmr',85,980,0,29,5,0,['r338','b',{fb:1.05}]);
+N('PRÉCISION','Dragunov SVU','dmr',52,480,.005,25,3,0,['r54r','g',{fc:1.05}]);
+N('PRÉCISION','Barrett M99','barrett',125,1250,0,31,8,0,['r50','b']);
+N('LOURDES','Ultimax 100','lmg',9,70,.07,20,1,1,['r556','c',{fc:.95,v:.9}]);
+N('LOURDES','Type 80','lmg',12,95,.09,20,1,1,['r54r','c',{fb:.95}]);
+N('LOURDES','FN Minimi Para','lmg',9,68,.09,20,1,1,['r556','c',{fc:1.08}]);
+N('LOURDES','MG3','lmg',9,48,.12,20,1,1,['r762','c',{fc:1.05,tl:.7}]);
+N('LOURDES','Browning M1919','lmg',13,85,.1,20,1,1,['r762','c',{fb:.92}]);
+N('LOURDES','Lewis Gun','lmg',12,110,.1,19,1,1,['r303','c',{fc:.9,tl:1.1}]);
+N('SPÉCIAL','M72 LAW','launcher',110,1300,.01,12,1,0,null,{aoe:110,col:'#ffb040',size:4});
+N('SPÉCIAL','Panzerfaust','launcher',140,1500,.01,11,1,0,null,{aoe:130,col:'#ffb040',size:5});
+N('SPÉCIAL','Milkor MGL','launcher',50,520,.03,11,1,0,null,{aoe:80,col:'#9fb36a',size:4});
+N('SPÉCIAL','Pistolet lance-fusée','pistol',16,700,.03,12,1,0,null,{col:'#ff8a3a',fire:true,life:30,size:3});
+N('SPÉCIAL','Arbalète à répétition','crossbow',42,320,.02,20,2,1,null,{col:'#d8c08a',size:3});
+N('SPÉCIAL','Fusil à fléchettes','nailgun',12,110,.05,20,1,1,null,{col:'#e0e0e0'});
+// Akimbo : deux armes, une dans chaque main (réaliste : pas de deux fusils de précision)
+for(const n of ['Glock 17','Beretta 92','M1911','USP','CZ 75','Five-seveN','Sig P226','Glock 18','Desert Eagle','Revolver Python','Colt Single Action Army','Uzi','MAC-10','MP7','Skorpion','Mini-Uzi','Vector','MP5K'])
+  D('Double '+n,n,n);
+D('Uzi + Canon scié','Uzi','Canon scié');D('MAC-10 + Canon scié','MAC-10','Canon scié');D("Mini-Uzi + Mare's Leg",'Mini-Uzi',"Mare's Leg");D("Uzi + Mare's Leg",'Uzi',"Mare's Leg");
+D('Beretta 92 + Canon scié','Beretta 92','Canon scié');D('Glock 17 + Canon scié','Glock 17','Canon scié');D('Desert Eagle + Uzi','Desert Eagle','Uzi');
+D("M1911 + Mare's Leg",'M1911',"Mare's Leg");D("Python + Mare's Leg",'Revolver Python',"Mare's Leg");D('Glock 18 + Ithaca Stakeout','Glock 18','Ithaca Stakeout');
+D('MP5K + Ithaca Stakeout','MP5K','Ithaca Stakeout');D('Desert Eagle + Canon scié','Desert Eagle','Canon scié');D('Double Canon scié','Canon scié','Canon scié');D("Double Mare's Leg","Mare's Leg","Mare's Leg");
 // Niveau requis et prix : calculés d'après la puissance de l'arme
 WEAPONS.forEach(w=>{let h=0;for(const c of w.name)h=(h*31+c.charCodeAt(0))%997;w.pal=PALS[h%PALS.length]});
 const power=w=>w.melee?w.dmg*1000/w.rate*(1+w.reach/200)*.45
@@ -198,7 +287,7 @@ const power=w=>w.melee?w.dmg*1000/w.rate*(1+w.reach/200)*.45
  order.forEach((w,r)=>{w.lvl=2+Math.floor(r*23/(order.length-1));w.cost=Math.round((0.9*w.lvl*w.lvl+15)/5)*5});
  const gl=WEAPONS.find(w=>w.name==='Glock 17');gl.lvl=1;gl.cost=0;   // arme à feu de départ : tombe dans les caisses dès le début
  WEAPONS[0].lvl=1;WEAPONS[0].cost=0;}
-WEAPONS.forEach(w=>{w.hs=w.melee?.55:({pistol:.5,revolver:.5,deagle:.5,nailgun:.5,smg:.42,barrett:.34,launcher:.34,minigun:.36,crossbow:.4,bow:.42,flamer:.38}[w.kind]||.4)});
+WEAPONS.forEach(w=>{w.hs=w.hands?.45:w.oneHand?.5:w.melee?.55:({pistol:.5,revolver:.5,deagle:.5,nailgun:.5,smg:.42,barrett:.34,launcher:.34,minigun:.36,crossbow:.4,bow:.42,flamer:.38}[w.kind]||.4)});
 const MENU_GUN=WEAPONS.findIndex(w=>w.name==='AK-47');
 const ZTYPES = {
   normal:{hp:30, speed:1.0, size:1.0, dmg:8,  color:'#5c9a4a', coins:10},
@@ -230,7 +319,16 @@ try{
   if(r) save=Object.assign(save,r);
   save.own['Couteau']=true;save.own['Glock 17']=true;
 }catch(e){}
+save.sel=Object.assign({map:'ruines',diff:'normal'},save.sel||{});save.mapWaves=save.mapWaves||{};
 save.look=Object.assign({outfit:0,sex:'m',build:0,skin:null,hair:null,top:null,pants:null,hat:null,shoes:null},save.look||{});
+const mapUnlocked=m=>training||mapTrain||curLevel()>=m.lvl;
+const wavesOn=(m,d)=>((save.mapWaves[m.id]||{})[d]||0);
+const diffUnlocked=(m,d)=>mapTrain||training||!d.need||wavesOn(m,d.from)>=d.need;
+let accM=0,accX=0;
+const gainMul=()=>curMap.gain*curDiff.g;
+function addMoney(n){const v=n*gainMul();accM+=v;const i=Math.floor(accM+1e-9);accM-=i;money+=i;return v}
+function addXp(n){const v=n*gainMul();accX+=v;const i=Math.floor(accX+1e-9);accX-=i;runXp+=i;return v}
+function recordWaves(){if(training||wave<1) return;const done=waveBreak>0?wave:wave-1,m=save.mapWaves[curMap.id]||(save.mapWaves[curMap.id]={});m[curDiff.id]=Math.max(m[curDiff.id]||0,done)}
 let training=false,pauseConfirm=false,optFrom='menu',trainMain=-1,trainCat=0,trainPage=0;   // mode Entraînement : tout débloqué et amélioré au max, rien n'est sauvegardé
 const isOwned=i=>training||!!save.own[WEAPONS[i].name];
 // Améliorations par arme : niveaux 1 à 3 = dégâts, niveau 4 = dégâts + mod or + couleurs (changeables à tout moment)
@@ -380,7 +478,36 @@ if(save.dmgLvl>0){
   save.bank+=refund;save.dmgLvl=0;persist();
 }
 {const mi=WEAPONS.findIndex(w=>w.name===save.melee);if(mi<0||!WEAPONS[mi].melee||!save.own[save.melee]) save.melee='Couteau'}
-const WORLD_W=3600;let camX=0;   // map défilante : 3600 px de large (~3,7 écrans)
+let WORLD_W=3600,camX=0;
+// ===== Cartes et difficultés =====
+const MAPS=[
+ {id:'ruines',name:'RUES EN RUINE',lvl:1,world:3600,count:1,hp:1,sp:1,crate:1,sup:1,drop:1,gain:1,tank:1,dark:0,
+  pros:['Équilibrée : idéale pour débuter'],cons:['Aucun avantage particulier'],
+  pal:{sky:['#0b0a10','#3a1519','#a8401f','#e0763a'],far:'#2b2230',near:'#17121b',win:'245,170,70',sun:'217,165,106',fog:'190,110,80',road:['#2b2730','#141116'],walk:'#4a4450'}},
+ {id:'usine',name:'ZONE INDUSTRIELLE',lvl:4,world:3800,count:1,hp:1.25,sp:1,crate:1,sup:1.7,drop:1,gain:1.15,tank:1,dark:0,
+  pros:['Caisses de soin et d\'armure ×1,7','Gains +15 %'],cons:['Zombies +25 % de vie'],
+  pal:{sky:['#07090d','#16262c','#35666b','#7fb0a5'],far:'#1f2d33',near:'#0f181c',win:'150,230,210',sun:'170,220,200',fog:'110,170,160',road:['#232a2c','#101517'],walk:'#3d4a4d'}},
+ {id:'banlieue',name:'BANLIEUE DE NUIT',lvl:8,world:3400,count:1,hp:1,sp:1.15,crate:1,sup:1,drop:1.8,gain:1,tank:1,dark:.4,dkc:'2,3,14',
+  pros:['Bonus de zombies +80 % plus fréquents'],cons:['Zombies +15 % plus rapides','Visibilité réduite (nuit)'],
+  pal:{sky:['#02030a','#080d22','#14224a','#2a3f78'],far:'#141a30',near:'#090c1a',win:'255,225,140',sun:'200,210,240',fog:'60,80,140',road:['#171a26','#0a0b12'],walk:'#2c3042'}},
+ {id:'desert',name:'BASE DANS LE DÉSERT',lvl:12,world:5000,count:1.3,hp:1,sp:1,crate:1.7,sup:1,drop:1,gain:1.3,tank:1,dark:0,
+  pros:['Caisses d\'armes ×1,7','Gains +30 %'],cons:['Carte immense','Zombies +30 % plus nombreux'],
+  pal:{sky:['#2a1a2e','#a84a3a','#e8913f','#f6cf7a'],far:'#6b4a3a',near:'#3b2a22',win:'255,200,110',sun:'255,225,160',fog:'240,180,110',road:['#6a5238','#3b2d1f'],walk:'#8a7048'}},
+ {id:'metro',name:'MÉTRO ABANDONNÉ',lvl:17,world:2400,count:1.5,hp:.9,sp:1.1,crate:.8,sup:1.3,drop:1.3,gain:1.5,tank:1,dark:.3,dkc:'4,3,6',
+  pros:['Gains +50 %','Soins et bonus plus fréquents'],cons:['Carte étroite','50 % de zombies en plus, plus rapides'],
+  pal:{sky:['#050407','#120d16','#241a26','#3a2c3a'],far:'#1c1520',near:'#0d0a10',win:'120,255,170',sun:'90,110,100',fog:'90,70,90',road:['#1f1b22','#0c0a0e'],walk:'#37313b'}},
+ {id:'foret',name:'FORÊT BRUMEUSE',lvl:22,world:4200,count:1,hp:1.1,sp:1,crate:1.2,sup:1.2,drop:1.2,gain:1.4,tank:1.8,dark:.3,dkc:'140,160,150',
+  pros:['Gains +40 %','Plus de caisses'],cons:['Brouillard épais','Zombies +10 % de vie, plus de tanks'],
+  pal:{sky:['#0b1410','#1e3a2c','#4e7a5c','#a8c8a0'],far:'#2a4234',near:'#15261d',win:'200,255,180',sun:'200,230,190',fog:'150,190,160',road:['#2a3328','#121a14'],walk:'#46543f'}}
+];
+const DIFFS=[
+ {id:'easy',n:'FACILE',g:.5,hp:.7,dmg:.7,sp:.95},
+ {id:'normal',n:'NORMAL',g:1,hp:1,dmg:1,sp:1},
+ {id:'hard',n:'DIFFICILE',g:2,hp:1.5,dmg:1.4,sp:1.1,from:'normal',need:5},
+ {id:'imp',n:'IMPOSSIBLE',g:5,hp:2.5,dmg:2,sp:1.2,from:'hard',need:8}
+];
+let curMap=MAPS[0],curDiff=DIFFS[1],PAL=MAPS[0].pal,mapTrain=false;
+   // map défilante : 3600 px de large (~3,7 écrans)
 function updateCam(snap){const t=Math.max(0,Math.min(WORLD_W-W,player.x-W/2+(player.face||1)*70));camX=snap?t:camX+(t-camX)*.12;camX=Math.max(0,Math.min(WORLD_W-W,camX))}
 let fx=[],upCat=0,crates=[],crateT=0,supT=0;
 let upPage=0;
@@ -424,6 +551,63 @@ function importSave(){
 function resetSave(){
   try{localStorage.removeItem(SAVE_KEY);localStorage.removeItem(SAVE_KEY+'_bak');localStorage.removeItem(SAVE_KEY+'_t')}catch(e){}
   noPersist=true;location.reload();
+}
+function drawMaps(){
+  ctx.fillStyle='#000000e0';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
+  const ttl=mapTrain?'ENTRAÎNEMENT : CHOISIS UNE CARTE':'CHOISIS UNE CARTE';
+  ctx.fillStyle='#000';ctx.font='400 36px '+TITLE;ctx.fillText(ttl,43,59);ctx.fillStyle='#e9e1d0';ctx.fillText(ttl,40,56);
+  ctx.fillStyle='#7a2c1c';ctx.fillRect(40,64,200,3);
+  ctx.fillStyle='#e0a526';ctx.font='700 20px '+FONT;ctx.textAlign='right';ctx.fillText(tr('Niveau').toUpperCase()+' '+curLevel()+'   ·   $'+save.bank,W-40,50);ctx.textAlign='left';
+  const sel=MAPS.find(m=>m.id===save.sel.map)||MAPS[0];
+  const cw=290,ch=96,gx=10,gy=10;
+  MAPS.forEach((m,i)=>{
+    const x=40+(i%3)*(cw+gx),y=78+Math.floor(i/3)*(ch+gy),ok=mapUnlocked(m),on=m===sel&&ok,hot=mouse.x>=x&&mouse.x<=x+cw&&mouse.y>=y&&mouse.y<=y+ch;
+    menuRects.push({x,y,w:cw,h:ch,act:()=>{if(!ok){sfx('hurt');return}save.sel.map=m.id;const d=DIFFS.find(q=>q.id===save.sel.diff)||DIFFS[1];if(!diffUnlocked(m,d)) save.sel.diff='normal';persist()}});
+    ctx.save();ctx.beginPath();ctx.rect(x,y,cw,ch);ctx.clip();
+    const g=ctx.createLinearGradient(0,y,0,y+ch);g.addColorStop(0,m.pal.sky[0]);g.addColorStop(.5,m.pal.sky[2]);g.addColorStop(1,m.pal.sky[3]);ctx.fillStyle=g;ctx.fillRect(x,y,cw,ch);
+    for(let k=0;k<11;k++){const bw=18+(k*7%14),bh=22+(k*29%38),bx=x+k*27-4;ctx.fillStyle=k%2?m.pal.far:m.pal.near;ctx.fillRect(bx,y+ch-14-bh,bw,bh+14)}
+    ctx.fillStyle=m.pal.road[0];ctx.fillRect(x,y+ch-14,cw,14);
+    if(!ok){ctx.fillStyle='rgba(0,0,0,.72)';ctx.fillRect(x,y,cw,ch)}
+    ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(x,y,cw,28);
+    ctx.restore();
+    ctx.strokeStyle=on?'#e2542e':hot&&ok?'#a8553a':'#4a3a2e';ctx.lineWidth=on?3:2;ctx.strokeRect(x+1,y+1,cw-2,ch-2);
+    ctx.fillStyle=ok?'#f2efe8':'#8a8178';ctx.font='700 17px '+FONT;ctx.fillText(m.name,x+10,y+20,cw-20);
+    if(!ok){padlock(x+cw/2,y+58,1.2,'#a89f94');ctx.fillStyle='#e2542e';ctx.font='700 14px '+FONT;ctx.textAlign='center';ctx.fillText(tr('Niveau').toUpperCase()+' '+m.lvl+'  '+tr('requis').toUpperCase(),x+cw/2,y+ch-20);ctx.textAlign='left'}
+    else{ctx.fillStyle='#d8d2c8';ctx.font='500 13px '+FONT;ctx.fillText((m.world<3000?'PETITE':m.world<4000?'MOYENNE':m.world<4600?'GRANDE':'IMMENSE')+'  ·  gains ×'+m.gain,x+10,y+ch-20)}
+  });
+  // détails de la carte choisie
+  const dx=40,dy=292,dw=560,dh=118;
+  panel(dx,dy,dw,dh,{grunge:.7,norivets:true});
+  ctx.fillStyle='#f2efe8';ctx.font='700 20px '+FONT;ctx.fillText(sel.name,dx+14,dy+26);
+  ctx.font='500 15px '+FONT;let ly=dy+50;
+  for(const t of sel.pros){ctx.fillStyle='#9fd18a';ctx.fillText('+  '+t,dx+14,ly,dw-28);ly+=22}
+  for(const t of sel.cons){ctx.fillStyle='#ff7a5a';ctx.fillText('−  '+t,dx+14,ly,dw-28);ly+=22}
+  // difficulté
+  if(mapTrain){ctx.fillStyle='#ffd45a';ctx.font='700 17px '+FONT;ctx.fillText('Mode entraînement : toutes les armes, aucun gain (argent et XP).',40,438)}
+  else{
+    ctx.fillStyle='#8a8178';ctx.font='700 13px '+FONT;ctx.fillText('DIFFICULTÉ  ·  multiplie tes gains (argent et XP)',40,430);
+    const bw=136,bg=5;
+    DIFFS.forEach((d,i)=>{
+      const x=40+i*(bw+bg),y=438,ok=diffUnlocked(sel,d),on=save.sel.diff===d.id&&ok,hot=ok&&mouse.x>=x&&mouse.x<=x+bw&&mouse.y>=y&&mouse.y<=y+40;
+      menuRects.push({x,y,w:bw,h:40,act:()=>{if(ok){save.sel.diff=d.id;persist()}else sfx('hurt')}});
+      panel(x,y,bw,40,{top:on?'#4a2018':hot?'#3a2e28':ok?'#2d2723':'#1b1715',bot:on?'#2a100c':'#15110f',edge:on?'#e2542e':hot?'#a8553a':'#4a3a2e',norivets:true});
+      ctx.fillStyle=ok?'#f2efe8':'#6b625b';ctx.font='700 15px '+FONT;ctx.fillText(d.n,x+10,y+17,bw-14);
+      ctx.fillStyle=ok?'#ffd45a':'#6b625b';ctx.font='700 14px '+FONT;ctx.fillText('gains ×'+d.g,x+10,y+34);
+      if(!ok) padlock(x+bw-18,y+20,.55,'#8a8178');
+    });
+    const dsel=DIFFS.find(d=>d.id===save.sel.diff)||DIFFS[1];
+    const nx=DIFFS.find(d=>!diffUnlocked(sel,d));
+    ctx.font='500 14px '+FONT;
+    if(nx){ctx.fillStyle='#e2542e';ctx.fillText(nx.n+' : réussis '+nx.need+' vagues en '+DIFFS.find(d=>d.id===nx.from).n+' sur cette carte  ('+Math.min(nx.need,wavesOn(sel,nx.from))+' / '+nx.need+')',40,494)}
+    else{ctx.fillStyle='#9fd18a';ctx.fillText('Toutes les difficultés sont débloquées sur cette carte.',40,494)}
+    ctx.fillStyle='#8a8178';ctx.fillText('Zombies : vie ×'+dsel.hp+', dégâts ×'+dsel.dmg+', vitesse ×'+dsel.sp+'   ·   Record sur cette carte : vague '+wavesOn(sel,dsel),40,516);
+  }
+  // boutons
+  const bx=620;
+  btn(menuRects,bx,292,300,56,mapTrain?'ENTRAÎNEMENT':'JOUER',{act:()=>{training=mapTrain;reset(false)},size:28});
+  btn(menuRects,bx,356,300,40,'ARSENAL',{act:()=>{mapTrain=false;openUpgrades()},size:20});
+  btn(menuRects,bx,402,300,40,'PERSONNALISATION',{act:()=>state='custom',size:20});
+  btn(menuRects,bx,448,300,40,'RETOUR',{act:()=>state='menu',size:20});
 }
 function drawSaves(){
   ctx.fillStyle='#000000e0';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
@@ -472,20 +656,21 @@ const FONT='Oswald, Impact, "Arial Narrow", sans-serif';
 let xp,level,combo,comboT,shake,kills,tick=0,menuRects=[];
 let state, wave, money, player, zombies, bullets, particles, spawnQueue, spawnTimer, mouse, keys, msg, msgT;
 function reset(toMenu){
-  state='play'; wave=0; money=0;
+  if(!toMenu) applyMap();
+  state='play'; wave=0; money=0; accM=0; accX=0;
   const mhp=100+20*save.hpLvl;
   const mi=training&&trainMain>=0?trainMain:Math.max(0,WEAPONS.findIndex(w=>w.name===save.melee));
   player={x:WORLD_W/2,y:GROUND,vy:0,hp:mhp,maxhp:mhp,w:mi,melee:mi,gun:null,
           cd:0,dmgMul:1,hurtCd:0,face:1,step:0,aim:0,swing:0};
-  zombies=[]; bullets=[]; particles=[]; fx=[]; crates=[]; bonuses=[]; strikes=[]; turret=null; fxB={shield:0,dmg:0,rapid:0,freeze:0}; charXp=0;charLvl=1;charPulse=0;stock=[]; crateT=7000+rnd()*8000;supT=20000+rnd()*15000; spawnQueue=[]; spawnTimer=0;
+  zombies=[]; bullets=[]; particles=[]; fx=[]; crates=[]; bonuses=[]; strikes=[]; turret=null; fxB={shield:0,dmg:0,rapid:0,freeze:0}; charXp=0;charLvl=1;charPulse=0;stock=[]; crateT=(7000+rnd()*8000)/curMap.crate;supT=(20000+rnd()*15000)/curMap.sup; spawnQueue=[]; spawnTimer=0;
   mouse={x:W/2,y:0,rx:W/2,ry:0,down:false}; keys={}; updateCam(true); msg=''; msgT=0;
   xp=0; level=1; runXp=0; lvlStart=curLevel(); xpStart=save.xp; combo=0; comboT=0; shake=0; kills=0;
   if(toMenu){state='menu';training=false} else startWave();
 }
 function startWave(){
   wave++; state='play'; waveBreak=0;
-  const n=5+wave*3; spawnQueue=[];
-  const pf=Math.min(.4,.12+.03*wave), pt=Math.min(.25,.04+.025*wave);
+  const n=Math.ceil((5+wave*3)*curMap.count); spawnQueue=[];
+  const pf=Math.min(.4,.12+.03*wave), pt=Math.min(.35,(.04+.025*wave)*curMap.tank);
   for(let i=0;i<n;i++){
     let t='normal', r=Math.random();
     if(wave>=2 && r<pf) t='fast';
@@ -514,6 +699,7 @@ addEventListener('keydown',e=>{
   else if(state==='trainpick' && e.code==='Escape') state='pause';
   else if(state==='weapon' && e.code==='Escape') state='upgrades';
   else if(state==='keys' && e.code==='Escape') state='options';
+  else if(state==='maps'&&e.code==='Escape') state='menu';
   else if(state==='saves'&&e.code==='Escape'){saveConfirm=false;state='options'}
   else if((state==='options'||state==='credits'||state==='upgrades'||state==='custom'||state==='lang') && e.code==='Escape') state=(state==='options'&&optFrom==='pause')?'pause':'menu';
 });
@@ -534,7 +720,7 @@ function layoutTouch(){
   Object.assign(TPICK,{x:W-rr-100,y:H-268});Object.assign(TPAUSE,{x:W-rr-56,y:84});Object.assign(STOCK,{x:W-rr-262,y:H-76});
 }
 layoutTouch();
-const MENU_STATES=['menu','saves','options','credits','upgrades','weapon','keys','custom','lang','pause','trainpick','over'];
+const MENU_STATES=['menu','maps','saves','options','credits','upgrades','weapon','keys','custom','lang','pause','trainpick','over'];
 let autoTarget=null;
 const inR=(p,r)=>p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h;
 function tpos(t){
@@ -644,8 +830,8 @@ function useAmmo(){
 function updateCrates(dt,p){
   if(p.gun&&p.gun.time>0){p.gun.time-=dt;if(p.gun.time<=0) dropGun('TEMPS ÉCOULÉ')}
   crateT-=dt;
-  if(crateT<=0){spawnCrate();crateT=15000+rnd()*20000}
-  supT-=dt;if(supT<=0){spawnSupply();supT=25000+rnd()*25000}
+  if(crateT<=0){spawnCrate();crateT=(15000+rnd()*20000)/curMap.crate}
+  supT-=dt;if(supT<=0){spawnSupply();supT=(25000+rnd()*25000)/curMap.sup}
   nearC=null;let best=touchOn()?96:48;                      // caisse à portée : elle se ramasse avec la touche, plus automatiquement
   for(const c of crates){
     if(!c.landed){
@@ -743,7 +929,7 @@ function endRun(){
   if(state==='over') return;
   sfx('over');state='over';
   if(training){runGain=0;runXp=0;overXp=save.xp;overLvl=levelOf(save.xp);overPulse=0;msgT=0;return}   // entraînement : rien n'est sauvegardé
-  runGain=money; save.bank+=money; save.xp+=runXp; overXp=xpStart; overLvl=levelOf(xpStart); overPulse=0; msgT=0; save.best=Math.max(save.best,wave); persist();
+  recordWaves();runGain=money; save.bank+=money; save.xp+=runXp; overXp=xpStart; overLvl=levelOf(xpStart); overPulse=0; msgT=0; save.best=Math.max(save.best,wave); persist();
 }
 
 // --- Sons : synthétisés en direct (WebAudio), un son propre à chaque famille d'arme, décliné par arme ---
@@ -821,6 +1007,7 @@ const WS={
 // fusils à pompe : [grave Hz, durée, filtre Hz, mécanisme p = pompe, g = gaz, l = levier, r = rapide, d = double canon]
 const WSG={'Remington 870':[85,.38,1500,'p'],'Mossberg 500':[90,.36,1650,'p'],'Benelli M4':[95,.3,1700,'g'],'SPAS-12':[88,.34,1550,'p'],'KSG':[80,.4,1400,'p'],
  'Winchester 1887':[75,.4,1300,'l'],'AA-12':[105,.2,1900,'r'],'Saiga-12':[92,.3,1650,'g'],'Double canon':[70,.5,1200,'d'],'Vepr-12':[98,.3,1750,'g']};
+Object.assign(WS,NEWWS);Object.assign(WSG,NEWWSG);
 function mech(m,t,v){
   const k=(dt,o)=>nz(t+dt,o.d||.03,Object.assign({q:3,vol:.3*v},o));
   switch(m){
@@ -866,6 +1053,12 @@ function gunVoice(name,t){
     case 'Fusil laser':tone(t,.16,{f:1800,f2:400,type:'square',vol:.3,lp:4000});tone(t,.18,{f:2600,f2:700,vol:.25});return true;
     case 'Fusil à plasma':tone(t,.3,{f:700,f2:120,type:'sawtooth',vol:.35,lp:2500});tone(t,.32,{f:1400,f2:260,vol:.2});nz(t,.12,{f:2500,f2:600,q:2,vol:.25});return true;
     case 'Pistolet laser':tone(t,.1,{f:2600,f2:900,vol:.3});tone(t,.08,{f:3200,f2:1200,type:'square',vol:.12,lp:5000});return true;
+    case 'M72 LAW':nz(t,.04,{f:2800,type:'highpass',vol:.5});nz(t+.02,.6,{f:1100,f2:350,q:.7,vol:.85,rev:.4});tone(t,.28,{f:115,f2:42,vol:1});return true;
+    case 'Panzerfaust':tone(t,.4,{f:90,f2:34,vol:1.3});nz(t,.8,{f:700,f2:180,q:.6,vol:1.1,rev:.5});nz(t,.03,{f:3500,type:'highpass',vol:.5});return true;
+    case 'Milkor MGL':tone(t,.2,{f:140,f2:50,vol:1.1,lp:450});nz(t,.18,{f:700,f2:220,q:.6,vol:.65,rev:.25});tone(t+.03,.1,{f:320,f2:130,vol:.35});return true;
+    case 'Pistolet lance-fusée':nz(t,.12,{f:1800,f2:600,q:.7,vol:.7,rev:.3});tone(t,.14,{f:260,f2:90,vol:.8});nz(t+.05,.35,{f:2500,f2:900,q:1,vol:.2});return true;
+    case 'Arbalète à répétition':tone(t,.22,{f:420,f2:170,type:'triangle',vol:.5});nz(t,.06,{f:1500,q:3,vol:.4});nz(t+.08,.03,{f:3500,q:2,vol:.2});return true;
+    case 'Fusil à fléchettes':nz(t,.035,{f:3800,f2:2200,q:1.5,vol:.35});tone(t,.05,{f:520,f2:260,type:'square',vol:.18,lp:2500});return true;
     case 'Fusil harpon':tone(t,.3,{f:150,f2:60,vol:.9});nz(t,.25,{f:1200,f2:300,q:.5,type:'lowpass',vol:.8});nz(t+.04,.08,{f:4000,q:4,vol:.3});return true;
   }
   return false;
@@ -898,6 +1091,7 @@ function meleeHit(name,t){
   }
 }
 function playGun(wp,t0){
+  if(wp.hands) wp=WEAPONS[wp.hi[0]];
   if(!snd()) return;const t=t0==null?AC.currentTime:t0;
   if(gunVoice(wp.name,t)) return;                    // son propre à cette arme
   const w=wHash(wp.name),pf=(.9+w*.2)*(1+(Math.random()-.5)*.05),dk=.9+(1-w)*.25;
@@ -958,19 +1152,24 @@ function sfx(name){
 }
 
 // --- Logique ---
+const gauss=()=>{let u=0,v=0;while(!u)u=Math.random();v=Math.random();return Math.sqrt(-2*Math.log(u))*Math.cos(6.2832*v)};
 function shoot(){
-  const wp=WEAPONS[player.w];
-  const px=player.x, py=player.y-48;
+  const wp=WEAPONS[player.w];let hw=wp,side=0;
+  if(wp.hands){side=player.hand=1-(player.hand||0);hw=WEAPONS[wp.hi[side]];player[side?'muz1':'muz0']=70}   // akimbo : une main puis l'autre
+  const px=player.x, py=player.y-48+(wp.hands?(side?5:-3):0);
   const base=aimDir()?(player.face>0?0:Math.PI):Math.atan2(mouse.y-py,mouse.x+camX-px);
-  for(let i=0;i<wp.pellets;i++){
-    const a=base+(Math.random()-.5)*wp.spread*2;
+  const sh=hw.kind==='shotgun';
+  for(let i=0;i<hw.pellets;i++){
+    // fusil à pompe : gerbe de plombs en cloche (la plupart près de l'axe, quelques-uns plus écartés) ; autres armes : dispersion uniforme
+    const a=sh?base+Math.max(-hw.spread*.5,Math.min(hw.spread*.5,gauss()*hw.spread*.2)):base+(Math.random()-.5)*hw.spread*2;
+    const sp=hw.speed*(sh?.93+Math.random()*.14:1),life=hw.life||Math.ceil(hw.range/sp);
     bullets.push({x:px+Math.cos(base)*22,y:py+Math.sin(base)*22,
-      vx:Math.cos(a)*wp.speed,vy:Math.sin(a)*wp.speed,
-      dmg:wp.dmg*player.dmgMul*wBoost(player.w)*(fxB.dmg>0?2:1),pierce:wp.pierce,life:wp.life||60,hit:new Set(),
-      col:wp.col||'#ff0',aoe:wp.aoe||0,fire:!!wp.fire,size:wp.size||2});
+      vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,sp,dist:0,range:hw.range,fall:sh,
+      dmg:hw.dmg*player.dmgMul*wBoost(player.w)*(fxB.dmg>0?2:1),pierce:hw.pierce,life,l0:life,hit:new Set(),
+      col:hw.col||'#ff0',aoe:hw.aoe||0,fire:!!hw.fire,size:hw.size||2});
   }
-  player.cd=wp.rate/(fxB.rapid>0?1.8:1); player.firedThisClick=true;
-  playGun(wp);
+  player.cd=(wp.hands?hw.rate*.6:wp.rate)/(fxB.rapid>0?1.8:1); player.firedThisClick=true;
+  playGun(hw);
 }
 function slash(){
   const wp=WEAPONS[player.w];
@@ -990,7 +1189,7 @@ function spawnZombie(type){
   const t=ZTYPES[type], left=Math.random()<.5;
   if(type==='digger'){spawnDigger();return}
   // Les zombies deviennent plus résistants et plus dangereux à chaque vague
-  const hpMul=1+0.18*(wave-1), dmgMul=1+0.10*(wave-1), spMul=Math.min(1.6,1+0.03*(wave-1));
+  const hpMul=(1+0.18*(wave-1))*curDiff.hp*curMap.hp, dmgMul=(1+0.10*(wave-1))*curDiff.dmg, spMul=Math.min(1.6,1+0.03*(wave-1))*curDiff.sp*curMap.sp;
   zombies.push({type,x:left?30:WORLD_W-30,y:GROUND,hp:t.hp*hpMul,maxhp:t.hp*hpMul,
     speed:t.speed*(0.8+Math.random()*.4)*spMul,size:t.size,dmg:Math.round(t.dmg*dmgMul),color:t.color,
     coins:Math.round(t.coins*(1+0.1*(wave-1))),step:Math.random()*6,dir:left?1:-1});
@@ -999,8 +1198,8 @@ function spawnDigger(){
   const side=Math.random()<.5?-1:1;let x=player.x+side*(190+Math.random()*130);
   if(x<110||x>WORLD_W-110) x=player.x-side*(190+Math.random()*130);
   x=Math.max(110,Math.min(WORLD_W-110,x));
-  const t=ZTYPES.digger,hpMul=1+0.18*(wave-1),dmgMul=1+0.10*(wave-1);
-  zombies.push({type:'digger',x,y:GROUND,hp:t.hp*hpMul,maxhp:t.hp*hpMul,speed:t.speed,size:t.size,dmg:Math.round(t.dmg*dmgMul),color:t.color,
+  const t=ZTYPES.digger,hpMul=(1+0.18*(wave-1))*curDiff.hp*curMap.hp,dmgMul=(1+0.10*(wave-1))*curDiff.dmg;
+  zombies.push({type:'digger',x,y:GROUND,hp:t.hp*hpMul,maxhp:t.hp*hpMul,speed:t.speed*curDiff.sp*curMap.sp,size:t.size,dmg:Math.round(t.dmg*dmgMul),color:t.color,
     coins:Math.round(t.coins*(1+0.1*(wave-1))),step:0,dir:x<player.x?1:-1,emerge:EMERGE_T});
   flash('LE SOL TREMBLE...');sfx('boom');if(SET.shake) shake=Math.max(shake,6);
 }
@@ -1022,7 +1221,7 @@ const BON={
 };
 let bonuses=[],strikes=[],turret=null,fxB={shield:0,dmg:0,rapid:0,freeze:0};
 function dropBonus(z){
-  const ch=z.type==='tank'?.3:z.type==='fast'?.09:.06;
+  const ch=(z.type==='tank'?.3:z.type==='fast'?.09:.06)*curMap.drop;
   if(Math.random()>=ch) return;
   const ks=Object.keys(BON).filter(k=>!(training&&k==='cash')),low=player.hp<player.maxhp*.5;
   let tot=0;const ws=ks.map(k=>{const w=BON[k].w*(k==='heal'&&low?2.5:1);tot+=w;return w});
@@ -1032,7 +1231,7 @@ function dropBonus(z){
 function applyBonus(type){
   const p=player,B=BON[type];
   if(type==='heal') p.hp=Math.min(p.maxhp,p.hp+Math.round(p.maxhp*.35));
-  else if(type==='cash'){if(!training) money+=10}
+  else if(type==='cash'){if(!training) addMoney(10)}
   else if(type==='strike'){for(let i=0;i<6;i++) strikes.push({x:camX+60+Math.random()*(W-120),t:-i*230-200,w:false})}
   else if(type==='turret') turret={x:p.x,t:B.dur,cd:0};
   else fxB[type]=B.dur;
@@ -1129,7 +1328,7 @@ function drawBonusHud(){
 function openPause(){tpts.clear();tRecalc();autoTarget=null;msgT=0;state='pause';pauseConfirm=false;mouse.down=false;sfx('click')}
 function closePause(){state='play';pauseConfirm=false;mouse.down=false}
 function quitToMenu(){
-  if(!training&&wave>0){save.bank+=money;save.xp+=runXp;save.best=Math.max(save.best,wave);persist()}   // les gains de la partie sont conservés
+  if(!training&&wave>0){recordWaves();save.bank+=money;save.xp+=runXp;save.best=Math.max(save.best,wave);persist()}   // les gains de la partie sont conservés
   pauseConfirm=false;reset(true);
 }
 function setMain(i){
@@ -1167,7 +1366,7 @@ function drawTrainPick(){
   ctx.fillStyle='#000';ctx.font='400 38px '+TITLE;ctx.fillText('ARME PRINCIPALE',43,61);ctx.fillStyle='#e9e1d0';ctx.fillText('ARME PRINCIPALE',40,58);
   ctx.fillStyle='#7a2c1c';ctx.fillRect(40,66,200,3);
   ctx.fillStyle='#8a8178';ctx.font='500 15px '+FONT;ctx.textAlign='right';ctx.fillText('Entraînement : toutes les armes, améliorées au maximum, munitions illimitées',W-40,52);ctx.textAlign='left';
-  const tw=106,tg=4;
+  const tw=96,tg=4;
   CAT.forEach((c,ci)=>{
     const x=40+ci*(tw+tg),y=86,on=ci===trainCat,hot=mouse.x>=x&&mouse.x<=x+tw&&mouse.y>=y&&mouse.y<=y+24;
     menuRects.push({x,y,w:tw,h:24,act:()=>{trainCat=ci;trainPage=0}});
@@ -1263,7 +1462,7 @@ function update(dt){
   if(aimDir()){ if(mv) p.dir=mv>0?1:-1; p.face=p.dir||1 }          // visée « direction » : on tire dans le sens du déplacement
   else p.face=mouse.x+camX>=p.x?1:-1;
   // tir
-  p.cd-=dt; p.hurtCd-=dt; p.swing-=dt;
+  p.cd-=dt; p.hurtCd-=dt; p.swing-=dt; p.muz0-=dt; p.muz1-=dt;
   const wp=WEAPONS[p.w];
   const firing=mouse.down||kd('fire');
   if(firing && p.cd<=0 && (wp.auto || !p.held)){ if(wp.melee) slash(); else {shoot();useAmmo()} }
@@ -1277,13 +1476,13 @@ function update(dt){
   }
   // balles
   for(const b of bullets){
-    b.x+=b.vx;b.y+=b.vy;b.life--;
+    b.x+=b.vx;b.y+=b.vy;b.life--;b.dist+=b.sp||0;
     for(const z of zombies){
       if(b.hit.has(z)||z.hp<=0||z.emerge>0) continue;
       const zh=70*z.size;
       if(Math.abs(b.x-z.x)<14*z.size && b.y<z.y && b.y>z.y-zh){
         if(b.aoe){explode(b.x,b.y,b.aoe,b.dmg);b.life=0;break}
-        z.hp-=b.dmg; b.hit.add(z); b.pierce--; burst(b.x,b.y,'#a22',5);sfx('bhit');
+        z.hp-=b.fall?b.dmg*Math.max(.3,1-.7*b.dist/b.range):b.dmg; b.hit.add(z); b.pierce--; burst(b.x,b.y,'#a22',5);sfx('bhit');
         z.x+=Math.sign(b.vx)*3;
         if(b.pierce<=0){b.life=0;break}
       }
@@ -1311,7 +1510,7 @@ function update(dt){
   zombies=zombies.filter(z=>z.hp>0);
   // fin de vague
   if(state==='play' && !spawnQueue.length && !zombies.length){
-    if(waveBreak===0){waveBreak=150;gainChar(5);if(!training){money+=5;runXp+=5}sfx('wave');flash(tr('Vague')+' '+wave+' '+tr('terminée')+(training?'':'  ·  '+tr('+5 $  +5 XP')))}
+    if(waveBreak===0){waveBreak=150;gainChar(5);let g5=0;if(!training){g5=addMoney(5);addXp(5)}sfx('wave');flash(tr('Vague')+' '+wave+' '+tr('terminée')+(training?'':'  ·  +'+(Math.round(g5*10)/10)+' $  +'+(Math.round(g5*10)/10)+' XP'))}
     else if(--waveBreak===0) startWave();
   }
   for(const q of particles){q.x+=q.vx;q.y+=q.vy;q.vy+=.3;q.life--}
@@ -1321,7 +1520,7 @@ function update(dt){
   comboT-=dt; if(comboT<=0) combo=0;
 }
 function onKill(z){
-  kills++; gainChar(1); if(!training){money+=1;runXp+=1}sfx('zdie');
+  kills++; gainChar(1); if(!training){addMoney(1);addXp(1)}sfx('zdie');
   burst(z.x,z.y-30,SET.blood?'#8e1b1b':z.color,SET.blood?20:10);
 }
 
@@ -1335,7 +1534,20 @@ function rrect(x,y,w,h,r,fill){
   ctx.fillStyle=fill;ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill();
 }
 const BUILDINGS=[];
-for(let i=0;i<50;i++) BUILDINGS.push({x:i*75-10,w:60+(i*29%30),h:90+(i*53%130),far:i%2===0});
+function applyMap(){                                       // prépare la carte et la difficulté choisies
+  curMap=MAPS.find(m=>m.id===save.sel.map)||MAPS[0];if(!mapUnlocked(curMap)){curMap=MAPS[0];save.sel.map=curMap.id}
+  curDiff=training?DIFFS[1]:(DIFFS.find(d=>d.id===save.sel.diff)||DIFFS[1]);if(!diffUnlocked(curMap,curDiff)) curDiff=DIFFS[1];
+  WORLD_W=curMap.world;PAL=curMap.pal;
+  BUILDINGS.length=0;const N=Math.ceil(WORLD_W/75)+12;
+  for(let i=0;i<N;i++) BUILDINGS.push({x:i*75-10,w:60+(i*29%30),h:90+(i*53%130),far:i%2===0});
+  FIRES.length=0;for(let i=9;i<N;i+=14) FIRES.push(i);
+  for(const a of [WRECKS,LAMPS,BARRELS,STACKS]) a.length=0;
+  for(let x=600,i=0;x<WORLD_W-300;x+=800+(i*173%300),i++) WRECKS.push([x,i%2]);
+  if(curMap.id!=='desert') for(let x=300,i=0;x<WORLD_W-200;x+=720+(i*131%200),i++) LAMPS.push(x);
+  for(let x=950,i=0;x<WORLD_W-200;x+=880+(i*97%260),i++) BARRELS.push(x);
+  for(let x=850,i=0;x<WORLD_W-200;x+=810+(i*211%300),i++) STACKS.push(x);
+  camX=Math.max(0,Math.min(WORLD_W-W,camX));
+}
 function flame(cx,cy,sc){
   const f=1+.18*Math.sin(tick*.35+cx);
   const gl=ctx.createRadialGradient(cx,cy,2,cx,cy,70*sc*f);gl.addColorStop(0,'rgba(255,150,50,.45)');gl.addColorStop(1,'rgba(255,100,20,0)');
@@ -1344,7 +1556,7 @@ function flame(cx,cy,sc){
     ctx.fillStyle=c;ctx.beginPath();ctx.moveTo(cx+dx*sc-6*sc,cy);ctx.quadraticCurveTo(cx+dx*sc,cy-h*sc*f,cx+dx*sc+6*sc,cy);ctx.fill();
   }
 }
-const FIRES=[9,25,37,45];
+const FIRES=[];
 function wreck(x,fl){
   ctx.save();ctx.translate(x-610,0);
   ctx.fillStyle='#120e10';ctx.beginPath();ctx.moveTo(610,GROUND);ctx.lineTo(610,GROUND-16);ctx.lineTo(626,GROUND-18);ctx.lineTo(640,GROUND-34);ctx.lineTo(676,GROUND-34);ctx.lineTo(692,GROUND-18);ctx.lineTo(716,GROUND-16);ctx.lineTo(716,GROUND);ctx.closePath();ctx.fill();
@@ -1366,15 +1578,15 @@ function crateStack(x){
   ctx.fillStyle='#2a2118';ctx.fillRect(x-22,GROUND-24,44,24);ctx.fillRect(x-12,GROUND-46,30,22);
   ctx.strokeStyle='#120e0a';ctx.lineWidth=2;ctx.strokeRect(x-22,GROUND-24,44,24);ctx.strokeRect(x-12,GROUND-46,30,22);
 }
-const WRECKS=[[610,1],[1380,0],[2290,1],[3050,0]],LAMPS=[300,1200,2050,2900,3400],BARRELS=[980,1750,2620],STACKS=[850,1560,2450,3250];
+const WRECKS=[],LAMPS=[],BARRELS=[],STACKS=[];
 function drawBackground(){
   const g=ctx.createLinearGradient(0,0,0,GROUND);
-  g.addColorStop(0,'#0b0a10');g.addColorStop(.45,'#3a1519');g.addColorStop(.8,'#a8401f');g.addColorStop(1,'#e0763a');
+  g.addColorStop(0,PAL.sky[0]);g.addColorStop(.45,PAL.sky[1]);g.addColorStop(.8,PAL.sky[2]);g.addColorStop(1,PAL.sky[3]);
   ctx.fillStyle=g;ctx.fillRect(0,0,W,GROUND);
   const sx=W*.79-camX*.03;
   const sg=ctx.createRadialGradient(sx,150,6,sx,150,130);sg.addColorStop(0,'rgba(240,170,100,.5)');sg.addColorStop(.4,'rgba(200,90,50,.22)');sg.addColorStop(1,'rgba(200,90,50,0)');
   ctx.fillStyle=sg;ctx.fillRect(sx-200,0,400,330);
-  ctx.fillStyle='rgba(217,165,106,.5)';ctx.beginPath();ctx.arc(sx,150,30,0,7);ctx.fill();
+  ctx.fillStyle='rgba('+PAL.sun+',.5)';ctx.beginPath();ctx.arc(sx,150,30,0,7);ctx.fill();
   ctx.fillStyle='rgba(255,255,255,.2)';for(let i=0;i<26;i++) ctx.fillRect((((i*131-camX*.05)%W)+W)%W,(i*47)%140,1.6,1.6);
   for(const far of [true,false]){
     const par=far?.4:.7,vx=camX*par;
@@ -1382,13 +1594,13 @@ function drawBackground(){
     BUILDINGS.forEach((b,n)=>{
       if(b.far!==far||b.x+b.w<vx-10||b.x>vx+W+10) return;
       const h=far?b.h*.8:b.h,top=GROUND-h;
-      ctx.fillStyle=far?'#2b2230':'#17121b';                                      // silhouette en ruine (sommet déchiqueté)
+      ctx.fillStyle=far?PAL.far:PAL.near;                                      // silhouette en ruine (sommet déchiqueté)
       ctx.beginPath();ctx.moveTo(b.x,GROUND);ctx.lineTo(b.x,top+(n*7%14));ctx.lineTo(b.x+b.w*.3,top);ctx.lineTo(b.x+b.w*.55,top+(n*5%18));
       ctx.lineTo(b.x+b.w*.8,top+4);ctx.lineTo(b.x+b.w,top+(n*3%12));ctx.lineTo(b.x+b.w,GROUND);ctx.closePath();ctx.fill();
       for(let wy=top+20;wy<GROUND-20;wy+=22)
         for(let wx=b.x+8;wx<b.x+b.w-10;wx+=18){
           const k=((wx*7+wy*3)|0)%7;
-          if(k>4&&!far){ctx.fillStyle='rgba(245,170,70,'+(.45+.3*Math.sin(tick*.04+wx))+')';ctx.fillRect(wx,wy,7,10)}
+          if(k>4&&!far){ctx.fillStyle='rgba('+PAL.win+','+(.45+.3*Math.sin(tick*.04+wx))+')';ctx.fillRect(wx,wy,7,10)}
           else if(k>1){ctx.fillStyle=far?'rgba(0,0,0,.25)':'rgba(0,0,0,.55)';ctx.fillRect(wx,wy,7,10)}
         }
     });
@@ -1405,7 +1617,7 @@ function drawBackground(){
     }
     ctx.restore();
   }
-  const fg=ctx.createLinearGradient(0,GROUND-70,0,GROUND+12);fg.addColorStop(0,'rgba(190,110,80,0)');fg.addColorStop(1,'rgba(190,110,80,.22)');
+  const fg=ctx.createLinearGradient(0,GROUND-70,0,GROUND+12);fg.addColorStop(0,'rgba('+PAL.fog+',0)');fg.addColorStop(1,'rgba('+PAL.fog+',.22)');
   ctx.fillStyle=fg;ctx.fillRect(0,GROUND-70,W,82);                                 // brume
   // --- sol et accessoires : défilent avec la caméra
   ctx.save();ctx.translate(-camX,0);
@@ -1414,9 +1626,9 @@ function drawBackground(){
   for(const [x,fl] of WRECKS) if(x>x0-200&&x<x1+200) wreck(x+52,fl);
   for(const x of LAMPS) if(x>x0-80&&x<x1+80) lamp(x);
   for(const x of BARRELS) if(x>x0-60&&x<x1+60) barrel(x);
-  const rg=ctx.createLinearGradient(0,GROUND,0,H);rg.addColorStop(0,'#2b2730');rg.addColorStop(1,'#141116');
+  const rg=ctx.createLinearGradient(0,GROUND,0,H);rg.addColorStop(0,PAL.road[0]);rg.addColorStop(1,PAL.road[1]);
   ctx.fillStyle=rg;ctx.fillRect(x0,GROUND,W,H-GROUND);                             // route
-  ctx.fillStyle='#4a4450';ctx.fillRect(x0,GROUND,W,8);ctx.fillStyle='#1d1a21';ctx.fillRect(x0,GROUND+8,W,2);   // trottoir
+  ctx.fillStyle=PAL.walk;ctx.fillRect(x0,GROUND,W,8);ctx.fillStyle='#1d1a21';ctx.fillRect(x0,GROUND+8,W,2);   // trottoir
   ctx.fillStyle='rgba(216,196,106,.5)';
   for(let x=Math.floor(x0/120)*120+20;x<x1;x+=120) ctx.fillRect(x,GROUND+34,60,5);   // marquage usé
   ctx.strokeStyle='rgba(0,0,0,.55)';ctx.lineWidth=1.2;                              // fissures
@@ -1459,6 +1671,18 @@ function torsoPath(f,big,yb){
     ctx.lineTo(-20,-53);ctx.quadraticCurveTo(-21,-62,-13,-62);
   }
   ctx.closePath();
+}
+function drawAkimbo(p,sx,sy,a,C,aw,wp){
+  for(const h of [1,0]){
+    const hw=WEAPONS[wp.hi[h]],ic=weaponIcon(wp.hi[h]),hs=hw.hs||.45,rc=(h?p.muz1:p.muz0)>0?(h?-3:-4):0;
+    ctx.save();ctx.translate(sx-(h?4:0)*p.face,sy+(h?9:-3));ctx.rotate(a+(h?(p.face>0?.14:-.14):-(p.face>0?.03:-.03)));
+    if(Math.abs(a)>Math.PI/2) ctx.scale(1,-1);
+    limb(0,0,16+rc,0,aw,h?shade(C.O.body==='tank'?C.skin:C.top,-.18):(C.O.body==='tank'?C.skin:C.top));
+    ctx.save();ctx.translate(14+rc,1);ctx.scale(hs,hs);ctx.drawImage(ic.cv,-OX/2,-OY/2,ICON_W/2,ICON_H/2);ctx.restore();
+    ctx.fillStyle=C.skin;ctx.beginPath();ctx.arc(16+rc,3,4,0,7);ctx.fill();
+    if((h?p.muz1:p.muz0)>0){ctx.fillStyle='#ffe27a';ctx.beginPath();ctx.arc(14+ic.mx*hs+4,0,hw.kind==='flamer'?0.1:7,0,7);ctx.fill()}
+    ctx.restore();
+  }
 }
 function drawSoldier(p){
   const x=p.x,y=p.y,sw=Math.sin(p.step)*8,C=lookCols(),O=C.O,f=C.f,big=C.big,lw=big?(f?10.5:12):9,aw=big&&!f?11:7;
@@ -1503,6 +1727,7 @@ function drawSoldier(p){
   ctx.save();ctx.translate(sx,sy);ctx.rotate(a);
   if(Math.abs(a)>Math.PI/2) ctx.scale(1,-1);
   limb(0,0,16,0,aw,O.body==='tank'?C.skin:C.top);if(big&&!f){ctx.fillStyle=O.body==='tank'?C.skin:C.top;ctx.beginPath();ctx.arc(2,0,7.5,0,7);ctx.fill();ctx.beginPath();ctx.ellipse(8,-3.5,6.5,5,0,0,7);ctx.fill()}
+  if(wp.hands){ctx.restore();drawAkimbo(p,sx,sy,a,C,aw,wp);return}
   const ic=weaponIcon(p.w,skinOf(p.w),woodOf(p.w)),hs=wp.hs;
   ctx.save();ctx.translate(14,1);ctx.scale(hs,hs);ctx.drawImage(ic.cv,-OX/2,-OY/2,ICON_W/2,ICON_H/2);ctx.restore();
   ctx.fillStyle=C.skin;ctx.beginPath();ctx.arc(16,3,4,0,7);ctx.fill();
@@ -1574,7 +1799,7 @@ function drawMinimap(){
 }
 function draw(){
   tick++;syncMouse();
-  if(state==='menu'||state==='options'||state==='credits'||state==='upgrades'||state==='weapon'||state==='keys'||state==='custom'||state==='lang'||state==='saves'){drawMenu();overlayFx(0);drawCursor();return}
+  if(state==='menu'||state==='options'||state==='credits'||state==='upgrades'||state==='weapon'||state==='keys'||state==='custom'||state==='lang'||state==='saves'||state==='maps'){drawMenu();overlayFx(0);drawCursor();return}
   ctx.save();
   if(shake>.5){ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake*=.88}
   drawBackground();ash();
@@ -1597,13 +1822,14 @@ function draw(){
   ctx.globalAlpha=1;drawBonusPlayer();
   // balles
   for(const b of bullets){
-    if(b.fire){const t=1-b.life/16;ctx.fillStyle='rgba(255,'+(160-t*110|0)+',40,'+(.85-t*.6)+')';ctx.beginPath();ctx.arc(b.x,b.y,4+t*10,0,7);ctx.fill()}
+    if(b.fire){const t=1-b.life/(b.l0||16);ctx.fillStyle='rgba(255,'+(160-t*110|0)+',40,'+(.85-t*.6)+')';ctx.beginPath();ctx.arc(b.x,b.y,4+t*10,0,7);ctx.fill()}
     else{ctx.strokeStyle=b.col;ctx.lineWidth=b.size;ctx.beginPath();ctx.moveTo(b.x,b.y);ctx.lineTo(b.x-b.vx*.6,b.y-b.vy*.6);ctx.stroke()}
   }
   for(const f of fx){const t=f.life/18;ctx.fillStyle='rgba(255,'+(120+80*t|0)+',40,'+(.7*t)+')';ctx.beginPath();ctx.arc(f.x,f.y,f.r*(1.2-t*.5),0,7);ctx.fill()}
   for(const q of particles){ctx.fillStyle=q.col;ctx.fillRect(q.x,q.y,3,3)}
   ctx.restore();
   drawEdgeMarks();
+  if(curMap.dark&&state!=='over'){const cx=p.x-camX,cy=p.y-50,g=ctx.createRadialGradient(cx,cy,100,cx,cy,Math.max(W,H)*.72);g.addColorStop(0,'rgba('+curMap.dkc+',0)');g.addColorStop(1,'rgba('+curMap.dkc+','+Math.min(.85,curMap.dark*1.9)+')');ctx.fillStyle=g;ctx.fillRect(0,0,W,H)}
 
   ctx.restore();
   if(fxB.freeze>0){ctx.fillStyle='rgba(110,210,235,'+(fxB.freeze<2000?.05:.11)+')';ctx.fillRect(0,0,W,H)}
@@ -1622,7 +1848,7 @@ function draw(){
   ctx.textAlign='left';ctx.fillStyle='#8a8178';ctx.font='500 12px '+FONT;ctx.fillText('RESTANTS',W-244,32);
   ctx.fillStyle='#e8e0d0';ctx.font='700 26px '+FONT;ctx.fillText(state==='play'?String(zombies.length+spawnQueue.length):'-',W-244,60);
   ctx.textAlign='right';ctx.fillStyle='#e8e0d0';ctx.font='400 24px '+TITLE;ctx.fillText(tr('Vague').toUpperCase()+' '+wave,W-22,38);
-  ctx.fillStyle='#e0a526';ctx.font='700 20px '+FONT;ctx.fillText(training?'ENTRAÎNEMENT':'$'+money,W-22,62);ctx.textAlign='left';
+  ctx.fillStyle='#e0a526';ctx.font='700 20px '+FONT;ctx.fillText(training?'ENTRAÎNEMENT':'$'+money+(gainMul()!==1?'   ×'+(Math.round(gainMul()*100)/100):''),W-22,62);ctx.textAlign='left';
   // --- HUD : arme en main
   const g=p.gun,wpn=WEAPONS[p.w];
   panel(14,H-76,340,62,{});
@@ -1782,7 +2008,7 @@ function embers(){
 }
 // Les menus sont dessinés dans un espace de 960x540 centré en bas de l'écran, le décor et les voiles couvrent tout l'écran.
 let MENU_MODE=false,MOX=0,MOY=0,MRW=960,MRH=540;
-const MENU_SPACE=['menu','saves','options','credits','upgrades','weapon','keys','custom','lang','trainpick'];
+const MENU_SPACE=['menu','maps','saves','options','credits','upgrades','weapon','keys','custom','lang','trainpick'];
 function syncMouse(){const m=MENU_SPACE.includes(state);mouse.x=mouse.rx-(m?(W-960)/2:0);mouse.y=mouse.ry-(m?(H-540):0)}
 function inMenuSpace(fn){
   const RW=W,RH=H,RG=GROUND,ox=(RW-960)/2,oy=RH-540;
@@ -1803,6 +2029,7 @@ function drawMenuBody(){
   if(state==='keys'){drawKeys();return}
   if(state==='lang'){drawLang();return}
   if(state==='saves'){drawSaves();return}
+  if(state==='maps'){drawMaps();return}
   if(state==='custom'){drawCustom();return}
   // silhouette du soldat à droite (dessin original)
   player.x=720;player.y=GROUND;player.face=-1;player.aim=Math.PI+.1;player.w=MENU_GUN;player.cd=0;player.swing=0;
@@ -1818,9 +2045,9 @@ function drawMenuBody(){
   for(let k=0;k<5;k++){const x=84+k*92,len=6+((k*31)%16)+Math.sin(tick*.03+k)*3;ctx.fillStyle='#7a1812';ctx.fillRect(x,211,4,len);ctx.beginPath();ctx.arc(x+2,211+len,3.4,0,7);ctx.fill()}
   ctx.fillStyle='rgba(233,225,208,.5)';ctx.font='500 15px '+FONT;if('letterSpacing' in ctx) ctx.letterSpacing='5px';{ctx.save();ctx.font='400 76px '+TITLE;const tcx=70+Math.max(ctx.measureText('INFECTED').width,ctx.measureText('GROUNDS').width)/2;ctx.restore();ctx.textAlign='center';ctx.fillText('ZOMBIES SIEGE',tcx+2.5,232);ctx.textAlign='left'};if('letterSpacing' in ctx) ctx.letterSpacing='0px';
   if(state==='menu'){
-    btn(menuRects,70,238,300,38,'JOUER',{act:()=>{training=false;reset(false)},size:22});
+    btn(menuRects,70,238,300,38,'JOUER',{act:()=>{mapTrain=false;training=false;state='maps'},size:22});
     btn(menuRects,70,280,300,38,'ARSENAL',{act:openUpgrades,size:22});
-    btn(menuRects,70,322,300,38,'ENTRAÎNEMENT',{act:()=>{training=true;reset(false)},size:22});
+    btn(menuRects,70,322,300,38,'ENTRAÎNEMENT',{act:()=>{mapTrain=true;state='maps'},size:22});
     btn(menuRects,70,364,300,38,'PERSONNALISATION',{act:()=>state='custom',size:22});
     btn(menuRects,70,406,300,38,'OPTIONS',{act:()=>{optFrom='menu';state='options'},size:22});
     btn(menuRects,70,448,300,38,'CRÉDITS',{act:()=>state='credits',size:22});
@@ -2244,7 +2471,11 @@ const STY={
 };
 const KIND_STYLE={pistol:'glock',revolver:'revolver',deagle:'deagle',nailgun:'nailgun',smg:'uzi',ak:'ak',m4:'ar',lmg:'saw',shotgun:'pump',dmr:'bolt',barrett:'barrett',minigun:'minigun',
   crossbow:'crossbow',bow:'bow',flamer:'flamer',launcher:'rpg',rail:'rail',laser:'rail',knife:'knife',blade:'blade',axe:'axe',bat:'bat',hammer:'hammer',chainsaw:'chainsaw',scythe:'scythe'};
+ST.sawed=o=>{const Wd='#7a4a22';mrect(0,-9,48,7,2,'#2b2e33');mrect(0,-2,48,7,2,'#2b2e33');mrect(44,-9,5,14,1,'#444');mrect(-14,-9,16,14,3,'#2b2d31');wpoly([[-14,-6],[-34,4],[-30,18],[-14,8]],Wd);guard(-10,5,12,9,'#2b2d31')};
+ST.legs=o=>{const Wd='#8a5a2b';mrect(-6,-5,66,5,1.5,'#2b2e33');mrect(-6,1,54,5,1.5,'#2b2e33');mrect(56,-9,2.4,4,.5,'#ddd');mrect(-22,-8,26,15,3,'#2b2d31');wrect(14,3,26,9,3,Wd);wpoly([[-22,-4],[-40,3],[-37,17],[-22,8]],Wd);guard(-12,7,14,10,'#2b2d31')};
+STY["Mare's Leg"]=['legs'];STY['Canon scié']=['sawed'];STY['Ithaca Stakeout']=['legs'];STY['Milkor MGL']=['m79'];
 function paintWeapon(wp){
+  if(wp.hands){for(let h=0;h<2;h++){ctx.save();ctx.translate(0,h?26:-24);ctx.scale(.85,.85);paintWeapon(WEAPONS[wp.hi[h]]);ctx.restore()}return}
   const e=STY[wp.name]||[KIND_STYLE[wp.kind]];
   const o=Object.assign({},e[1]||{});
   if(wp.col&&!o.col) o.col=wp.col;
@@ -2465,7 +2696,7 @@ function drawUpgrades(){
   ctx.fillStyle='#d8d2c8';ctx.font='500 15px '+FONT;ctx.fillText(tr('Niveau').toUpperCase()+' '+L+'   ·   '+Math.floor(upShown-a)+' / '+(b-a)+' XP',W-40,64);
   ctx.textAlign='left';
   // onglets par catégorie
-  const tw=106,tg=4;
+  const tw=96,tg=4;
   CAT.forEach((c,ci)=>{
     const x=40+ci*(tw+tg),y=86,on=ci===upCat,hot=mouse.x>=x&&mouse.x<=x+tw&&mouse.y>=y&&mouse.y<=y+24;
     menuRects.push({x,y,w:tw,h:24,act:()=>{upCat=ci;upPage=0}});
@@ -2500,7 +2731,7 @@ function loop(t){
   try{update(dt);draw()}catch(e){console.error(e)}
   requestAnimationFrame(loop);
 }
-reset(true);
+applyMap();reset(true);
 makeTextures();
 if(document.fonts){document.fonts.load('700 20px Oswald');document.fonts.load('400 20px "Black Ops One"')}
 READY=true;fit();
