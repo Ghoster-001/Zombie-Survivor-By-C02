@@ -30,7 +30,7 @@ if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.proto
 let RES=Math.max(1,Math.min(2,window.devicePixelRatio||1));if(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) RES=Math.min(RES,1.5);   // résolution interne adaptée : plus fluide sur mobile
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.39';   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.40';   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -204,6 +204,7 @@ const ZTYPES = {
   normal:{hp:30, speed:1.0, size:1.0, dmg:8,  color:'#5c9a4a', coins:10},
   fast:  {hp:18, speed:2.2, size:0.9, dmg:6,  color:'#8ab43a', coins:12},
   tank:  {hp:120,speed:0.6, size:1.35,dmg:18, color:'#3f6b3a', coins:35},
+  digger:{hp:150,speed:1.9, size:1.15,dmg:16, color:'#7a6a58', coins:45},   // zombie spécial : sort du sol près du joueur, dernier de la manche
 };
 
 // --- État ---
@@ -491,6 +492,7 @@ function startWave(){
     else if(wave>=3 && r>1-pt) t='tank';
     spawnQueue.push(t);
   }
+  if(wave>=2) spawnQueue.unshift('digger');      // le fouisseur sort en tout dernier (la file se vide par la fin)
   spawnTimer=60; flash(tr('Vague')+' '+wave);
 }
 function flash(t){msg=t;msgT=120}
@@ -725,7 +727,7 @@ function setSkin(id){
 }
 function explode(x,y,r,dmg){
   for(const z of zombies){
-    if(z.hp<=0) continue;
+    if(z.hp<=0||z.emerge>0) continue;
     const d=Math.hypot(z.x-x,(z.y-30)-y);
     if(d<r) z.hp-=dmg*(1-d/(r*1.4));
   }
@@ -975,7 +977,7 @@ function slash(){
   player.cd=wp.rate/(fxB.rapid>0?1.8:1); player.swing=180;
   playSwing(wp);let hitAny=false;
   for(const z of zombies){
-    if(z.hp<=0) continue;
+    if(z.hp<=0||z.emerge>0) continue;
     const dx=(z.x-player.x)*player.face;
     if(dx>-10 && dx<wp.reach+14*z.size){
       z.hp-=wp.dmg*player.dmgMul*wBoost(player.w)*(fxB.dmg>0?2:1); z.x+=player.face*22/z.size; burst(z.x,z.y-40,'#a22',6);hitAny=true;
@@ -986,12 +988,23 @@ function slash(){
 function spawnZombie(type){
   if(Math.random()<.25) sfx('groan');
   const t=ZTYPES[type], left=Math.random()<.5;
+  if(type==='digger'){spawnDigger();return}
   // Les zombies deviennent plus résistants et plus dangereux à chaque vague
   const hpMul=1+0.18*(wave-1), dmgMul=1+0.10*(wave-1), spMul=Math.min(1.6,1+0.03*(wave-1));
-  const sd=40+Math.random()*420;zombies.push({type,x:left?Math.max(-30,camX-sd):Math.min(WORLD_W+30,camX+W+sd),y:GROUND,hp:t.hp*hpMul,maxhp:t.hp*hpMul,
+  zombies.push({type,x:left?30:WORLD_W-30,y:GROUND,hp:t.hp*hpMul,maxhp:t.hp*hpMul,
     speed:t.speed*(0.8+Math.random()*.4)*spMul,size:t.size,dmg:Math.round(t.dmg*dmgMul),color:t.color,
     coins:Math.round(t.coins*(1+0.1*(wave-1))),step:Math.random()*6,dir:left?1:-1});
 }
+function spawnDigger(){
+  const side=Math.random()<.5?-1:1;let x=player.x+side*(190+Math.random()*130);
+  if(x<110||x>WORLD_W-110) x=player.x-side*(190+Math.random()*130);
+  x=Math.max(110,Math.min(WORLD_W-110,x));
+  const t=ZTYPES.digger,hpMul=1+0.18*(wave-1),dmgMul=1+0.10*(wave-1);
+  zombies.push({type:'digger',x,y:GROUND,hp:t.hp*hpMul,maxhp:t.hp*hpMul,speed:t.speed,size:t.size,dmg:Math.round(t.dmg*dmgMul),color:t.color,
+    coins:Math.round(t.coins*(1+0.1*(wave-1))),step:0,dir:x<player.x?1:-1,emerge:EMERGE_T});
+  flash('LE SOL TREMBLE...');sfx('boom');if(SET.shake) shake=Math.max(shake,6);
+}
+const EMERGE_T=120;
 function burst(x,y,col,n=8){
   for(let i=0;i<n;i++) particles.push({x,y,vx:(Math.random()-.5)*5,vy:-Math.random()*4,life:30,col});
 }
@@ -1036,7 +1049,7 @@ function updateBonus(dt){
   if(turret){
     turret.t-=dt;turret.cd-=dt;
     if(turret.cd<=0){
-      let best=null,bd=520;for(const z of zombies){if(z.hp<=0) continue;const d=Math.abs(z.x-turret.x);if(d<bd){bd=d;best=z}}
+      let best=null,bd=520;for(const z of zombies){if(z.hp<=0||z.emerge>0) continue;const d=Math.abs(z.x-turret.x);if(d<bd){bd=d;best=z}}
       if(best){
         const a=Math.atan2((best.y-38*best.size)-(GROUND-26),best.x-turret.x);
         bullets.push({x:turret.x+Math.cos(a)*20,y:GROUND-26+Math.sin(a)*20,vx:Math.cos(a)*19,vy:Math.sin(a)*19,dmg:12*(1+.1*(wave-1)),pierce:1,life:50,hit:new Set(),col:'#8fe8ff',aoe:0,fire:false,size:2});
@@ -1258,7 +1271,7 @@ function update(dt){
   p.held=firing;
   // apparition
   spawnTimer-=1;
-  if(spawnQueue.length && spawnTimer<=0){
+  if(spawnQueue.length && spawnTimer<=0 && !(spawnQueue.length===1&&spawnQueue[0]==='digger'&&zombies.length>0)){   // le fouisseur attend que tous les autres soient morts
     spawnZombie(spawnQueue.pop());
     spawnTimer=Math.max(25,80-wave*4);
   }
@@ -1266,7 +1279,7 @@ function update(dt){
   for(const b of bullets){
     b.x+=b.vx;b.y+=b.vy;b.life--;
     for(const z of zombies){
-      if(b.hit.has(z)||z.hp<=0) continue;
+      if(b.hit.has(z)||z.hp<=0||z.emerge>0) continue;
       const zh=70*z.size;
       if(Math.abs(b.x-z.x)<14*z.size && b.y<z.y && b.y>z.y-zh){
         if(b.aoe){explode(b.x,b.y,b.aoe,b.dmg);b.life=0;break}
@@ -1280,9 +1293,15 @@ function update(dt){
   bullets=bullets.filter(b=>b.life>0&&b.x>-50&&b.x<WORLD_W+50&&b.y<GROUND+30);
   // zombies
   for(const z of zombies){
+    if(z.emerge>0){                                              // sort du sol : intouchable et inoffensif pendant ce temps
+      z.emerge--;z.dir=p.x>z.x?1:-1;
+      if(z.emerge%4===0) particles.push({x:z.x+(Math.random()-.5)*50,y:GROUND-2,vx:(Math.random()-.5)*3,vy:-2-Math.random()*3,life:26,col:'#6b5a48'});
+      if(z.emerge===EMERGE_T-60){sfx('boom')}
+      continue;
+    }
     if(z.hp<=0){onKill(z);continue}
     z.dir=p.x>z.x?1:-1;
-    const fz=fxB.freeze>0?.3:1;z.x+=z.dir*z.speed*fz; z.step+=0.15*z.speed*fz;
+    const fz=fxB.freeze>0?.3:1,rush=Math.abs(z.x-p.x)>W*.7?2.4:1;z.x+=z.dir*z.speed*fz*rush; z.step+=0.15*z.speed*fz;
     if(Math.abs(z.x-p.x)<18*z.size && p.y>GROUND-60 && p.hurtCd<=0){
       if(fxB.shield>0){p.hurtCd=300;burst(p.x+20*z.dir,p.y-40,'#7ab8ff',8);sfx('click')}
       else{p.hp-=z.dmg; p.hurtCd=500;sfx('hurt'); if(SET.shake) shake=8; burst(p.x,p.y-40,'#d33',10);
@@ -1498,10 +1517,23 @@ function drawSoldier(p){
     ctx.stroke();
   }
 }
+function drawEmerge(z){                                          // fissures puis le zombie remonte du sol
+  const t=EMERGE_T-z.emerge,x=z.x;
+  const a=Math.min(1,t/20);
+  ctx.strokeStyle='rgba(10,6,4,'+a+')';ctx.lineWidth=2.5;ctx.beginPath();
+  for(let k=-2;k<=2;k++){ctx.moveTo(x+k*14,GROUND+16);ctx.lineTo(x+k*14+(k%2?6:-6),GROUND+26+Math.abs(k)*3)}
+  ctx.moveTo(x-34,GROUND+12);ctx.lineTo(x-10,GROUND+20);ctx.lineTo(x+10,GROUND+13);ctx.lineTo(x+34,GROUND+21);ctx.stroke();
+  ctx.fillStyle='rgba(30,20,14,'+(.5*a)+')';ctx.beginPath();ctx.ellipse(x,GROUND+8,30+Math.sin(t*.5)*3,7,0,0,7);ctx.fill();
+  if(t>60){
+    const pr=(t-60)/(EMERGE_T-60);
+    ctx.save();ctx.beginPath();ctx.rect(x-60,GROUND-150,120,150+6);ctx.clip();
+    const sy=z.y;z.y=sy+(1-pr)*95;drawZombie(z);z.y=sy;ctx.restore();
+  }
+}
 function drawZombie(z){
   const s=z.size,x=z.x,y=z.y,sw=Math.sin(z.step)*7;
-  const skin=z.type==='tank'?'#6f8f5a':z.type==='fast'?'#a9c45a':'#7fb069';
-  const shirt=z.type==='tank'?'#4a3a5a':z.type==='fast'?'#8a3f3f':'#4d6a8a';
+  const skin=z.type==='digger'?'#a89478':z.type==='tank'?'#6f8f5a':z.type==='fast'?'#a9c45a':'#7fb069';
+  const shirt=z.type==='digger'?'#5a4636':z.type==='tank'?'#4a3a5a':z.type==='fast'?'#8a3f3f':'#4d6a8a';
   ctx.fillStyle='#0004';ctx.beginPath();ctx.ellipse(x,GROUND+4,16*s,4,0,0,7);ctx.fill();
   ctx.save();ctx.translate(x,y);ctx.scale(z.dir*s,s);
   const lean=z.type==='fast'?4:0;
@@ -1551,7 +1583,9 @@ function draw(){
   ctx.save();ctx.translate(-camX,0);
   // zombies
   for(const z of zombies){
+    if(z.emerge>0){drawEmerge(z);continue}
     drawZombie(z);
+    if(z.type==='digger'){ctx.fillStyle='rgba(255,60,40,.9)';ctx.beginPath();ctx.arc(z.x+z.dir*8*z.size,z.y-72*z.size,2.2,0,7);ctx.fill()}
     if(z.hp<z.maxhp) bar(z.x-15,z.y-85*z.size,30,z.hp,z.maxhp,'#d33');
   }
   drawCrates();drawBonusWorld();
