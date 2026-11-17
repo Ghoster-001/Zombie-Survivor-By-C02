@@ -30,7 +30,7 @@ if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.proto
 let RES=Math.max(1,Math.min(2,window.devicePixelRatio||1));if(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) RES=Math.min(RES,1.5);   // résolution interne adaptée : plus fluide sur mobile
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.37';   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.38';   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -379,7 +379,7 @@ if(save.dmgLvl>0){
   save.bank+=refund;save.dmgLvl=0;persist();
 }
 {const mi=WEAPONS.findIndex(w=>w.name===save.melee);if(mi<0||!WEAPONS[mi].melee||!save.own[save.melee]) save.melee='Couteau'}
-let fx=[],upCat=0,crates=[],crateT=0;
+let fx=[],upCat=0,crates=[],crateT=0,supT=0;
 let upPage=0;
 let saveOK=true,savedAt=0;try{savedAt=+localStorage.getItem(SAVE_KEY+'_t')||0}catch(e){}
 let noPersist=false;
@@ -474,7 +474,7 @@ function reset(toMenu){
   const mi=training&&trainMain>=0?trainMain:Math.max(0,WEAPONS.findIndex(w=>w.name===save.melee));
   player={x:W/2,y:GROUND,vy:0,hp:mhp,maxhp:mhp,w:mi,melee:mi,gun:null,
           cd:0,dmgMul:1,hurtCd:0,face:1,step:0,aim:0,swing:0};
-  zombies=[]; bullets=[]; particles=[]; fx=[]; crates=[]; bonuses=[]; strikes=[]; turret=null; fxB={shield:0,dmg:0,rapid:0,freeze:0}; charXp=0;charLvl=1;charPulse=0;stock=[]; crateT=7000+rnd()*8000; spawnQueue=[]; spawnTimer=0;
+  zombies=[]; bullets=[]; particles=[]; fx=[]; crates=[]; bonuses=[]; strikes=[]; turret=null; fxB={shield:0,dmg:0,rapid:0,freeze:0}; charXp=0;charLvl=1;charPulse=0;stock=[]; crateT=7000+rnd()*8000;supT=20000+rnd()*15000; spawnQueue=[]; spawnTimer=0;
   mouse={x:W/2,y:0,rx:W/2,ry:0,down:false}; keys={}; msg=''; msgT=0;
   xp=0; level=1; runXp=0; lvlStart=curLevel(); xpStart=save.xp; combo=0; comboT=0; shake=0; kills=0;
   if(toMenu){state='menu';training=false} else startWave();
@@ -610,12 +610,16 @@ function updateRot(){rotEl.style.display='none'}
 // Seules les armes à feu déjà achetées peuvent tomber dans une caisse
 const ownedGuns=()=>WEAPONS.map((w,i)=>i).filter(i=>!WEAPONS[i].melee&&isOwned(i));
 function spawnCrate(){
-  // un seul tirage au sort, uniforme et sans pondération : chaque arme à feu débloquée, le kit de soin et le bouclier ont exactement la même chance
-  const pool=ownedGuns(),k=rndInt(pool.length+2),byTime=rnd()<.5;
-  const c={x:70+rnd()*(W-140),y:-30,vy:0,landed:false,age:0,ph:rnd()*6,w:0,ammo:0,time:0};
-  if(k<pool.length){c.w=pool[k];c.ammo=byTime?0:5+rndInt(96);c.time=byTime?(10+rndInt(31))*1000:0}
-  else c.sup=k===pool.length?'heal':'shield';
+  // caisse d'arme : tirage uniforme parmi les armes à feu débloquées → chacune a 100 % / (nombre d'armes) de chances
+  const pool=ownedGuns(),k=rndInt(pool.length),byTime=rnd()<.5;
+  const c={x:70+rnd()*(W-140),y:-30,vy:0,landed:false,age:0,ph:rnd()*6,w:pool[k],ammo:byTime?0:5+rndInt(96),time:byTime?(10+rndInt(31))*1000:0};
   crates.push(c);flash('CAISSE LARGUÉE !');return true;
+}
+// caisse métallique : soin ou armure (50 / 50), tombe séparément des caisses d'armes et reste 3 fois plus longtemps
+const SUP_LIFE=66000;
+function spawnSupply(){
+  crates.push({x:70+rnd()*(W-140),y:-30,vy:0,landed:false,age:0,ph:rnd()*6,w:0,ammo:0,time:0,sup:rndInt(2)?'heal':'shield'});
+  flash('CAISSE MÉTALLIQUE !');
 }
 function dropGun(txt){player.gun=null;player.w=player.melee;player.cd=0;flash(txt)}
 function pickCrate(c){
@@ -636,6 +640,7 @@ function updateCrates(dt,p){
   if(p.gun&&p.gun.time>0){p.gun.time-=dt;if(p.gun.time<=0) dropGun('TEMPS ÉCOULÉ')}
   crateT-=dt;
   if(crateT<=0){spawnCrate();crateT=15000+rnd()*20000}
+  supT-=dt;if(supT<=0){spawnSupply();supT=25000+rnd()*25000}
   nearC=null;let best=touchOn()?96:48;                      // caisse à portée : elle se ramasse avec la touche, plus automatiquement
   for(const c of crates){
     if(!c.landed){
@@ -644,7 +649,7 @@ function updateCrates(dt,p){
     } else c.age+=dt;
     const d=Math.hypot(p.x-c.x,(p.y-30)-(c.y-12));
     if(d<best){best=d;nearC=c}
-    if(c.age>22000) c.dead=true;
+    if(c.age>(c.sup?SUP_LIFE:22000)) c.dead=true;
   }
   crates=crates.filter(c=>!c.dead);
   if(nearC&&nearC.dead) nearC=null;
@@ -655,16 +660,24 @@ function tryPickup(){
 }
 function drawCrates(){
   for(const c of crates){
-    if(c.age>18000&&Math.floor(c.age/150)%2) continue;
+    if(c.age>(c.sup?SUP_LIFE-4000:18000)&&Math.floor(c.age/150)%2) continue;
     if(!c.landed){
       ctx.fillStyle='#e8e2d4';ctx.beginPath();ctx.arc(c.x,c.y-50,24,Math.PI,0);ctx.closePath();ctx.fill();
       ctx.fillStyle='#c9372c';ctx.beginPath();ctx.arc(c.x,c.y-50,24,Math.PI*1.34,Math.PI*1.66);ctx.lineTo(c.x,c.y-50);ctx.fill();
       ctx.strokeStyle='#bbb';ctx.lineWidth=1;ctx.beginPath();
       for(const dx of[-24,-8,8,24]){ctx.moveTo(c.x+dx,c.y-50);ctx.lineTo(c.x+dx*.3,c.y-20)}ctx.stroke();
     }
-    rrect(c.x-14,c.y-22,28,22,2,'#9a7440');
-    ctx.fillStyle='#5a4220';ctx.fillRect(c.x-14,c.y-22,28,4);ctx.fillRect(c.x-14,c.y-4,28,4);ctx.fillRect(c.x-3,c.y-22,6,22);
-    ctx.fillStyle='#f2efe8';ctx.font='700 14px '+FONT;ctx.textAlign='center';ctx.fillText('?',c.x+9,c.y-8);ctx.textAlign='left';
+    if(c.sup){
+      rrect(c.x-15,c.y-24,30,24,3,'#7d8791');
+      ctx.fillStyle='#4a525a';ctx.fillRect(c.x-15,c.y-24,30,3);ctx.fillRect(c.x-15,c.y-3,30,3);
+      ctx.fillStyle='#b9c2cb';ctx.fillRect(c.x-13,c.y-21,26,2);
+      if(c.sup==='heal'){ctx.fillStyle='#e8e8e8';ctx.fillRect(c.x-8,c.y-19,16,14);ctx.fillStyle='#d62d2d';ctx.fillRect(c.x-2,c.y-18,4,12);ctx.fillRect(c.x-7,c.y-13,14,4)}
+      else{ctx.fillStyle='#4aa0e8';ctx.beginPath();ctx.moveTo(c.x-8,c.y-19);ctx.lineTo(c.x+8,c.y-19);ctx.lineTo(c.x+8,c.y-12);ctx.quadraticCurveTo(c.x+7,c.y-7,c.x,c.y-5);ctx.quadraticCurveTo(c.x-7,c.y-7,c.x-8,c.y-12);ctx.closePath();ctx.fill();ctx.strokeStyle='#e8f4ff';ctx.lineWidth=1.5;ctx.stroke()}
+    } else {
+      rrect(c.x-14,c.y-22,28,22,2,'#9a7440');
+      ctx.fillStyle='#5a4220';ctx.fillRect(c.x-14,c.y-22,28,4);ctx.fillRect(c.x-14,c.y-4,28,4);ctx.fillRect(c.x-3,c.y-22,6,22);
+      ctx.fillStyle='#f2efe8';ctx.font='700 14px '+FONT;ctx.textAlign='center';ctx.fillText('?',c.x+9,c.y-8);ctx.textAlign='left';
+    }
     if(c.landed){
       const a=.5+.4*Math.sin(tick*.12);
       ctx.strokeStyle='rgba(255,215,100,'+a+')';ctx.lineWidth=2;ctx.strokeRect(c.x-16,c.y-24,32,26);
