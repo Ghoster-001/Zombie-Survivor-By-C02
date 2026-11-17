@@ -153,7 +153,7 @@ function resWanted(vw){
 }
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.51';   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.52';   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -2830,7 +2830,7 @@ function drawMenuBody(){
     ctx.textAlign='left';ctx.font='700 14px '+FONT;ctx.fillStyle='#ffd45a';ctx.fillText('★  ÉDITION NOËL APOCALYPTIQUE  ★',70,50);
   }
   if(state==='menu'){
-    {const it=[['JOUER',()=>{mapTrain=false;training=false;state='maps'}],['MULTIJOUEUR  ·  BIENTÔT',()=>state='maint'],['ARSENAL',openUpgrades],['ENTRAÎNEMENT',()=>{mapTrain=true;state='maps'}],['PERSONNALISATION',()=>state='custom'],['BOUTIQUE',()=>state='shop'],['OPTIONS',()=>{optFrom='menu';state='options'}],['CRÉDITS',()=>state='credits'],['QUITTER',()=>state='quit']];
+    {const it=[['JOUER',()=>{mapTrain=false;training=false;state='maps'}],['MULTIJOUEUR  ·  BIENTÔT',()=>{maintTitle='MULTIJOUEUR';state='maint'}],['ARSENAL',openUpgrades],['ENTRAÎNEMENT',()=>{mapTrain=true;state='maps'}],['PERSONNALISATION',()=>state='custom'],['BOUTIQUE',()=>state='shop'],['OPTIONS',()=>{optFrom='menu';state='options'}],['CRÉDITS',()=>state='credits'],['QUITTER',()=>state='quit']];
      it.forEach(([lab,act],k)=>btn(menuRects,70,232+k*31,300,28,lab,{act,size:18}))}
     {const li=langInfo(),x=W-210,y=H-104,w=170,h=36,hot=mouse.x>=x&&mouse.x<=x+w&&mouse.y>=y&&mouse.y<=y+h;menuRects.push({x,y,w,h,act:()=>state='lang'});
      panel(x,y,w,h,{top:hot?'#4a2018':'#2d2723',bot:hot?'#2a100c':'#17120f',edge:hot?'#e2542e':'#4a3a2e',norivets:true});drawFlag(li.f,x+10,y+6,34,24);
@@ -2847,6 +2847,8 @@ function drawMenuBody(){
      ctx.textAlign='center';ctx.font='700 17px '+FONT;ctx.fillStyle=hot?'#fff':'#f2efe8';ctx.fillText('TIRAGE',cx,cy+r+24);
      if(fr){const pu=1+.12*Math.sin(tick*.15);ctx.fillStyle='#d62d2d';ctx.beginPath();ctx.arc(cx+r-4,cy-r+8,11*pu,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.font='900 15px '+FONT;ctx.fillText('!',cx+r-4,cy-r+13)}
      ctx.textAlign='left'}
+    btn(menuRects,W-110-55,204,110,32,'MODE 3D',{act:()=>{maintTitle='MODE 3D';state='maint'},size:17});
+    btn(menuRects,W-110-55,244,110,32,'MODE VR',{act:()=>{maintTitle='MODE VR';state='maint'},size:17});
     btn(menuRects,W-220,H-60,180,38,tr('Plein écran  ({0})',kn('full')).toUpperCase(),{act:toggleFull,size:15});
     ctx.fillStyle='#e0a526';ctx.font='700 24px '+FONT;ctx.textAlign='right';
     ctx.fillText(tr('Niveau').toUpperCase()+' '+curLevel()+'   ·   $'+save.bank+'   ·   '+tr('Record : vague {0}',save.best).toUpperCase(),W-40,50);ctx.textAlign='left';
@@ -3916,14 +3918,15 @@ function boostCard(b,x,y,w,h){
     else{ctx.fillStyle=save.bank>=cost?'#ffd45a':'#9a7040';ctx.fillText((own?'AMÉLIORER':'DÉBLOQUER')+'  ·  $'+cost,x+10,y+98)}
   }
 }
+let maintTitle='MULTIJOUEUR';
 function drawMaint(){
   ctx.fillStyle='#000000d8';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
-  ctx.fillStyle='#000';ctx.font='400 38px '+TITLE;ctx.fillText('MULTIJOUEUR',43,61);ctx.fillStyle='#e9e1d0';ctx.fillText('MULTIJOUEUR',40,58);
+  ctx.fillStyle='#000';ctx.font='400 38px '+TITLE;ctx.fillText(maintTitle,43,61);ctx.fillStyle='#e9e1d0';ctx.fillText(maintTitle,40,58);
   ctx.fillStyle='#7a2c1c';ctx.fillRect(40,66,230,3);
   hazard(140,150,680,16);hazard(140,330,680,16);
   panel(140,166,680,164,{});
   ctx.textAlign='center';ctx.fillStyle='#ffd45a';ctx.font='400 54px '+TITLE;ctx.fillText('EN MAINTENANCE',480,238);
-  ctx.fillStyle='#d8d2c8';ctx.font='500 20px '+FONT;ctx.fillText('Le mode multijoueur est en cours de préparation.',480,276);
+  ctx.fillStyle='#d8d2c8';ctx.font='500 20px '+FONT;ctx.fillText('Le mode '+(maintTitle==='MULTIJOUEUR'?'multijoueur':maintTitle==='MODE 3D'?'3D':'VR')+' est en cours de préparation.',480,276);
   ctx.fillStyle='#8a8178';ctx.font='500 16px '+FONT;ctx.fillText('Reviens bientôt : il arrivera dans une prochaine mise à jour.',480,304);
   ctx.textAlign='left';
   btn(menuRects,40,470,200,44,'RETOUR',{act:()=>state='menu'});
