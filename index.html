@@ -155,7 +155,7 @@ function resWanted(vw){
 }
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.72';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.73';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -6316,7 +6316,7 @@ function fwWallOpen(B,u,feet,hh){                                            // 
   const f=Math.floor((feet+1e-6)/FW_FH),yl=feet-f*FW_FH;if(yl>9||f<0||f>=B.fl) return false;
   const x512=(u+B.half)/B.bw*512,ground=f%4===0;
   if(ground&&x512>=224&&x512<=288) return yl+hh<=FW_DOORH;
-  for(let c=0;c<4;c++){if(ground&&(c===1||c===2)) continue;if(x512>=c*128+14&&x512<=c*128+114) return yl+hh<=92}
+  for(let c=0;c<4;c++){if(ground&&(c===1||c===2)) continue;if(x512>=c*128+28&&x512<=c*128+100) return yl+hh<=78}
   return false;
 }
 function fwBldPush(B,o,r,yy,hgt){                                              // murs et rebord de toit (analytique) : on pousse le cercle hors du mur, sauf aux ouvertures
@@ -6357,7 +6357,7 @@ function fwSupportY(x,z,y){                                                   //
     for(let f=0;f<B.fl;f++){
       const top=f*FW_FH;if(top>lim) break;const ground=f%4===0;
       if(ground&&x512>=224&&x512<=288){if(top>best) best=top;continue}
-      for(let c=0;c<4;c++){if(ground&&(c===1||c===2)) continue;if(x512>=c*128+14&&x512<=c*128+114){if(top+8>best&&top+8<=lim) best=top+8;break}}
+      for(let c=0;c<4;c++){if(ground&&(c===1||c===2)) continue;if(x512>=c*128+28&&x512<=c*128+100){if(top+8>best&&top+8<=lim) best=top+8;break}}
     }
   }
   if(inner) for(let g=0;g<B.fl;g++){
@@ -6381,7 +6381,7 @@ function fwBldSolid(B,x,z,y){                                                  /
   }
   const f=Math.floor(y/FW_FH),yl=y-f*FW_FH,u=(ax>=az?dz:dx)+half,x512=u/B.bw*512,ground=f%4===0;
   if(ground){if(x512>=224&&x512<=288&&yl<FW_DOORH) return false}
-  if(yl>=8&&yl<=92){for(let c=0;c<4;c++){if(ground&&(c===1||c===2)) continue;if(x512>=c*128+14&&x512<=c*128+114) return false}}
+  if(yl>=8&&yl<=78){for(let c=0;c<4;c++){if(ground&&(c===1||c===2)) continue;if(x512>=c*128+28&&x512<=c*128+100) return false}}
   return true;
 }
 function fwShellMats(v,fl){
@@ -6390,14 +6390,14 @@ function fwShellMats(v,fl){
     let s=v*977+31;const rnd=()=>(s=(s*16807)%2147483647)/2147483647;
     const base=['#6a3c32','#55585f','#2e4258','#5a5040'][v%4],dk=['#4a2820','#3a3d44','#182636','#3e382c'][v%4];
     if(alpha){g.fillStyle='#fff';g.fillRect(0,0,w,h);g.fillStyle='#000';
-      for(let r=0;r<4;r++){const bottom=r===3;for(let c=0;c<4;c++){if(bottom&&(c===1||c===2)) continue;g.fillRect(c*128+14,r*128+10,100,108)}
+      for(let r=0;r<4;r++){const bottom=r===3;for(let c=0;c<4;c++){if(bottom&&(c===1||c===2)) continue;g.fillRect(c*128+28,r*128+28,72,90)}
         if(bottom) g.fillRect(224,r*128+128-FW_DOORH*1.28,64,FW_DOORH*1.28)}return}
     g.fillStyle=base;g.fillRect(0,0,w,h);
     if(v%4===0){g.strokeStyle='rgba(0,0,0,.22)';g.lineWidth=1;for(let y=0;y<h;y+=10){g.beginPath();g.moveTo(0,y);g.lineTo(w,y);g.stroke();for(let x=((y/10)%2)*16;x<w;x+=32){g.beginPath();g.moveTo(x,y);g.lineTo(x,y+10);g.stroke()}}}
     else{for(let i=0;i<500;i++){g.fillStyle='rgba('+(rnd()<.5?'255,255,255':'0,0,0')+','+(.03+rnd()*.05)+')';g.fillRect(rnd()*w,rnd()*h,1+rnd()*4,1+rnd()*4)}}
     const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'rgba(255,255,255,.08)');gr.addColorStop(1,'rgba(0,0,0,.25)');g.fillStyle=gr;g.fillRect(0,0,w,h);
     for(let r=0;r<4;r++){const bottom=r===3;g.fillStyle=dk;g.fillRect(0,r*128+120,w,8);g.fillStyle='rgba(255,255,255,.12)';g.fillRect(0,r*128+118,w,2);
-      for(let c=0;c<4;c++){if(bottom&&(c===1||c===2)) continue;g.fillStyle=dk;g.fillRect(c*128+8,r*128+4,112,120);g.fillStyle='#8a8478';g.fillRect(c*128+6,r*128+116,116,8)}
+      for(let c=0;c<4;c++){if(bottom&&(c===1||c===2)) continue;g.fillStyle=dk;g.fillRect(c*128+22,r*128+22,84,102);g.fillStyle='#8a8478';g.fillRect(c*128+18,r*128+116,92,8)}
       if(bottom){g.fillStyle=dk;g.fillRect(216,r*128+128-FW_DOORH*1.28-8,80,FW_DOORH*1.28+8);g.fillStyle='#a02a20';g.fillRect(200,r*128+4,112,14)}}
     g.fillStyle='rgba(0,0,0,.12)';for(let i=0;i<14;i++){g.fillRect(rnd()*w,rnd()*h,3+rnd()*3,30+rnd()*70)}
   },true);const c=t.clone();c.needsUpdate=true;c.repeat.set(1,fl/4);return c};
@@ -7135,7 +7135,7 @@ function fwmHostMsg(g,d){
       const max=.45*dt+90,dist=Math.hypot(x-f.x,z-f.z);                       // vitesse plausible (marche + sprint + latence)
       if(dist>max){f.viol++;if(f.viol===5) ACG.note('Invité '+g.name+' : déplacements impossibles');f.x+=(x-f.x)/dist*max;f.z+=(z-f.z)/dist*max}
       else{f.x=x;f.z=z;if(f.viol>0&&Math.random()<.02) f.viol--}
-      f.y=num(d.y,0,5200,0);f.air=num(d.a,0,3,0)|0;f.c=d.c?1:0;if(!f.air){const oo={px:f.x,pz:f.z};fwPush(oo,FW_R,f.y,80);f.x=oo.px;f.z=oo.pz}      // jamais dans un mur côté hôte
+      f.y=num(d.y,0,5200,0);f.air=num(d.a,0,3,0)|0;f.c=d.c?1:0;if(!f.air){const oo={px:f.x,pz:f.z};fwPush(oo,FW_R,f.y,68);f.x=oo.px;f.z=oo.pz}      // jamais dans un mur côté hôte
       f.yaw=num(d.ya,-100,100,0);f.pitch=num(d.pi,-2,2,0);if(!g.p.dead&&Number.isInteger(d.w)&&WEAPONS[d.w]){const wp=WEAPONS[d.w];if(wp.melee?d.w===g.p.melee:(g.p.gun&&g.p.gun.w===d.w)) g.p.w=d.w}
       break}
     case 'sh3':if(!g.p.dead) fwmShootFor(g,d);break;
@@ -7441,7 +7441,7 @@ function fwUpdate(dt,pz){
   if(FW.crouch>.5) run=false;
   const sp=2.7*(run?1.55:1)*(1-.45*FW.crouch)*(dt/16.7),fx_=-Math.sin(FW.yaw),fz_=-Math.cos(FW.yaw),rx=Math.cos(FW.yaw),rz=-Math.sin(FW.yaw);
   const o={px:FW.x+(fx_*mvz+rx*mvx)*sp,pz:FW.z+(fz_*mvz+rz*mvx)*sp};
-  fwPush(o,FW_R,FW.y,FW.crouch>.5?56:80);fwPushEn(o,FW_R);o.px=Math.max(-FW_LIM,Math.min(FW_LIM,o.px));o.pz=Math.max(-FW_LIM,Math.min(FW_LIM,o.pz));
+  fwPush(o,FW_R,FW.y,FW.crouch>.5?44:68);fwPushEn(o,FW_R);o.px=Math.max(-FW_LIM,Math.min(FW_LIM,o.px));o.pz=Math.max(-FW_LIM,Math.min(FW_LIM,o.pz));
   if(L>.05) FW.bob+=.17*(run?1.4:1);
   ACG.fwStep(Math.hypot(o.px-FW.x,o.pz-FW.z),2.7*1.55*(dt/16.7));FW.x=o.px;FW.z=o.pz;P.x=FW.x;if(G) fwmSendPos(dt);
   {const yp=FW.y;let sup=fwSupportY(FW.x,FW.z,yp);
@@ -7571,6 +7571,7 @@ function fwRender(){
   G3.W=0;ctx.drawImage(G3.cv,0,0,W,H);
 }
 function fwHud(){
+  const brHud=FW.net&&FW.mode!=='coop';
   const P=player,touch=touchOn(),cx=W/2,cy=H/2;
   // flash dégâts / mort proche
   if(FW.hurtFl>0){const g=ctx.createRadialGradient(cx,cy,H*.25,cx,cy,H*.8);g.addColorStop(0,'rgba(160,0,0,0)');g.addColorStop(1,'rgba(180,10,10,'+(.3*FW.hurtFl)+')');ctx.fillStyle=g;ctx.fillRect(0,0,W,H)}
@@ -7604,10 +7605,10 @@ function fwHud(){
     }}
   // infos en haut à gauche
   ctx.textAlign='left';ctx.fillStyle='#000a';ctx.fillRect(14,14,200,66);ctx.strokeStyle='#4a3a2e';ctx.strokeRect(14.5,14.5,199,65);
-  ctx.fillStyle='#e9e1d0';ctx.font='700 18px '+FONT;ctx.fillText(tr('Vague').toUpperCase()+' '+wave,26,38);
-  ctx.font='500 14px '+FONT;ctx.fillStyle='#d8c27a';ctx.fillText('$ '+money+'   ·   '+kills+' '+tr('tués').toUpperCase(),26,58);
-  const left=FW.queue.length+FW.zs.length;ctx.fillStyle='#8a8178';ctx.fillText(left+' ZOMBIE'+(left>1?'S':'')+' RESTANT'+(left>1?'S':''),26,74);
-  if(FW.scopeK<.85) drawLevelHud();
+  ctx.fillStyle='#e9e1d0';ctx.font='700 18px '+FONT;ctx.fillText(brHud?'BATTLE ROYALE':tr('Vague').toUpperCase()+' '+wave,26,38);
+  ctx.font='500 14px '+FONT;ctx.fillStyle='#d8c27a';ctx.fillText(brHud?'ÉLIMINATIONS : '+(FW.net==='host'?FW.stat.k:kills):'$ '+money+'   ·   '+kills+' '+tr('tués').toUpperCase(),26,58);
+  if(brHud){ctx.fillStyle='#8a8178';ctx.fillText(FW.mode==='brt'?'ÉQUIPE '+((FW.myTeam|0)+1):'CHACUN POUR SOI',26,74)}else{const left=FW.queue.length+FW.zs.length;ctx.fillStyle='#8a8178';ctx.fillText(left+' ZOMBIE'+(left>1?'S':'')+' RESTANT'+(left>1?'S':''),26,74)}
+  if(FW.scopeK<.85&&!brHud) drawLevelHud();
   // vie
   const bx=24,by=H-54,bw=260;ctx.fillStyle='#000a';ctx.fillRect(bx-6,by-26,bw+12,48);
   ctx.fillStyle='#1a1412';ctx.fillRect(bx,by,bw,16);const f=Math.max(0,P.hp/P.maxhp);ctx.fillStyle=f>.5?'#58b84a':f>.25?'#e0b030':'#d03a2a';ctx.fillRect(bx,by,bw*f,16);ctx.strokeStyle='#5a3a30';ctx.strokeRect(bx+.5,by+.5,bw-1,15);
