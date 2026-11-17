@@ -27,6 +27,7 @@ Ou télécharge le dépôt et ouvre `index.html` dans un navigateur moderne.
 - Caisses du ciel : tirage au sort uniforme parmi les armes à feu débloquées, le kit de soin et le bouclier
 - 25 langues (détection automatique de la langue de l'appareil, changement depuis le menu principal avec les drapeaux)
 - Mobile : boutons tactiles (déplacement, saut, tir), toucher sur les caisses et les bonus ; la zone de jeu s'adapte au format de l'écran (jusqu'aux bords, sans bandes noires)
+- Mode 3D (bouton MODE 2D/3D/VR) : décor, personnages et zombies en vrai 3D (Three.js, chargé à la demande, connexion requise), effets et interface en 2D ; le multijoueur reste réservé au mode 2D
 - Visée souris ou tir dans la direction du déplacement, touches configurables, pause (Échap / P)
 - Cartes (6), difficultés, boss toutes les 5 manches, manche finale du magicien qui débloque la carte suivante
 - Boosts améliorables (24 types : barricade, nounours piégé, mines, drone, molotov…), roulette du jour, Seconde vie
