@@ -155,7 +155,7 @@ function resWanted(vw){
 }
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.65';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.66';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -419,6 +419,7 @@ const power=w=>w.melee?w.dmg*1000/w.rate*(1+w.reach/200)*.45
  WEAPONS[0].lvl=1;WEAPONS[0].cost=0;}
 WEAPONS.forEach(w=>{w.hs=w.hands?.45:w.oneHand?.5:w.melee?.55:({pistol:.5,revolver:.5,deagle:.5,nailgun:.5,smg:.42,barrett:.34,launcher:.34,minigun:.36,crossbow:.4,bow:.42,flamer:.38}[w.kind]||.4)});
 const MENU_GUN=WEAPONS.findIndex(w=>w.name==='AK-47');
+const menuP={x:0,y:0,face:1,aim:0,w:MENU_GUN,melee:MENU_GUN,cd:0,swing:0,step:0,muz0:0,muz1:0,hand:0,hp:1,maxhp:1,hurtCd:0,gun:null};   // soldat de décor des menus : JAMAIS le vrai joueur (sinon l'arme en main changeait en pleine partie)
 const ZTYPES = {
   normal:{hp:30, speed:1.0, size:1.0, dmg:8,  color:'#5c9a4a', coins:10},
   fast:  {hp:18, speed:2.2, size:0.9, dmg:6,  color:'#8ab43a', coins:12},
@@ -3190,9 +3191,9 @@ function drawMenuBody(){
   if(state==='custom'){drawCustom();return}
   if(SET.fete&&state==='menu') menuTree();
   // silhouette du soldat à droite (dessin original)
-  player.x=720;player.y=GROUND;player.face=-1;player.aim=Math.PI+.1;player.w=MENU_GUN;player.cd=0;player.swing=0;
+  menuP.x=720;menuP.y=GROUND;menuP.face=-1;menuP.aim=Math.PI+.1;menuP.w=MENU_GUN;menuP.cd=0;menuP.swing=0;
   ctx.save();ctx.translate(720,GROUND);ctx.scale(1.9,1.9);ctx.translate(-720,-GROUND);
-  drawSoldier(player);ctx.restore();
+  drawSoldier(menuP);ctx.restore();
   ctx.textAlign='left';
   barbed(0,W,16,1);barbed(0,W,22,1.3);
   ctx.font='400 30px '+TITLE;ctx.fillStyle='#000';ctx.fillText('THE',73,83);ctx.fillStyle='#d8d0c0';ctx.fillText('THE',70,80);ctx.font='400 76px '+TITLE;
@@ -3892,7 +3893,7 @@ function drawShop(){
   const L=save.look;
   selBtn(560,60,80,26,'HOMME',L.sex==='m',()=>{L.sex='m';persist()},13);selBtn(644,60,80,26,'FEMME',L.sex==='f',()=>{L.sex='f';persist()},13);
   selBtn(730,60,100,26,'NORMALE',L.build===0,()=>{L.build=0;persist()},13);selBtn(834,60,100,26,'EXAGÉRÉE',L.build===1,()=>{L.build=1;persist()},13);
-  const list=OUTFITS.map((o,i)=>i).filter(i=>OUTFITS[i].pack===1),cw=290,ch=112,gx=10,gy=8;
+  const list=OUTFITS.map((o,i)=>i).filter(i=>OUTFITS[i].pack===1),cw=290,gx=10,gy=8,rows=Math.ceil(OUTFITS.filter(o=>o.pack===1).length/3),ch=Math.max(76,Math.min(112,Math.floor((372-(rows-1)*gy)/rows))),dy=v=>Math.round(v*ch/112);   // la hauteur des cartes s'adapte : rien ne passe sous le bouton RETOUR
   const keep=[L.outfit,L.top,L.pants,L.hat,L.shoes];
   list.forEach((i,k)=>{
     const o=OUTFITS[i],x=40+(k%3)*(cw+gx),y=96+Math.floor(k/3)*(ch+gy),own=outOwned(i),eq=own&&keep[0]===i,nm=L.sex==='f'&&o.nf?o.nf:o.n;
@@ -3901,13 +3902,13 @@ function drawShop(){
     panel(x,y,cw,ch,{top:eq?'#2a3a22':hot?'#4a2018':'#2a2522',bot:eq?'#141c10':hot?'#2a100c':'#15110f',edge:eq?'#4f7d3a':hot?'#e2542e':'#4a3a2e',norivets:true});
     ctx.save();ctx.beginPath();ctx.rect(x+3,y+3,112,ch-6);ctx.clip();
     ctx.fillStyle='rgba(0,0,0,.35)';ctx.fillRect(x+3,y+3,112,ch-6);
-    const kp=prevO;prevO=i;L.outfit=i;L.top=L.pants=L.hat=L.shoes=null;player.x=x+58;player.y=GROUND;player.face=1;player.aim=.04;player.w=MENU_GUN;player.cd=0;player.swing=0;player.step=0;player.muz0=player.muz1=0;
-    ctx.translate(x+58,y+ch-12);ctx.scale(.98,.98);ctx.translate(-(x+58),-GROUND);drawSoldier(player);ctx.restore();prevO=kp;
+    const kp=prevO;prevO=i;L.outfit=i;L.top=L.pants=L.hat=L.shoes=null;menuP.x=x+58;menuP.y=GROUND;menuP.face=1;menuP.aim=.04;menuP.w=MENU_GUN;menuP.cd=0;menuP.swing=0;menuP.step=0;menuP.muz0=menuP.muz1=0;
+    ctx.translate(x+58,y+ch-10);ctx.scale(ch/112*.98,ch/112*.98);ctx.translate(-(x+58),-GROUND);drawSoldier(menuP);ctx.restore();prevO=kp;
     L.outfit=keep[0];L.top=keep[1];L.pants=keep[2];L.hat=keep[3];L.shoes=keep[4];
-    ctx.fillStyle='#f2efe8';ctx.font='700 17px '+FONT;ctx.fillText(nm,x+124,y+28,cw-132);
-    ctx.font='500 13px '+FONT;ctx.fillStyle='#b9b1a6';ctx.fillText(L.build===1?'Version exagérée':'Version normale',x+124,y+48,cw-132);
-    if(own){ctx.fillStyle=eq?'#9fd18a':'#d8d2c8';ctx.font='700 15px '+FONT;ctx.fillText(eq?'ÉQUIPÉE  ✓':'POSSÉDÉE',x+124,y+72);ctx.fillStyle=hot?'#fff':'#a89f94';ctx.font='500 13px '+FONT;if(!eq) ctx.fillText('Clique pour équiper',x+124,y+94,cw-132)}
-    else{ctx.fillStyle=save.bank>=o.cost?'#ffd45a':'#e2542e';ctx.font='700 22px '+FONT;ctx.fillText('$'+o.cost,x+124,y+78);ctx.fillStyle=hot?'#fff':'#a89f94';ctx.font='500 13px '+FONT;ctx.fillText(save.bank>=o.cost?'Clique pour acheter':'Pas assez d\'argent',x+124,y+98,cw-132)}
+    ctx.fillStyle='#f2efe8';ctx.font='700 17px '+FONT;ctx.fillText(nm,x+124,y+dy(28),cw-132);
+    ctx.font='500 13px '+FONT;ctx.fillStyle='#b9b1a6';ctx.fillText(L.build===1?'Version exagérée':'Version normale',x+124,y+dy(48),cw-132);
+    if(own){ctx.fillStyle=eq?'#9fd18a':'#d8d2c8';ctx.font='700 15px '+FONT;ctx.fillText(eq?'ÉQUIPÉE  ✓':'POSSÉDÉE',x+124,y+dy(72));ctx.fillStyle=hot?'#fff':'#a89f94';ctx.font='500 13px '+FONT;if(!eq) ctx.fillText('Clique pour équiper',x+124,y+dy(94),cw-132)}
+    else{ctx.fillStyle=save.bank>=o.cost?'#ffd45a':'#e2542e';ctx.font='700 22px '+FONT;ctx.fillText('$'+o.cost,x+124,y+dy(78));ctx.fillStyle=hot?'#fff':'#a89f94';ctx.font='500 13px '+FONT;ctx.fillText(save.bank>=o.cost?'Clique pour acheter':'Pas assez d\'argent',x+124,y+dy(98),cw-132)}
   });
   btn(menuRects,40,484,170,44,'RETOUR',{act:()=>state='menu',size:20});
   if(msgT>0){msgT--;ctx.fillStyle='#ffd45a';ctx.font='700 20px '+FONT;ctx.fillText(msg.toUpperCase(),230,512)}
@@ -3927,10 +3928,10 @@ function drawCustom(){
   // aperçu
   panel(40,88,250,300,{grunge:.8,norivets:true});
   const g=ctx.createRadialGradient(165,280,10,165,280,170);g.addColorStop(0,'rgba(226,84,46,.25)');g.addColorStop(1,'rgba(226,84,46,0)');ctx.fillStyle=g;ctx.fillRect(41,89,248,298);
-  player.x=150;player.y=GROUND;player.face=1;player.aim=.04;player.w=MENU_GUN;player.cd=0;player.swing=0;player.step=0;
+  menuP.x=150;menuP.y=GROUND;menuP.face=1;menuP.aim=.04;menuP.w=MENU_GUN;menuP.cd=0;menuP.swing=0;menuP.step=0;
   ctx.save();ctx.beginPath();ctx.rect(41,89,248,298);ctx.clip();
   const keepO=L.outfit,keepC=[L.top,L.pants,L.hat,L.shoes];if(prevO>=0&&!outOwned(prevO)){L.outfit=prevO;L.top=L.pants=L.hat=L.shoes=null}   // aperçu d'une tenue pas encore achetée
-  ctx.translate(150,372);ctx.scale(2.4,2.4);ctx.translate(-150,-GROUND);drawSoldier(player);ctx.restore();
+  ctx.translate(150,372);ctx.scale(2.4,2.4);ctx.translate(-150,-GROUND);drawSoldier(menuP);ctx.restore();
   L.outfit=keepO;[L.top,L.pants,L.hat,L.shoes]=keepC;
   ctx.textAlign='right';ctx.fillStyle='#e0a526';ctx.font='700 22px '+FONT;ctx.fillText('$'+save.bank,W-40,50);ctx.textAlign='left';
   if(prevO>=0&&!outOwned(prevO)){const o=OUTFITS[prevO];
@@ -3940,7 +3941,7 @@ function drawCustom(){
   selBtn(40,436,122,34,'NORMALE',L.build===0,()=>{L.build=0;ch()},16);
   selBtn(168,436,122,34,'EXAGÉRÉE',L.build===1,()=>{L.build=1;ch()},16);
   // tenues
-  ctx.fillStyle='#8a8178';ctx.font='500 14px '+FONT;ctx.fillText('TENUE  (chaque tenue existe en version homme et femme)',310,92);
+  ctx.fillStyle='#8a8178';ctx.font='500 14px '+FONT;ctx.fillText('TENUE  (version homme et femme)',310,92,240);
   selBtn(560,72,110,24,'CLASSIQUES',outPage===0,()=>outPage=0,12);selBtn(676,72,110,24,'FÊTES  ('+OUTFITS.filter((o,i)=>o.pack===1&&outOwned(i)).length+')',outPage===1,()=>outPage=1,12);selBtn(792,72,126,24,'ZOMBIES  ('+OUTFITS.filter(o=>o.pack===2).length+')',outPage===2,()=>outPage=2,12);
   if(outPage===1&&!OUTFITS.some((o,i)=>o.pack===1&&outOwned(i))){ctx.fillStyle='#8a8178';ctx.font='500 15px '+FONT;ctx.fillText('Aucune tenue de fêtes achetée pour l\'instant.',310,124);ctx.fillText('Va dans la BOUTIQUE (menu principal) pour en acheter.',310,146)}
   OUTFITS.map((o,i)=>i).filter(i=>(OUTFITS[i].pack||0)===outPage&&(!OUTFITS[i].pack||outOwned(i))).forEach((i,k)=>{
@@ -4855,7 +4856,7 @@ function drawNmSetup(){
   btn(menuRects,485,by,430,40,'CARTE : '+mp.name+'  ›',{act:()=>{const k=MAPS.indexOf(mp);save.sel.map=MAPS[(k+1)%MAPS.length].id;persist()},size:16});
   btn(menuRects,40,Math.min(by+50,484),200,44,'RETOUR',{act:()=>{state='menu'},size:20});
   btn(menuRects,250,Math.min(by+50,484),400,44,'LANCER NIGHTMARE',{act:nmStart,size:22});
-  ctx.fillStyle='#8a8178';ctx.font='500 12px '+FONT;ctx.fillText('Touches : '+keyName(KEYS.wnext[0]||'')+' / '+keyName(KEYS.wprev[0]||'')+' (configurables dans Options › Touches) · chiffres 1-9 : choisir directement',660,Math.min(by+80,512),270);
+  ctx.fillStyle='#8a8178';ctx.font='500 12px '+FONT;ctx.fillText('Touches : '+keyName(KEYS.wnext[0]||'')+' / '+keyName(KEYS.wprev[0]||'')+' (configurables dans Options › Touches) · chiffres 1-9 : choisir directement',40,Math.min(by+104,534),880);
 }
 function nmHud(){
   if(!NM.on||!NM.load.length) return;const n=NM.load.length,w=58,x0=W/2-n*w/2,y=H-(FW&&FW.on?118:66);
@@ -5525,9 +5526,9 @@ function drawAcPage(){
   const lg=st.log.slice(-7).reverse();ctx.fillStyle='#b9b1a6';ctx.font='500 12px '+FONT;
   if(!lg.length){ctx.fillStyle='#6b625b';ctx.fillText('Aucun événement.',596,134)}else lg.forEach((e,i)=>{const d=new Date(e.t);ctx.fillText(d.toTimeString().slice(0,5)+'  '+e.m,596,132+i*25,310)});
   ctx.fillStyle='#b9b1a6';ctx.font='500 13px '+FONT;
-  ['Ce qui est protégé : la progression (signature), les gains de partie (surveillance), le tirage du jour (horloge), les données des armes et zombies, la vitesse et la cadence de tir en 3D,','le multijoueur (profil signé, commandes validées par l\'hôte, gains signés par l\'hôte et plafonnés).','Limite : une protection côté navigateur dissuade et détecte, mais seul un serveur pourrait rendre la triche impossible.'].forEach((t,i)=>ctx.fillText(t,40,346+i*20,880));
-  if(st.tampered) btn(menuRects,40,414,520,44,'RESTAURER LA DERNIÈRE SAUVEGARDE VALIDE',{act:acRestore,size:16});
-  if(acMsg){ctx.fillStyle='#ffd45a';ctx.font='700 15px '+FONT;ctx.fillText(acMsg,580,436,340)}
+  ['Ce qui est protégé : la progression (signature), les gains de partie (surveillance), le tirage du jour (horloge), les données des armes et zombies, la vitesse et la cadence de tir en 3D,','le multijoueur (profil signé, commandes validées par l\'hôte, gains signés par l\'hôte et plafonnés).','Limite : une protection côté navigateur dissuade et détecte, mais seul un serveur pourrait rendre la triche impossible.'].forEach((t,i)=>ctx.fillText(t,40,396+i*17,880));
+  if(st.tampered) btn(menuRects,260,478,420,40,'RESTAURER LA DERNIÈRE SAUVEGARDE VALIDE',{act:acRestore,size:16});
+  if(acMsg){ctx.fillStyle='#ffd45a';ctx.font='700 15px '+FONT;ctx.fillText(acMsg,700,502,240)}
   btn(menuRects,40,470,200,44,'RETOUR',{act:()=>{state='options';optTab=4}});
 }
 
