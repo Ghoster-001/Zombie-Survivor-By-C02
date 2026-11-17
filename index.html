@@ -155,7 +155,7 @@ function resWanted(vw){
 }
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.55';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.56';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -543,6 +543,15 @@ save.boost=save.boost||null;
 if(!save.boost){save.boost={heal:0,shield:0};if(save.xp>0||save.best>0){for(const k of['dmg','rapid','freeze','strike','turret','cash']) save.boost[k]=0}}
 save.daily=Object.assign({last:0,buys:0,pend:null},save.daily||{});
 save.look=Object.assign({outfit:0,sex:'m',build:0,skin:null,hair:null,top:null,pants:null,hat:null,shoes:null},save.look||{});
+// Changement de version : la progression (même clé de sauvegarde, champs manquants complétés par des valeurs par défaut) est conservée ;
+// une copie de sécurité de la version précédente est gardée (les 3 dernières).
+{const pv=String(save.ver||'');save.ver=GAME_VERSION;
+ if(pv&&pv!==GAME_VERSION){
+  try{localStorage.setItem('zs_save_pre_'+pv.replace(/[^0-9.]/g,''),localStorage.getItem(SAVE_KEY)||JSON.stringify(save));
+    const ks=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf('zs_save_pre_')===0) ks.push(k)}
+    ks.sort((a,b)=>parseFloat(a.slice(12))-parseFloat(b.slice(12)));while(ks.length>3) localStorage.removeItem(ks.shift())}catch(e){}
+  window.__updNotice=[pv,GAME_VERSION];
+ }}
 const prevCleared=m=>{const i=MAPS.indexOf(m);return i>0&&!!save.mapClear[MAPS[i-1].id]};
 const mapUnlocked=m=>training||mapTrain||curLevel()>=m.lvl||prevCleared(m);   // niveau requis OU manche finale (10) de la carte précédente réussie
 const wavesOn=(m,d)=>((save.mapWaves[m.id]||{})[d]||0);
@@ -3031,6 +3040,11 @@ function drawMenuBody(){
      if(fr){const pu=1+.12*Math.sin(tick*.15);ctx.fillStyle='#d62d2d';ctx.beginPath();ctx.arc(cx+r-4,cy-r+8,11*pu,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.font='900 15px '+FONT;ctx.fillText('!',cx+r-4,cy-r+13)}
      ctx.textAlign='left'}
     btn(menuRects,W-110-62,206,124,34,'MODE : 2D',{act:()=>setGameMode('3D'),size:17});
+    {const u=UPD,lab=u.status==='avail'?'INSTALLER V'+u.latest:u.status==='check'?'RECHERCHE…':'MISE À JOUR',
+       sub=u.status==='avail'?'nouvelle version !':u.status==='ok'?'à jour ✔ V'+GAME_VERSION:u.status==='err'?(u.msg||'impossible'):u.status==='check'?'patiente…':'rechercher';
+     btn(menuRects,W-220,H-158,180,46,lab,{act:()=>u.status==='avail'?updApply():updCheck(true),size:16,sub,dim:u.status==='check'});
+     if(u.status==='avail'){const bx=385,by=H-52,bw=340,pu=.6+.4*Math.sin(tick*.12);panel(bx,by,bw,40,{norivets:true,edge:'#ffd45a'});menuRects.push({x:bx,y:by,w:bw,h:40,act:updApply});
+       ctx.textAlign='center';ctx.fillStyle='rgba(255,212,90,'+(.75+.25*pu)+')';ctx.font='700 14px '+FONT;ctx.fillText('● MISE À JOUR V'+u.latest+'  ·  CLIQUER POUR INSTALLER',bx+bw/2,by+25,bw-16);ctx.textAlign='left'}}
     btn(menuRects,W-220,H-60,180,38,tr('Plein écran  ({0})',kn('full')).toUpperCase(),{act:toggleFull,size:15});
     ctx.fillStyle='#e0a526';ctx.font='700 24px '+FONT;ctx.textAlign='right';
     ctx.fillText(tr('Niveau').toUpperCase()+' '+curLevel()+'   ·   $'+save.bank+'   ·   '+tr('Record : vague {0}',save.best).toUpperCase(),W-40,50);ctx.textAlign='left';
@@ -3100,6 +3114,7 @@ function drawMenuBody(){
       btn(menuRects,X1,yo[0],BW,BH,'SAUVEGARDE',{act:()=>{saveConfirm=false;state='saves'},size:20,sub:'exporter, importer, effacer'});
       btn(menuRects,X2,yo[0],BW,BH,tr('Langue').toUpperCase()+' : '+langInfo().n,{act:()=>state='lang',size:20});
       btn(menuRects,X1,yo[1],BW,BH,'CRÉDITS',{act:()=>state='credits',size:20});
+      btn(menuRects,X1,yo[2],BW,BH,UPD.status==='avail'?'INSTALLER LA MISE À JOUR  (V'+UPD.latest+')':'RECHERCHER UNE MISE À JOUR',{act:()=>UPD.status==='avail'?updApply():updCheck(true),size:19,sub:UPD.status==='ok'?'à jour ✔  V'+GAME_VERSION+'  ·  ta progression est conservée':UPD.status==='check'?'recherche en cours…':UPD.status==='err'?(UPD.msg||'recherche impossible'):'ta progression est conservée à chaque mise à jour'});
       btn(menuRects,X2,yo[1],BW,BH,'C02 ANTI-CHEAT  ›',{act:()=>{acMsg='';state='acpage'},size:20,sub:ACG.ok()?'● actif · v'+ACG.VER:'● alerte : voir le détail'});
     }
     btn(menuRects,70,470,200,36,'RETOUR',{act:()=>state=optFrom==='pause'?'pause':'menu',size:20});
@@ -5192,6 +5207,47 @@ function drawAcPage(){
   btn(menuRects,40,470,200,44,'RETOUR',{act:()=>{state='options';optTab=4}});
 }
 
+// ===== Mise à jour : cherche la dernière version publiée, notifie, et installe en conservant la progression =====
+const REMOTE_URL='https://ghoster-001.github.io/Zombie-Survivor-By-C02/';
+const UPD={status:'idle',latest:'',lastCheck:0,msg:'',busy:false,url:'',same:false,notified:''};
+const verCmp=(a,b)=>{const x=String(a).split('.').map(Number),y=String(b).split('.').map(Number);for(let i=0;i<3;i++){const d=(x[i]||0)-(y[i]||0);if(d) return d}return 0};
+async function updCheck(manual){
+  const now=Date.now();
+  if(UPD.busy||(!manual&&now-UPD.lastCheck<20000)) return;
+  UPD.busy=true;UPD.lastCheck=now;if(manual||UPD.status!=='avail') UPD.status='check';UPD.msg='';
+  const urls=[];
+  if(/^https?:$/.test(location.protocol)) urls.push({u:location.href.split('#')[0].split('?')[0],same:true});
+  urls.push({u:REMOTE_URL,same:/ghoster-001\.github\.io$/.test(location.hostname)});
+  let found=null;
+  for(const c of urls){
+    try{
+      const ctl=typeof AbortController!=='undefined'?new AbortController():null,to=setTimeout(()=>ctl&&ctl.abort(),9000);
+      const r=await fetch(c.u+(c.u.includes('?')?'&':'?')+'nc='+Date.now(),{cache:'no-store',signal:ctl?ctl.signal:undefined});clearTimeout(to);
+      if(!r.ok) continue;const t=await r.text(),m=t.match(/const GAME_VERSION='([0-9.]+)'/);
+      if(m){found={v:m[1],u:c.u,same:c.same};break}
+    }catch(e){}
+  }
+  UPD.busy=false;
+  if(!found){if(manual||UPD.status==='check'){UPD.status='err';UPD.msg=navigator.onLine===false?'hors connexion':'recherche impossible'}return}
+  UPD.latest=found.v;UPD.url=found.u;UPD.same=found.same;
+  if(verCmp(found.v,GAME_VERSION)>0){
+    UPD.status='avail';
+    if(UPD.notified!==found.v){UPD.notified=found.v;flash('MISE À JOUR DISPONIBLE : V'+found.v);try{sfx('bonus')}catch(e){}}
+  } else {UPD.status='ok'}
+}
+function updApply(){
+  if(UPD.status!=='avail') return;
+  persist();                                                              // la progression est enregistrée avant de changer de version
+  if(UPD.same){
+    flash('Installation de la mise à jour…');
+    try{if(window.caches&&caches.keys) caches.keys().then(k=>k.forEach(n=>caches.delete(n)))}catch(e){}
+    setTimeout(()=>{location.replace(UPD.url+'?v='+UPD.latest+'&t='+Date.now())},500);
+  } else {                                                                // autre adresse : la sauvegarde ne suit pas toute seule, on exporte un fichier
+    exportSave();flash('Sauvegarde exportée : importe-la sur la nouvelle version');
+    try{window.open(UPD.url,'_blank')}catch(e){}
+  }
+}
+try{if(location.search&&/[?&](v|t)=/.test(location.search)) history.replaceState(null,'',location.pathname)}catch(e){}
 // --- Boucle ---
 for(const ev of['mousemove','mousedown','mouseup','touchstart','touchmove','keydown','wheel']) addEventListener(ev,()=>{uiDirty=true},{passive:true});
 let last=performance.now();
@@ -5210,7 +5266,8 @@ function loop(t){
   while(acc>=STEP-2&&steps<4){acc-=STEP;steps++;tick++;if(interp&&state==='play'&&!paused) snapPrev();try{update(STEP)}catch(e){console.error(e)}ACG.watch()}
   if(steps>=4) acc=0;else if(acc<-STEP/2) acc=0;
   const menuOnly=FXF.anim===0&&MENU_STATES.includes(state)&&state!=='pause'&&state!=='over'&&!(state==='wheel'&&wheel.spin);
-  if(state!==lastUiState){lastUiState=state;uiDirty=true}
+  if(state!==lastUiState){if(state==='menu') updCheck(false);lastUiState=state;uiDirty=true}
+  if(state==='menu'&&window.__updNotice){const n=window.__updNotice;window.__updNotice=null;flash('MISE À JOUR INSTALLÉE : V'+n[0]+' → V'+n[1]+' · progression conservée')}
   const skipMenu=menuOnly&&!uiDirty&&t-lastDrawT<250;                  // animations coupées : les menus ne se redessinent qu'au besoin
   if(drawDebt>=iv-1&&(steps>0||interp)&&!skipMenu){
     uiDirty=false;
