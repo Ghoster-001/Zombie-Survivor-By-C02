@@ -41,7 +41,7 @@ function resWanted(vw){
 }
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.43';   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.44';   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -306,6 +306,9 @@ const ZTYPES = {
   normal:{hp:30, speed:1.0, size:1.0, dmg:8,  color:'#5c9a4a', coins:10},
   fast:  {hp:18, speed:2.2, size:0.9, dmg:6,  color:'#8ab43a', coins:12},
   tank:  {hp:120,speed:0.6, size:1.35,dmg:18, color:'#3f6b3a', coins:35},
+  zdog:{hp:16,speed:2.7,size:.8,dmg:6,color:'#7a6a58',coins:12,animal:'dog',hh:36,hw:20},      // zombies animaux (traîneau Fouettard)
+  zdeer:{hp:80,speed:1.7,size:1.2,dmg:14,color:'#8a5a30',coins:30,animal:'deer',hh:78,hw:30},
+  zpeng:{hp:22,speed:1.0,size:.9,dmg:5,color:'#2a2f3a',coins:12,animal:'peng',hh:46,hw:16},
   digger:{hp:150,speed:1.9, size:1.15,dmg:16, color:'#7a6a58', coins:45},   // zombie spécial : sort du sol près du joueur, dernier de la manche
 };
 
@@ -347,9 +350,10 @@ let training=false,pauseConfirm=false,optFrom='menu',trainMain=-1,trainCat=0,tra
 const isOwned=i=>training||!!save.own[WEAPONS[i].name];
 // Améliorations par arme : niveaux 1 à 3 = dégâts, niveau 4 = dégâts + mod or + couleurs (changeables à tout moment)
 if(!save.up) save.up={};
-const upLvl=i=>training?4:(save.up[WEAPONS[i].name]||{}).lvl||0;
-const skinOf=i=>{const u=save.up[WEAPONS[i].name];return u&&u.lvl>=4&&u.skin?u.skin:(training?'gold':'orig')};
-const woodOf=i=>{const u=save.up[WEAPONS[i].name];return u&&u.lvl>=4&&u.wood?u.wood:'orig'};
+const gOv=i=>{try{const g=player&&player.gun;return g&&g.w===i&&g.gl!==undefined?g:null}catch(e){return null}};   // arme de cadeau rare : niveau et couleur tirés au sort
+const upLvl=i=>{const g=gOv(i);return g?g.gl:training?4:(save.up[WEAPONS[i].name]||{}).lvl||0};
+const skinOf=i=>{const g=gOv(i);if(g) return g.gs;const u=save.up[WEAPONS[i].name];return u&&u.lvl>=4&&u.skin?u.skin:(training?'gold':'orig')};
+const woodOf=i=>{const g=gOv(i);if(g) return g.gwd;const u=save.up[WEAPONS[i].name];return u&&u.lvl>=4&&u.wood?u.wood:'orig'};
 const wBoost=i=>[1,1.15,1.3,1.45,1.9][upLvl(i)];
 const upCost=(i,n)=>Math.round(Math.max(200,WEAPONS[i].cost)*[0,.6,1,1.5,2.5][n]/5)*5;
 let upSel=0;
@@ -494,6 +498,7 @@ if(save.dmgLvl>0){
 {const mi=WEAPONS.findIndex(w=>w.name===save.melee);if(mi<0||!WEAPONS[mi].melee||!save.own[save.melee]) save.melee='Couteau'}
 let WORLD_W=3600,camX=0;
 // ===== Cartes et difficultés =====
+const BOSSES=[{n:'LE COLOSSE',id:'brute',hp:520,sp:.85,dmg:18,size:2.1,skin:'#8a3a30',shirt:'#3a2220'},{n:'LE CRACHEUR',id:'spitter',hp:650,sp:.75,dmg:14,size:1.9,skin:'#7ab04a',shirt:'#3a5a2a'},{n:"L'INVOCATEUR",id:'summoner',hp:800,sp:.7,dmg:16,size:1.8,skin:'#8a6ab0',shirt:'#2a1a3a'}];
 const MAPS=[
  {id:'ruines',name:'RUES EN RUINE',lvl:1,world:3600,count:1,hp:1,sp:1,crate:1,sup:1,drop:1,gain:1,tank:1,dark:0,
   pros:['Équilibrée : idéale pour débuter'],cons:['Aucun avantage particulier'],
@@ -695,7 +700,7 @@ function reset(toMenu){
   const mi=training&&trainMain>=0?trainMain:Math.max(0,WEAPONS.findIndex(w=>w.name===save.melee));
   player={x:WORLD_W/2,y:GROUND,vy:0,hp:mhp,maxhp:mhp,w:mi,melee:mi,gun:null,
           cd:0,dmgMul:1,hurtCd:0,face:1,step:0,aim:0,swing:0};
-  zombies=[]; bullets=[]; particles=[]; fx=[]; crates=[]; decals=[]; bonuses=[]; strikes=[]; turret=null; fxB={shield:0,dmg:0,rapid:0,freeze:0}; charXp=0;charLvl=1;charPulse=0;stock=[]; crateT=(7000+rnd()*8000)/curMap.crate;supT=(20000+rnd()*15000)/curMap.sup;xmasReset(); spawnQueue=[]; spawnTimer=0;
+  zombies=[]; bullets=[]; particles=[]; fx=[]; crates=[]; decals=[]; acid=[]; bonuses=[]; strikes=[]; turret=null; fxB={shield:0,dmg:0,rapid:0,freeze:0}; charXp=0;charLvl=1;charPulse=0;stock=[]; crateT=(7000+rnd()*8000)/curMap.crate;supT=(20000+rnd()*15000)/curMap.sup;xmasReset(); spawnQueue=[]; spawnTimer=0;
   mouse={x:W/2,y:0,rx:W/2,ry:0,down:false}; keys={}; updateCam(true); msg=''; msgT=0;
   xp=0; level=1; runXp=0; lvlStart=curLevel(); xpStart=save.xp; combo=0; comboT=0; shake=0; kills=0;
   if(toMenu){state='menu';training=false} else startWave();
@@ -710,7 +715,7 @@ function startWave(){
     else if(wave>=3 && r>1-pt) t='tank';
     spawnQueue.push(t);
   }
-  if(wave>=2) spawnQueue.unshift('digger');      // le fouisseur sort en tout dernier (la file se vide par la fin)
+  if(wave%5===0) spawnQueue.unshift('boss'); else if(wave>=2) spawnQueue.unshift('digger');   // toutes les 5 vagues : un boss à la place du fouisseur      // le fouisseur sort en tout dernier (la file se vide par la fin)
   spawnTimer=60; flash(tr('Vague')+' '+wave);
 }
 function flash(t){msg=t;msgT=120}
@@ -846,20 +851,29 @@ function spawnSupply(){
   flash('CAISSE MÉTALLIQUE !');
 }
 // ===== Événements de fêtes : le traîneau du Père / de la Mère Noël (cadeaux) ou du Père / de la Mère Fouettard(e) (zombies de Noël) =====
-let xmasT=0,sleighs=[];
-function xmasReset(){xmasT=50000+rnd()*35000;sleighs=[]}
+let xmasT=0,sleighs=[],goodStreak=0;
+function xmasReset(){xmasT=25000+rnd()*20000;sleighs=[];goodStreak=0}
 function launchSleigh(){
-  const evil=rnd()<.35,fem=rnd()<.5,dir=rnd()<.5?1:-1;
+  const evil=rnd()<.45||goodStreak>=2,fem=rnd()<.5,dir=rnd()<.5?1:-1;goodStreak=evil?0:goodStreak+1;   // un traîneau maléfique au moins tous les 3 passages
   sleighs.push({x:dir>0?camX-340:camX+W+340,y:96+rnd()*34,dir,evil,fem,drops:evil?Math.min(7,2+Math.floor(wave/2)):3,dropT:30});
-  flash(evil?(fem?'LA MÈRE FOUETTARDE !':'LE PÈRE FOUETTARD !'):(fem?'LA MÈRE NOËL SURVOLE LA MAP !':'LE PÈRE NOËL SURVOLE LA MAP !'));
+  flash(evil?(fem?'LA MÈRE FOUETTARDE LÂCHE DES ZOMBIES !':'LE PÈRE FOUETTARD LÂCHE DES ZOMBIES !'):(fem?'LA MÈRE NOËL SURVOLE LA MAP !':'LE PÈRE NOËL SURVOLE LA MAP !'));
   sfx(evil?'evilbells':'bells');
+}
+function makeRareGift(c){                                            // arme rare : n'importe quelle arme à feu (même non débloquée), niveau d'amélioration et couleur aléatoires
+  const pool=WEAPONS.map((w,i)=>i).filter(i=>!WEAPONS[i].melee),byTime=rnd()<.5;
+  c.w=pool[rndInt(pool.length)];c.ammo=byTime?0:20+rndInt(81);c.time=byTime?(20+rndInt(31))*1000:0;
+  const r=rndInt(100);c.gl=r<35?1:r<65?2:r<85?3:4;
+  const sk=SKINS.filter(k=>k.id!=='orig'),wd=WOODS.filter(k=>k.id!=='orig');c.gs=sk[rndInt(sk.length)].id;c.gwd=wd[rndInt(wd.length)].id;
+  c.gift={k:'weapon',rare:true};c.gc=4;return c;
 }
 function dropFromSleigh(sl){
   if(sl.evil){
-    const r=Math.random(),type=wave>=4&&r<.12?'tank':r<.35?'fast':'normal';
-    spawnZombie(type,sl.x,sl.y+22,['santa','elf','reindeer'][Math.floor(Math.random()*3)]);return;
+    const r=Math.random();
+    if(r<.4){spawnZombie(['zdog','zdeer','zpeng'][Math.floor(Math.random()*3)],sl.x,sl.y+22);return}     // zombies animaux
+    spawnZombie(wave>=4&&r<.5?'tank':r<.7?'fast':'normal',sl.x,sl.y+22,['santa','elf','reindeer'][Math.floor(Math.random()*3)]);return;
   }
   const c={x:sl.x,y:sl.y+20,vy:0,landed:false,age:0,ph:rnd()*6,w:0,ammo:0,time:0,gc:rndInt(4)};
+  if(rnd()<.06){makeRareGift(c);crates.push(c);sfx('click');return}   // cadeau rare (6 %)
   const k=training?0:rndInt(10);                                    // 40 % arme, 30 % crédits, 30 % XP (le crédit et l'XP suivent la vague)
   if(k<4){const pool=ownedGuns(),byTime=rnd()<.5;c.w=pool[rndInt(pool.length)];c.ammo=byTime?0:5+rndInt(96);c.time=byTime?(10+rndInt(31))*1000:0;c.gift={k:'weapon'}}
   else c.gift={k:k<7?'money':'xp',v:Math.round((8+wave*3)*(.6+rnd()*.8))};
@@ -868,7 +882,7 @@ function dropFromSleigh(sl){
 function updateXmas(dt){
   if(!SET.fete||state!=='play') return;
   const active=(spawnQueue.length+zombies.length>0)&&waveBreak===0;
-  if(active&&!sleighs.length){xmasT-=dt;if(xmasT<=0){launchSleigh();xmasT=75000+rnd()*60000}}
+  if(active&&!sleighs.length){xmasT-=dt;if(xmasT<=0){launchSleigh();xmasT=45000+rnd()*35000}}
   for(const sl of sleighs){
     sl.x+=sl.dir*3.6;sl.dropT--;
     if(sl.drops>0&&sl.dropT<=0&&sl.x>camX+90&&sl.x<camX+W-90){sl.drops--;sl.dropT=sl.evil?26:62;dropFromSleigh(sl)}
@@ -906,16 +920,19 @@ function drawSleigh(x,y,dir,evil,fem){
 function drawXmas(){for(const sl of sleighs) drawSleigh(sl.x,sl.y,sl.dir,sl.evil,sl.fem)}
 function dropGun(txt){player.gun=null;player.w=player.melee;player.cd=0;flash(txt)}
 function pickCrate(c){
-  if(c.sup){applyBonus(c.sup);sfx('crate');return}
+  const f=c.hp===undefined?1:c.hp;                                   // caisse abîmée par les zombies : le contenu diminue avec ses PV
+  if(f<1){c=Object.assign({},c,{ammo:c.ammo?Math.max(1,Math.round(c.ammo*f)):0,time:c.time?Math.max(1000,Math.round(c.time*f)):0});if(c.gift&&c.gift.v) c.gift=Object.assign({},c.gift,{v:Math.max(1,Math.round(c.gift.v*f))})}
+  if(c.sup){applyBonus(c.sup,f);sfx('crate');if(f<1) flash('CAISSE ABÎMÉE : '+Math.round(f*100)+' %');return}
   if(c.gift&&c.gift.k!=='weapon'){
     const m=c.gift.k==='money',v=c.gift.v;sfx('crate');sfx('bonus');
     if(m){const g=addMoney(v);flash('CADEAU : +'+Math.round(g)+' $')}else{const g=addXp(v);flash('CADEAU : +'+Math.round(g)+' XP')}
     for(const col of['#ffd45a','#e2542e','#4ac86a','#4aa0e8']) burst(c.x,c.y-16,col,6);return}
   const w=WEAPONS[c.w],g=player.gun;
   if(g&&g.w===c.w&&((g.time>0)===(c.time>0))){g.ammo+=c.ammo;g.time+=c.time;g.a0+=c.ammo;g.t0+=c.time}
-  else player.gun={w:c.w,ammo:c.ammo,time:c.time,a0:c.ammo,t0:c.time};
+  else{player.gun={w:c.w,ammo:c.ammo,time:c.time,a0:c.ammo,t0:c.time};if(c.gift&&c.gift.rare){player.gun.gl=c.gl;player.gun.gs=c.gs;player.gun.gwd=c.gwd}}
   player.w=c.w;
   flash(tr(w.name).toUpperCase()+'  ·  '+(c.time?Math.round(c.time/1000)+' '+tr('secondes').toUpperCase():c.ammo+' '+tr('munitions').toUpperCase()));
+  if(c.gift&&c.gift.rare){const sk=SKINS.find(k=>k.id===c.gs);flash('ARME RARE : '+w.name.toUpperCase()+'  NIV.'+c.gl+(sk?'  ·  '+sk.n:''))}
   burst(c.x,c.y-14,'#ffd45a',14);sfx('crate');
 }
 function useAmmo(){
@@ -933,7 +950,10 @@ function updateCrates(dt,p){
     if(!c.landed){
       c.vy=Math.min(2.4,c.vy+.04);c.y+=c.vy;c.x+=Math.sin(tick*.03+c.ph)*.4;
       if(c.y>=GROUND){c.y=GROUND;c.landed=true;burst(c.x,c.y-6,'#c9b27a',8)}
-    } else c.age+=dt;
+    } else{
+      c.age+=dt;
+      for(const z of zombies){if(z.hp>0&&!(z.emerge>0)&&z.fall===undefined&&Math.abs(z.x-c.x)<22){c.hp=Math.max(0,(c.hp===undefined?1:c.hp)-.004);if(c.hp<=0){c.dead=true;burst(c.x,c.y-12,'#9a7440',10);sfx('bhit');flash('CAISSE DÉTRUITE !');break}}}   // les zombies qui passent dessus l'abîment
+    }
     const d=Math.hypot(p.x-c.x,(p.y-30)-(c.y-12));
     if(d<best){best=d;nearC=c}
     if(c.age>(c.sup?SUP_LIFE:c.gift?32000:22000)) c.dead=true;
@@ -961,14 +981,16 @@ function drawCrates(){
       if(c.sup==='heal'){ctx.fillStyle='#e8e8e8';ctx.fillRect(c.x-8,c.y-19,16,14);ctx.fillStyle='#d62d2d';ctx.fillRect(c.x-2,c.y-18,4,12);ctx.fillRect(c.x-7,c.y-13,14,4)}
       else{ctx.fillStyle='#4aa0e8';ctx.beginPath();ctx.moveTo(c.x-8,c.y-19);ctx.lineTo(c.x+8,c.y-19);ctx.lineTo(c.x+8,c.y-12);ctx.quadraticCurveTo(c.x+7,c.y-7,c.x,c.y-5);ctx.quadraticCurveTo(c.x-7,c.y-7,c.x-8,c.y-12);ctx.closePath();ctx.fill();ctx.strokeStyle='#e8f4ff';ctx.lineWidth=1.5;ctx.stroke()}
     } else if(c.gift){
-      const gc=['#c4161c','#2e8b3d','#2f6fd0','#8a4fd0'][(c.gc||0)%4];
-      rrect(c.x-13,c.y-24,26,24,2,gc);ctx.fillStyle='#e0b030';ctx.fillRect(c.x-3,c.y-24,6,24);ctx.fillRect(c.x-13,c.y-15,26,5);
+      const rare=c.gift.rare,gc=rare?'#c9971f':['#c4161c','#2e8b3d','#2f6fd0','#8a4fd0'][(c.gc||0)%4];
+      if(rare){ctx.save();ctx.globalCompositeOperation='lighter';glowAt(c.x,c.y-14,38+Math.sin(tick*.15)*5,'255,210,90',.45);ctx.restore()}
+      rrect(c.x-13,c.y-24,26,24,2,gc);ctx.fillStyle=rare?'#fff':'#e0b030';ctx.fillRect(c.x-3,c.y-24,6,24);ctx.fillRect(c.x-13,c.y-15,26,5);
       ctx.beginPath();ctx.ellipse(c.x-5,c.y-27,6,4,-.4,0,7);ctx.ellipse(c.x+5,c.y-27,6,4,.4,0,7);ctx.fill();ctx.fillStyle='#b8901f';ctx.beginPath();ctx.arc(c.x,c.y-25,2.4,0,7);ctx.fill();
     } else {
       rrect(c.x-14,c.y-22,28,22,2,'#9a7440');
       ctx.fillStyle='#5a4220';ctx.fillRect(c.x-14,c.y-22,28,4);ctx.fillRect(c.x-14,c.y-4,28,4);ctx.fillRect(c.x-3,c.y-22,6,22);
       ctx.fillStyle='#f2efe8';ctx.font='700 14px '+FONT;ctx.textAlign='center';ctx.fillText('?',c.x+9,c.y-8);ctx.textAlign='left';
     }
+    if(c.landed&&c.hp!==undefined&&c.hp<1){ctx.fillStyle='#000a';ctx.fillRect(c.x-15,c.y+3,30,5);ctx.fillStyle=c.hp>.5?'#4ac86a':c.hp>.25?'#e0b030':'#d62d2d';ctx.fillRect(c.x-14,c.y+4,28*c.hp,3)}
     if(c.landed){
       const a=.5+.4*Math.sin(tick*.12);
       ctx.strokeStyle='rgba(255,215,100,'+a+')';ctx.lineWidth=2;ctx.strokeRect(c.x-16,c.y-24,32,26);
@@ -1291,11 +1313,19 @@ function spawnZombie(type,ox,oy,xm){
   if(Math.random()<.25) sfx('groan');
   const t=ZTYPES[type], left=Math.random()<.5;
   if(type==='digger'){spawnDigger();return}
+  if(type==='boss'){spawnBoss();return}
   // Les zombies deviennent plus résistants et plus dangereux à chaque vague
   const hpMul=(1+0.18*(wave-1))*curDiff.hp*curMap.hp, dmgMul=(1+0.10*(wave-1))*curDiff.dmg, spMul=Math.min(1.6,1+0.03*(wave-1))*curDiff.sp*curMap.sp;
   zombies.push({type,xm,fall:oy!==undefined?0:undefined,x:ox!==undefined?ox:(left?30:WORLD_W-30),y:oy!==undefined?oy:GROUND,hp:t.hp*hpMul,maxhp:t.hp*hpMul,
     speed:t.speed*(0.8+Math.random()*.4)*spMul,size:t.size,dmg:Math.round(t.dmg*dmgMul),color:t.color,
-    coins:Math.round(t.coins*(1+0.1*(wave-1))),step:Math.random()*6,dir:left?1:-1});
+    coins:Math.round(t.coins*(1+0.1*(wave-1))),step:Math.random()*6,dir:left?1:-1,animal:t.animal,hh:t.hh,hw:t.hw});
+}
+let acid=[];
+function spawnBoss(){
+  const tier=Math.max(0,Math.floor(wave/5)-1),b=BOSSES[tier%3],left=Math.random()<.5;
+  const hpMul=(1+0.18*(wave-1))*curDiff.hp*curMap.hp*(1+.25*Math.max(0,tier-2)),dmgMul=(1+0.10*(wave-1))*curDiff.dmg;
+  zombies.push({type:'boss',boss:b,skin:b.skin,shirt:b.shirt,x:left?30:WORLD_W-30,y:GROUND,hp:b.hp*hpMul,maxhp:b.hp*hpMul,speed:b.sp*curDiff.sp,size:b.size,dmg:Math.round(b.dmg*dmgMul),color:b.skin,coins:100,step:0,dir:left?1:-1});
+  flash('BOSS : '+b.n+' !');sfx('boom');sfx('groan');if(SET.shake) shake=Math.max(shake,10);
 }
 function spawnDigger(){
   const side=Math.random()<.5?-1:1;let x=player.x+side*(190+Math.random()*130);
@@ -1334,13 +1364,13 @@ function dropBonus(z){
   let r=Math.random()*tot,i=0;while(i<ks.length-1&&(r-=ws[i])>0) i++;
   bonuses.push({x:Math.max(30,Math.min(WORLD_W-30,z.x)),y:z.y-70,vy:-4,type:ks[i],life:12000});
 }
-function applyBonus(type){
-  const p=player,B=BON[type];
-  if(type==='heal') p.hp=Math.min(p.maxhp,p.hp+Math.round(p.maxhp*.35));
+function applyBonus(type,fr){
+  const p=player,B=BON[type];fr=fr===undefined?1:fr;
+  if(type==='heal') p.hp=Math.min(p.maxhp,p.hp+Math.round(p.maxhp*.35*fr));
   else if(type==='cash'){if(!training) addMoney(10)}
   else if(type==='strike'){for(let i=0;i<6;i++) strikes.push({x:camX+60+Math.random()*(W-120),t:-i*230-200,w:false})}
   else if(type==='turret') turret={x:p.x,t:B.dur,cd:0};
-  else fxB[type]=B.dur;
+  else fxB[type]=B.dur*fr;
   sfx('bonus');flash(B.n);burst(p.x,p.y-40,B.c,14);
 }
 function updateBonus(dt){
@@ -1576,7 +1606,7 @@ function update(dt){
   p.held=firing;
   // apparition
   spawnTimer-=1;
-  if(spawnQueue.length && spawnTimer<=0 && !(spawnQueue.length===1&&spawnQueue[0]==='digger'&&zombies.length>0)){   // le fouisseur attend que tous les autres soient morts
+  if(spawnQueue.length && spawnTimer<=0 && !(spawnQueue.length===1&&(spawnQueue[0]==='digger'||spawnQueue[0]==='boss')&&zombies.length>0)){   // le fouisseur attend que tous les autres soient morts
     spawnZombie(spawnQueue.pop());
     spawnTimer=Math.max(25,80-wave*4);
   }
@@ -1585,8 +1615,8 @@ function update(dt){
     b.x+=b.vx;b.y+=b.vy;b.life--;b.dist+=b.sp||0;
     for(const z of zombies){
       if(b.hit.has(z)||z.hp<=0||z.emerge>0) continue;
-      const zh=70*z.size;
-      if(Math.abs(b.x-z.x)<14*z.size && b.y<z.y && b.y>z.y-zh){
+      const zh=z.hh||70*z.size;
+      if(Math.abs(b.x-z.x)<(z.hw||14*z.size) && b.y<z.y && b.y>z.y-zh){
         if(b.aoe){explode(b.x,b.y,b.aoe,b.dmg);b.life=0;break}
         z.hp-=b.fall?b.dmg*Math.max(.3,1-.7*b.dist/b.range):b.dmg; b.hit.add(z); b.pierce--; burst(b.x,b.y,'#a22',5);sfx('bhit');
         z.x+=Math.sign(b.vx)*3;
@@ -1607,13 +1637,24 @@ function update(dt){
     if(z.hp<=0){onKill(z);continue}
     z.dir=p.x>z.x?1:-1;
     if(z.fall!==undefined){z.fall+=GRAV*.55;z.y+=z.fall;if(z.y>=GROUND){z.y=GROUND;z.fall=undefined;burst(z.x,GROUND-4,'#e8eef8',8);sfx('bhit')}else continue}
-    const fz=fxB.freeze>0?.3:1,rush=Math.abs(z.x-p.x)>W*.7?2.4:1;z.x+=z.dir*z.speed*fz*rush; z.step+=0.15*z.speed*fz;
+    let sp2=1;
+    if(z.boss){
+      const id=z.boss.id;
+      if(id==='brute'){z.cdash=(z.cdash===undefined?300:z.cdash)-1;if(z.cdash<=0){z.dashT=55;z.cdash=420;sfx('groan');if(SET.shake) shake=Math.max(shake,6)}if(z.dashT>0){z.dashT--;sp2=4.2}}
+      else if(id==='spitter'){z.acd=(z.acd===undefined?100:z.acd)-1;if(z.acd<=0&&Math.abs(p.x-z.x)<760){z.acd=130;const t=55,g=.22,x0=z.x+z.dir*24,y0=z.y-70*z.size*.8;acid.push({x:x0,y:y0,vx:Math.max(-10,Math.min(10,(p.x-x0)/t)),vy:((GROUND-30-y0)-.5*g*t*t)/t,dmg:Math.round(z.dmg*.7)});sfx('bhit')}}
+      else if(id==='summoner'){z.scd=(z.scd===undefined?200:z.scd)-1;if(z.scd<=0&&zombies.length<16){z.scd=520;for(let k=0;k<3;k++) spawnZombie(Math.random()<.3?'fast':'normal',z.x+(Math.random()-.5)*140);burst(z.x,z.y-30,'#a060ff',16);sfx('boom')}}
+    }
+    const fz=fxB.freeze>0?.3:1,rush=z.boss?1:Math.abs(z.x-p.x)>W*.7?2.4:1;z.x+=z.dir*z.speed*fz*rush*sp2; z.step+=0.15*z.speed*fz;
     if(Math.abs(z.x-p.x)<18*z.size && p.y>GROUND-60 && p.hurtCd<=0){
       if(fxB.shield>0){p.hurtCd=300;burst(p.x+20*z.dir,p.y-40,'#7ab8ff',8);sfx('click')}
       else{p.hp-=z.dmg; p.hurtCd=500;sfx('hurt'); if(SET.shake) shake=8; burst(p.x,p.y-40,'#d33',10);
       if(p.hp<=0){p.hp=0;endRun()}}
     }
   }
+  for(const a of acid){a.vy+=.22;a.x+=a.vx;a.y+=a.vy;
+    if(Math.hypot(a.x-p.x,a.y-(p.y-35))<24&&p.hurtCd<=0){a.dead=true;burst(a.x,a.y,'#7ab04a',10);if(fxB.shield>0){p.hurtCd=300;sfx('click')}else{p.hp-=a.dmg;p.hurtCd=450;sfx('hurt');if(SET.shake) shake=6;if(p.hp<=0){p.hp=0;endRun()}}}
+    else if(a.y>=GROUND-6){a.dead=true;burst(a.x,GROUND-4,'#7ab04a',8);if(decals.length<150) decals.push({x:a.x,y:GROUND+10,r:5,life:700})}}
+  acid=acid.filter(a=>!a.dead);
   zombies=zombies.filter(z=>z.hp>0);
   // fin de vague
   if(state==='play' && !spawnQueue.length && !zombies.length){
@@ -1633,6 +1674,12 @@ function update(dt){
   comboT-=dt; if(comboT<=0) combo=0;
 }
 function onKill(z){
+  if(z.boss){
+    flash('BOSS VAINCU !');sfx('wave');if(SET.shake) shake=Math.max(shake,12);
+    if(!training){addMoney(40+wave*8);addXp(30+wave*5)}
+    const g={x:z.x,y:z.y-90,vy:0,landed:false,age:0,ph:rnd()*6,w:0,ammo:0,time:0,gc:4};makeRareGift(g);crates.push(g);   // le boss lâche un cadeau rare
+    for(const col of['#ffd45a','#e2542e','#a060ff']) burst(z.x,z.y-60,col,16);
+  }
   kills++; gainChar(1); if(!training){addMoney(1);addXp(1)}sfx('zdie');
   burst(z.x,z.y-30,SET.blood?'#8e1b1b':z.color,SET.blood?20:10);
 }
@@ -1931,10 +1978,36 @@ function drawEmerge(z){                                          // fissures pui
     const sy=z.y;z.y=sy+(1-pr)*95;drawZombie(z);z.y=sy;ctx.restore();
   }
 }
+function drawAnimal(z){
+  const s=z.size,x=z.x,y=z.y,lg=Math.sin(z.step)*(z.animal==='peng'?4:7);
+  ctx.fillStyle='#0004';ctx.beginPath();ctx.ellipse(x,GROUND+4,18*s,4,0,0,7);ctx.fill();
+  ctx.save();ctx.translate(x,y);ctx.scale(z.dir*s,s);ctx.lineCap='round';
+  if(z.animal==='dog'){
+    ctx.strokeStyle='#4a4038';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-10,-14);ctx.lineTo(-12+lg,0);ctx.moveTo(-5,-14);ctx.lineTo(-3-lg,0);ctx.moveTo(10,-14);ctx.lineTo(12+lg,0);ctx.moveTo(15,-14);ctx.lineTo(18-lg,0);ctx.stroke();
+    ctx.strokeStyle=z.color;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-18,-24);ctx.lineTo(-27,-34+Math.sin(z.step*2)*3);ctx.stroke();
+    ctx.fillStyle=z.color;ctx.beginPath();ctx.ellipse(0,-22,19,9,0,0,7);ctx.fill();ctx.beginPath();ctx.ellipse(22,-30,8,7,0,0,7);ctx.fill();ctx.fillStyle='#5a4a3c';ctx.beginPath();ctx.ellipse(29,-27,5,3.4,0,0,7);ctx.fill();
+    ctx.fillStyle='#3a2c22';ctx.beginPath();ctx.moveTo(18,-35);ctx.lineTo(16,-46);ctx.lineTo(23,-37);ctx.fill();
+    ctx.fillStyle='#c0252b';ctx.fillRect(12,-27,5,2.6);ctx.fillStyle='#ff3030';ctx.beginPath();ctx.arc(25,-32,1.6,0,7);ctx.fill();ctx.fillStyle='#c4161c';ctx.fillRect(13,-30,4,9);
+  } else if(z.animal==='deer'){
+    ctx.strokeStyle='#4a2e18';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-18,-34);ctx.lineTo(-20+lg,0);ctx.moveTo(-10,-34);ctx.lineTo(-8-lg,0);ctx.moveTo(14,-34);ctx.lineTo(16+lg,0);ctx.moveTo(22,-34);ctx.lineTo(26-lg,0);ctx.stroke();
+    ctx.fillStyle=z.color;ctx.beginPath();ctx.ellipse(0,-42,28,13,0,0,7);ctx.fill();ctx.beginPath();ctx.moveTo(18,-46);ctx.lineTo(30,-68);ctx.lineTo(40,-62);ctx.lineTo(28,-40);ctx.fill();ctx.beginPath();ctx.ellipse(40,-66,9,6,.4,0,7);ctx.fill();
+    ctx.fillStyle='#5a7a4a';ctx.beginPath();ctx.ellipse(-8,-46,8,5,.3,0,7);ctx.fill();
+    ctx.strokeStyle='#5a3a1e';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(34,-72);ctx.lineTo(30,-92);ctx.moveTo(32,-83);ctx.lineTo(24,-86);ctx.moveTo(38,-72);ctx.lineTo(44,-92);ctx.moveTo(41,-83);ctx.lineTo(49,-86);ctx.stroke();
+    ctx.fillStyle='#ff3030';ctx.beginPath();ctx.arc(43,-68,2,0,7);ctx.arc(48,-62,3.2,0,7);ctx.fill();ctx.fillStyle='#c4161c';ctx.fillRect(22,-56,6,12);
+  } else {
+    ctx.fillStyle='#d8821e';ctx.beginPath();ctx.ellipse(-4+lg*.5,-2,6,3,0,0,7);ctx.ellipse(6-lg*.5,-2,6,3,0,0,7);ctx.fill();
+    ctx.fillStyle=z.color;ctx.beginPath();ctx.ellipse(0,-24,13,22,Math.sin(z.step)*.12,0,7);ctx.fill();ctx.fillStyle='#cfe0cf';ctx.beginPath();ctx.ellipse(3,-20,8,16,0,0,7);ctx.fill();
+    ctx.fillStyle=z.color;ctx.beginPath();ctx.ellipse(-12,-22,4,12,.4,0,7);ctx.fill();ctx.beginPath();ctx.ellipse(14,-22,4,12,-.4,0,7);ctx.fill();
+    ctx.fillStyle='#d8821e';ctx.beginPath();ctx.moveTo(10,-40);ctx.lineTo(20,-37);ctx.lineTo(10,-34);ctx.fill();ctx.fillStyle='#ff3030';ctx.beginPath();ctx.arc(7,-42,2,0,7);ctx.fill();
+    ctx.fillStyle='#c4161c';ctx.fillRect(-2,-34,13,4);
+  }
+  ctx.restore();
+}
 function drawZombie(z){
+  if(z.animal){drawAnimal(z);return}
   const s=z.size,x=z.x,y=z.y,sw=Math.sin(z.step)*7;
-  const skin=z.type==='digger'?'#a89478':z.type==='tank'?'#6f8f5a':z.type==='fast'?'#a9c45a':'#7fb069';
-  const shirt=z.type==='digger'?'#5a4636':z.type==='tank'?'#4a3a5a':z.type==='fast'?'#8a3f3f':'#4d6a8a';
+  const skin=z.skin||(z.type==='digger'?'#a89478':z.type==='tank'?'#6f8f5a':z.type==='fast'?'#a9c45a':'#7fb069');
+  const shirt=z.shirt||(z.type==='digger'?'#5a4636':z.type==='tank'?'#4a3a5a':z.type==='fast'?'#8a3f3f':'#4d6a8a');
   ctx.fillStyle='#0004';ctx.beginPath();ctx.ellipse(x,GROUND+4,16*s,4,0,0,7);ctx.fill();
   ctx.save();ctx.translate(x,y);ctx.scale(z.dir*s,s);
   const lean=z.type==='fast'?4:0;
@@ -2029,7 +2102,7 @@ function draw(){
     if(z.emerge>0){drawEmerge(z);continue}
     drawZombie(z);
     if(z.type==='digger'){ctx.fillStyle='rgba(255,60,40,.9)';ctx.beginPath();ctx.arc(z.x+z.dir*8*z.size,z.y-72*z.size,2.2,0,7);ctx.fill()}
-    if(z.hp<z.maxhp) bar(z.x-15,z.y-85*z.size,30,z.hp,z.maxhp,'#d33');
+    if(z.hp<z.maxhp&&!z.boss) bar(z.x-15,z.y-(z.hh?z.hh+14:85*z.size),30,z.hp,z.maxhp,'#d33');
   }
   drawCrates();drawBonusWorld();
   // joueur
@@ -2054,6 +2127,7 @@ function draw(){
     ctx.globalAlpha=q.sz?a:1;ctx.fillStyle=q.col;if(q.sz){ctx.beginPath();ctx.arc(q.x,q.y,q.sz,0,7);ctx.fill()}else ctx.fillRect(q.x,q.y,3,3);
   }
   ctx.globalAlpha=1;
+  for(const a of acid){ctx.fillStyle='#8fd04a';ctx.beginPath();ctx.arc(a.x,a.y,6,0,7);ctx.fill();ctx.save();ctx.globalCompositeOperation='lighter';glowAt(a.x,a.y,22,'120,255,80',.5);ctx.restore()}
   drawXmas();drawLights();
   ctx.restore();
   drawFog(true);
@@ -2092,6 +2166,7 @@ function draw(){
   } else {ctx.fillStyle='#8a8178';ctx.font='500 14px '+FONT;ctx.fillText(wpn.melee?'MÊLÉE  ·  ILLIMITÉ':'ARME PRINCIPALE  ·  ILLIMITÉ',126,H-30)}
   ctx.fillStyle='#b9b1a6';ctx.font='500 12px '+FONT;
   if(!touchOn()) ctx.fillText(tr('Armes à feu : dans les caisses larguées  ·  {0} : ramasser  ·  {1} : bonus  ·  Échap : pause  ·  {2} : plein écran',kn('pick'),kn('bonus'),kn('full')),16,H-4);
+  {const bz=zombies.find(z=>z.boss);if(bz){const w=440,x=Math.round((W-w)/2),y=82;panel(x,y,w,34,{norivets:true,edge:'#a8261c'});ctx.fillStyle='#e9e1d0';ctx.font='700 15px '+FONT;ctx.textAlign='left';ctx.fillText(bz.boss.n,x+12,y+14);segBar(x+10,y+19,w-20,10,Math.max(0,bz.hp),bz.maxhp,'#c9372c',40)}}
   drawMinimap();
   if(sfOn){W=RW0;ctx.restore()}
   if(touchOn()&&state==='play') drawTouch();
