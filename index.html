@@ -155,7 +155,7 @@ function resWanted(vw){
 }
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.57';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.58';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -172,7 +172,7 @@ function fit(){
   if(nw!==W||nh!==H||rw!==RESd){
     RES=RESd=rw;
     const dG=(nh-80)-GROUND;
-    W=nw;H=nh;GROUND=nh-80;
+    W=nw;H=nh;GROUND=nh-80;if(READY&&MP.on&&MP.rp){WORLD_W=nw;camX=0}
     cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);cv.getContext('2d').setTransform(RES,0,0,RES,0,0);cv.getContext('2d').imageSmoothingQuality='high';
     if(READY&&dG){try{                                                 // le sol change de hauteur (plein écran, rotation) : tout ce qui est posé dessus suit
       for(const arr of[zombies,crates,decals,particles,bonuses,ents,acid,bullets,fx]) for(const o of arr) if(typeof o.y==='number') o.y+=dG;
@@ -964,6 +964,7 @@ addEventListener('keydown',e=>{
   else if(state==='boosts' && e.code==='Escape') state='upgrades';
   else if(state==='fpsopt' && e.code==='Escape'){state='options';optTab=2}
   else if((state==='mpmenu'||state==='avatars') && e.code==='Escape') state='menu';
+  else if(state==='rpsetup' && e.code==='Escape'){rpStop();state='mpmenu'}
   else if((state==='mphost'||state==='mplobby'||state==='mpjoining') && e.code==='Escape'){mpStop();state='mpmenu'}
   else if(state==='acpage' && e.code==='Escape'){state='options';optTab=4}
   else if((state==='gamepad'||state==='remote') && e.code==='Escape'){state='options';optTab=3}
@@ -993,7 +994,7 @@ const TBASE={left:{r:46},right:{r:46},jump:{r:42},fire:{r:58},pick:{r:38},pause:
 const TELS={left:TB.left,right:TB.right,jump:TB.jump,fire:TB.fire,pick:TPICK,pause:TPAUSE,stock:STOCK};
 const PADK=['left','right','jump','fire','aim','pick','bonus','pause'];
 const PBASE={left:46,right:46,jump:42,fire:58,aim:72,pick:38,bonus:38,pause:28};
-const PDEF={left:[.1,.7],right:[.23,.7],jump:[.8,.8],fire:[.9,.62],aim:[.62,.68],pick:[.9,.36],bonus:[.74,.4],pause:[.5,.14]};
+const PDEF={left:[.1,.7],right:[.23,.7],jump:[.8,.8],fire:[.9,.62],aim:[.62,.68],pick:[.9,.36],bonus:[.74,.4],pause:[.93,.16]};
 const PB={};for(const k of PADK) PB[k]={k,disc:true,base:PBASE[k],r:PBASE[k],s:1,cx:0,cy:0,x:0,y:0};
 const TOP=()=>(save.tui&&save.tui.op)||1;
 function placeEl(e,cx,cy){e.cx=cx;e.cy=cy;if(e.disc){e.x=cx;e.y=cy}else{e.x=cx-e.w/2;e.y=cy-e.h/2}}
@@ -1016,7 +1017,7 @@ function layoutPad(){
   for(const k of PADK){const e=PB[k],o=L[k],d=o?[o.x,o.y]:PDEF[k];e.s=o?(o.s||1):1;e.r=PBASE[k]*e.s;placeEl(e,l+d[0]*(W-l-rr),d[1]*H)}
 }
 layoutTouch();
-const MENU_STATES=['menu','shop','quit','bye','maps','saves','options','credits','upgrades','weapon','keys','custom','lang','pause','trainpick','over','boosts','wheel','fpsopt','maint','gamepad','remote','padjoin','mpmenu','mphost','mplobby','mpjoin','mpjoining','acpage','avatars'];
+const MENU_STATES=['menu','shop','quit','bye','maps','saves','options','credits','upgrades','weapon','keys','custom','lang','pause','trainpick','over','boosts','wheel','fpsopt','maint','gamepad','remote','padjoin','mpmenu','mphost','mplobby','mpjoin','mpjoining','acpage','avatars','rpsetup','rpjoin'];
 let autoTarget=null;
 const inR=(p,r)=>p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h;
 function tpos(t){
@@ -1048,7 +1049,7 @@ cv.addEventListener('mousedown',()=>{
 });
 addEventListener('mouseup',()=>{mouse.down=false;sliderActive=null;if(ctlEdit) ceUp('m');if(state==='padmode') padTouch(null,'m','up')});
 cv.addEventListener('touchstart',e=>{
-  e.preventDefault();touchUsed=true;audioInit();
+  if(e.cancelable) e.preventDefault();touchUsed=true;audioInit();
   for(const t of e.changedTouches){
     const p=tpos(t);mouse.rx=p.x;mouse.ry=p.y;syncMouse();gpAim.on=false;
     if(ctlEdit&&(state==='play'||state==='padmode')&&ceDown(p,t.identifier)) continue;
@@ -1065,7 +1066,7 @@ cv.addEventListener('touchstart',e=>{
   fit();
 },{passive:false});
 cv.addEventListener('touchmove',e=>{
-  e.preventDefault();
+  if(e.cancelable) e.preventDefault();
   for(const t of e.changedTouches){
     const p=tpos(t);mouse.rx=p.x;mouse.ry=p.y;syncMouse();
     if(ctlEdit&&(state==='play'||state==='padmode')&&ceMove(p,t.identifier)) continue;
@@ -1074,7 +1075,7 @@ cv.addEventListener('touchmove',e=>{
     if(state==='play'&&tpts.has(t.identifier)){tpts.set(t.identifier,tHit(p.x,p.y));tRecalc()}
   }
 },{passive:false});
-const tEnd=e=>{e.preventDefault();audioInit();if(!tEnd.fs){tEnd.fs=1;toggleFullIn()}for(const t of e.changedTouches){tpts.delete(t.identifier);if(ctlEdit) ceUp(t.identifier);if(state==='padmode') padTouch(null,t.identifier,'up')}tRecalc();sliderActive=null};
+const tEnd=e=>{if(e.cancelable) e.preventDefault();audioInit();if(!tEnd.fs){tEnd.fs=1;toggleFullIn()}for(const t of e.changedTouches){tpts.delete(t.identifier);if(ctlEdit) ceUp(t.identifier);if(state==='padmode') padTouch(null,t.identifier,'up')}tRecalc();sliderActive=null};
 cv.addEventListener('touchend',tEnd,{passive:false});cv.addEventListener('touchcancel',tEnd,{passive:false});
 function drawTouch(){
   const disc=(b,on)=>{ctx.beginPath();ctx.arc(b.x,b.y,b.r,0,7);ctx.fillStyle=on?'rgba(226,84,46,.6)':'rgba(16,12,10,.5)';ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=on?'#ff8a5a':'rgba(255,255,255,.4)';ctx.stroke()};
@@ -1954,7 +1955,7 @@ function drawLevelHud(){
 let paused=false;
 function update(dt){
   if(MP.on&&MP.role==='guest'){guestUpdate(dt);return}
-  if(state!=='play'&&!(MP.on&&state==='pause')){paused=false;return}
+  if(state!=='play'&&!(MP.on&&!MP.rp&&state==='pause')){paused=false;return}
   if(paused&&!MP.on) return;
   const p=player;
   if(death){updateDeath(dt);return}
@@ -2095,7 +2096,7 @@ const BUILDINGS=[];
 function applyMap(){                                       // prépare la carte et la difficulté choisies
   curMap=MAPS.find(m=>m.id===save.sel.map)||MAPS[0];if(!mapUnlocked(curMap)){curMap=MAPS[0];save.sel.map=curMap.id}
   curDiff=training?DIFFS[1]:(DIFFS.find(d=>d.id===save.sel.diff)||DIFFS[1]);if(!diffUnlocked(curMap,curDiff)) curDiff=DIFFS[1];
-  WORLD_W=curMap.world;PAL=curMap.pal;
+  WORLD_W=MP.rp?W:curMap.world;PAL=curMap.pal;
   BUILDINGS.length=0;const N=Math.ceil(WORLD_W/75)+12;
   for(let i=0;i<N;i++) BUILDINGS.push({x:i*75-10,w:60+(i*29%30),h:90+(i*53%130),far:i%2===0});
   FIRES.length=0;for(let i=9;i<N;i+=14) FIRES.push(i);
@@ -2104,6 +2105,7 @@ function applyMap(){                                       // prépare la carte 
   if(curMap.id!=='desert') for(let x=300,i=0;x<WORLD_W-200;x+=720+(i*131%200),i++) LAMPS.push(x);
   for(let x=950,i=0;x<WORLD_W-200;x+=880+(i*97%260),i++) BARRELS.push(x);
   for(let x=850,i=0;x<WORLD_W-200;x+=810+(i*211%300),i++) STACKS.push(x);
+  if(MP.rp){LAMPS.push(W*.16);BARRELS.push(W*.84);STACKS.push(W*.5)}                // remote play : une seule arène, la carte ne défile pas
   camX=Math.max(0,Math.min(WORLD_W-W,camX));
 }
 function flame(cx,cy,sc){
@@ -2630,7 +2632,7 @@ function drawMinimap(){
 function draw(){
   syncMouse();
   if(state==='padmode'){drawPadScreen();return}
-  if(state==='menu'||state==='options'||state==='credits'||state==='upgrades'||state==='weapon'||state==='keys'||state==='custom'||state==='lang'||state==='saves'||state==='maps'||state==='quit'||state==='bye'||state==='shop'||state==='boosts'||state==='wheel'||state==='fpsopt'||state==='maint'||state==='gamepad'||state==='remote'||state==='padjoin'||state==='mpmenu'||state==='mphost'||state==='mplobby'||state==='mpjoin'||state==='mpjoining'||state==='acpage'||state==='avatars'){drawMenu();overlayFx(0);drawCursor();return}
+  if(state==='menu'||state==='options'||state==='credits'||state==='upgrades'||state==='weapon'||state==='keys'||state==='custom'||state==='lang'||state==='saves'||state==='maps'||state==='quit'||state==='bye'||state==='shop'||state==='boosts'||state==='wheel'||state==='fpsopt'||state==='maint'||state==='gamepad'||state==='remote'||state==='padjoin'||state==='mpmenu'||state==='mphost'||state==='mplobby'||state==='mpjoin'||state==='mpjoining'||state==='acpage'||state==='avatars'||state==='rpsetup'||state==='rpjoin'){drawMenu();overlayFx(0);drawCursor();return}
   ctx.save();
   if(shake>.5){ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake*=.88}
   drawBackground();ash();
@@ -2657,8 +2659,8 @@ function draw(){
   const py=p.y-48;
   p.aim=aimDir()?(p.face>0?0:Math.PI):Math.atan2(mouse.y-py,mouse.x+camX-p.x);
   if(p.hurtCd>0 && Math.floor(p.hurtCd/60)%2) ctx.globalAlpha=.4;
-  if(death) drawDeadSoldier(p); else if(MP.on&&p.dead){ctx.globalAlpha=.45;ctx.save();ctx.translate(p.x,GROUND-12);ctx.rotate(-(p.face||1)*Math.PI/2);ctx.translate(-p.x,-(GROUND-12));const y0=p.y;p.y=GROUND;drawSoldier(p);p.y=y0;ctx.restore();ctx.globalAlpha=1} else drawSoldier(p);
-  if(MP.on) mpDrawOthers();
+  if(death) drawDeadSoldier(p); else if(MP.on&&p.dead){ctx.globalAlpha=.45;ctx.save();ctx.translate(p.x,GROUND-12);ctx.rotate(-(p.face||1)*Math.PI/2);ctx.translate(-p.x,-(GROUND-12));const y0=p.y;p.y=GROUND;drawSoldier(p);p.y=y0;ctx.restore();ctx.globalAlpha=1} else if(MP.rp&&MP.hostLook){const sl=save.look,sp=prevO;save.look=MP.hostLook;prevO=MP.hostLook.outfit;try{drawSoldier(p)}finally{save.look=sl;prevO=sp}} else drawSoldier(p);
+  if(MP.on) mpDrawOthers();rpTags();
   ctx.globalAlpha=1;drawBonusPlayer();
   // balles
   for(const b of bullets){
@@ -2894,7 +2896,7 @@ function embers(){
 }
 // Les menus sont dessinés dans un espace de 960x540 centré en bas de l'écran, le décor et les voiles couvrent tout l'écran.
 let MENU_MODE=false,MOX=0,MOY=0,MRW=960,MRH=540;
-const MENU_SPACE=['menu','shop','quit','bye','maps','saves','options','credits','upgrades','weapon','keys','custom','lang','trainpick','boosts','wheel','fpsopt','maint','gamepad','remote','padjoin','mpmenu','mphost','mplobby','mpjoin','mpjoining','acpage','avatars'];
+const MENU_SPACE=['menu','shop','quit','bye','maps','saves','options','credits','upgrades','weapon','keys','custom','lang','trainpick','boosts','wheel','fpsopt','maint','gamepad','remote','padjoin','mpmenu','mphost','mplobby','mpjoin','mpjoining','acpage','avatars','rpsetup','rpjoin'];
 function syncMouse(){const m=MENU_SPACE.includes(state);mouse.x=mouse.rx-(m?(W-960)/2:0);mouse.y=mouse.ry-(m?(H-540):0)}
 function inMenuSpace(fn){
   const RW=W,RH=H,RG=GROUND,ox=(RW-960)/2,oy=RH-540;
@@ -2995,6 +2997,8 @@ function drawMenuBody(){
   if(state==='mpjoining'){drawMpJoining();return}
   if(state==='acpage'){drawAcPage();return}
   if(state==='avatars'){drawAvatars();return}
+  if(state==='rpsetup'){drawRpSetup();return}
+  if(state==='rpjoin'){drawRpJoin();return}
   if(state==='wheel'){drawWheel();return}
   if(state==='weapon'){drawWeaponDetail();return}
   if(state==='keys'){drawKeys();return}
@@ -4421,7 +4425,7 @@ function rmtSend(o){if(RMT.conn&&RMT.conn.open){try{RMT.conn.send(o);RMT.lastTx=
 function rinClear(){rin.left=rin.right=rin.jump=rin.fire=rin.aim=false}
 function rmtStop(){
   try{RMT.conn&&RMT.conn.close()}catch(e){}try{RMT.peer&&RMT.peer.destroy()}catch(e){}
-  RMT.peer=RMT.conn=null;RMT.status='off';RMT.msg='';RMT.info={};rinClear();
+  RMT.peer=RMT.conn=null;RMT.status='off';RMT.msg='';RMT.info={};RMT.rp=false;rinClear();
 }
 function rmtData(d){
   if(!d||typeof d!=='object') return;RMT.lastRx=performance.now();
@@ -4443,6 +4447,7 @@ function rmtData(d){
     if(d.t==='st') RMT.info=d;
     else if(d.t==='vib'){try{navigator.vibrate&&navigator.vibrate(clampN(+d.ms||80,10,400))}catch(e){}}
     else if(d.t==='pong') RMT.rtt=Math.round(performance.now()-d.n);
+    else if(d.t==='end'){rmtStop();state='remote';RMT.msg='Partie fermée par l\'écran'}
   }
 }
 function rmtOnConn(c){
@@ -4492,7 +4497,7 @@ function joinGo(){if(joinCode.length===5){rmtHostJoin(joinCode);state='remote'}}
 function padJoinKey(e){
   if(e.code==='Escape'){state=state==='mpjoin'?'mpmenu':'remote';return true}
   if(e.code==='Backspace'){joinCode=joinCode.slice(0,-1);return true}
-  if(e.code==='Enter'){if(state==='mpjoin') mpJoinGo();else joinGo();return true}
+  if(e.code==='Enter'){if(state==='mpjoin') mpJoinGo();else if(state==='rpjoin') rpJoinGo();else joinGo();return true}
   const ch=e.key&&e.key.length===1?e.key.toUpperCase():'';
   if(RCHARS.includes(ch)&&joinCode.length<5) joinCode+=ch;
   return true;
@@ -4535,6 +4540,7 @@ function padTouch(p,id,type){
       if(px>=PGEAR.x&&px<=PGEAR.x+PGEAR.w&&py>=PGEAR.y&&py<=PGEAR.y+PGEAR.h){startCtlEdit('pad');return}
       if(px>=PQUIT.x&&px<=PQUIT.x+PQUIT.w&&py>=PQUIT.y&&py<=PQUIT.y+PQUIT.h){rmtStop();state='remote';return}
     }
+    if(RMT.rp&&RMT.info.m==='choose'&&!ctlEdit){padChooseTap(p);return}
     if(menuMode){
       const b=padMenuBtn(p);if(b){rmtSend({t:'ev',k:b});return}
       PADS.tp={id,x:p.x,y:p.y,t:performance.now(),moved:false,dn:false};return;
@@ -4585,10 +4591,11 @@ function drawPadScreen(){
   PGEAR.x=l+12;PGEAR.y=10;PQUIT.x=l+120;PQUIT.y=10;
   if(!ctlEdit){
     for(const[b,lab] of[[PGEAR,'BOUTONS'],[PQUIT,'QUITTER']]){ctx.fillStyle='rgba(58,46,40,.9)';ctx.beginPath();ctx.roundRect(b.x,b.y,b.w,b.h,7);ctx.fill();ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=1.5;ctx.stroke();ctx.fillStyle='#fff';ctx.font='700 14px '+FONT;ctx.textAlign='center';ctx.fillText(lab,b.x+b.w/2,b.y+22)}
-    ctx.textAlign='left';ctx.fillStyle='#9fd18a';ctx.font='700 14px '+FONT;ctx.fillText('● MANETTE CONNECTÉE'+(RMT.rtt?'  ·  '+RMT.rtt+' ms':''),l+232,30);
-    if(inf.hp!==undefined){const bw=Math.min(260,W*.28),bx=W-SAFE.r-bw-16;ctx.fillStyle='#8a8178';ctx.font='500 12px '+FONT;ctx.textAlign='right';ctx.fillText('VAGUE '+(inf.w||0)+'  ·  '+(inf.k||0)+' TUÉS',W-SAFE.r-16,24);ctx.fillStyle='#2a1a18';ctx.fillRect(bx,32,bw,10);ctx.fillStyle='#c9372c';ctx.fillRect(bx,32,bw*clampN((inf.hp||0)/(inf.mx||100),0,1),10);ctx.textAlign='left'}
+    if(!RMT.rp){ctx.textAlign='left';ctx.fillStyle='#9fd18a';ctx.font='700 14px '+FONT;ctx.fillText('● MANETTE CONNECTÉE'+(RMT.rtt?'  ·  '+RMT.rtt+' ms':''),l+232,30)}
+    if(inf.hp!==undefined&&!RMT.rp){const bw=Math.min(260,W*.28),bx=W-SAFE.r-bw-16;ctx.fillStyle='#8a8178';ctx.font='500 12px '+FONT;ctx.textAlign='right';ctx.fillText('VAGUE '+(inf.w||0)+'  ·  '+(inf.k||0)+' TUÉS',W-SAFE.r-16,24);ctx.fillStyle='#2a1a18';ctx.fillRect(bx,32,bw,10);ctx.fillStyle='#c9372c';ctx.fillRect(bx,32,bw*clampN((inf.hp||0)/(inf.mx||100),0,1),10);ctx.textAlign='left'}
   }
-  if(menuMode){
+  if(RMT.rp&&inf.m==='choose'&&!ctlEdit){drawPadChoose(inf)}
+  else if(menuMode){
     const w=Math.min(200,W*.22),h=64,y=H-h-14,ty=62,th=y-ty-14,tx=l+14,tw=W-l-SAFE.r-28;
     ctx.fillStyle='rgba(34,28,24,.85)';ctx.beginPath();ctx.roundRect(tx,ty,tw,th,16);ctx.fill();ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=2;ctx.stroke();
     ctx.fillStyle='rgba(255,255,255,.75)';ctx.font='700 20px '+FONT;ctx.textAlign='center';ctx.fillText('PAVÉ TACTILE',W/2,ty+th/2-6);ctx.font='500 15px '+FONT;ctx.fillStyle='#b9b1a6';ctx.fillText('Glisse pour déplacer le curseur du PC · touche pour cliquer',W/2,ty+th/2+18);
@@ -4597,6 +4604,7 @@ function drawPadScreen(){
   } else {
     const on={left:PADS.ctl.left,right:PADS.ctl.right,jump:PADS.ctl.jump,fire:PADS.ctl.fire,pick:[...PADS.touches.values()].some(v=>v&&v.k==='pick'),bonus:[...PADS.touches.values()].some(v=>v&&v.k==='bonus'),pause:[...PADS.touches.values()].some(v=>v&&v.k==='pause'),aim:PADS.ctl.aim};
     ctx.save();ctx.globalAlpha=TOP();for(const k of PADK) padIcon(k,PB[k],on[k]);ctx.restore();
+    if(RMT.rp&&!ctlEdit) drawPadHud(inf);
   }
   if(ctlEdit) drawCtlEdit();
 }
@@ -4645,11 +4653,12 @@ function drawRemotePage(){
     ctx.fillText('Utilise ton téléphone comme manette sans fil pour jouer sur PC (même Wi-Fi conseillé).',40,100);
     btn(menuRects,40,126,420,92,mob?'ICI : LA MANETTE  (recommandé)':'ICI : LA MANETTE',{act:rmtPadWait,size:21,sub:'ce téléphone affiche un code à entrer sur le PC'});
     btn(menuRects,500,126,420,92,mob?'ICI : L\'ÉCRAN DE JEU':'ICI : L\'ÉCRAN DE JEU  (recommandé)',{act:()=>{joinCode='';state='padjoin'},size:21,sub:'ce PC entre le code affiché sur le téléphone'});
+    btn(menuRects,40,230,880,60,'REMOTE PLAY : REJOINDRE UN ÉCRAN PARTAGÉ',{act:()=>{joinCode='';state='rpjoin'},size:19,sub:'jouer à plusieurs sur le même écran : entre le code affiché sur l\'écran du jeu'});
     ctx.fillStyle='#b9b1a6';ctx.font='500 14px '+FONT;
-    ['1. Sur le téléphone : ouvre le jeu → Options → Commandes → Téléphone-manette → « Ici : la manette ».','2. Un code de 5 caractères s\'affiche sur le téléphone.','3. Sur le PC : Options → Commandes → Téléphone-manette → « Ici : l\'écran de jeu », puis tape le code.','4. Le téléphone devient la manette : boutons déplaçables, vibrations, pavé tactile pour les menus.'].forEach((t,i)=>ctx.fillText(t,40,262+i*24,880));
-    ctx.fillStyle='#8a8178';ctx.font='500 13px '+FONT;ctx.fillText('La mise en relation passe par un service public gratuit (PeerJS) ; seules les touches sont échangées, aucune donnée personnelle.',40,372,880);
-    if(RMT.msg){ctx.fillStyle='#e2542e';ctx.font='700 16px '+FONT;ctx.fillText(RMT.msg,40,404,880)}
-  } else if(RMT.role==='pad'){
+    ['1. Sur le téléphone : ouvre le jeu → Options → Commandes → Téléphone-manette → « Ici : la manette ».','2. Un code de 5 caractères s\'affiche sur le téléphone.','3. Sur le PC : Options → Commandes → Téléphone-manette → « Ici : l\'écran de jeu », puis tape le code.','4. Le téléphone devient la manette : boutons déplaçables, vibrations, pavé tactile pour les menus.'].forEach((t,i)=>ctx.fillText(t,40,318+i*22,880));
+    ctx.fillStyle='#8a8178';ctx.font='500 13px '+FONT;ctx.fillText('La mise en relation passe par un service public gratuit (PeerJS) ; seules les touches sont échangées, aucune donnée personnelle.',40,422,880);
+    if(RMT.msg){ctx.fillStyle='#e2542e';ctx.font='700 16px '+FONT;ctx.fillText(RMT.msg,40,448,880)}
+  } else if(RMT.role==='pad'&&!RMT.rp){
     panel(40,100,880,250,{});
     ctx.textAlign='center';
     if(st==='wait'||st==='load'){
@@ -4669,7 +4678,7 @@ function drawRemotePage(){
     else if(st==='err'){ctx.fillStyle='#e2542e';ctx.font='700 22px '+FONT;ctx.fillText(RMT.msg||'Erreur',480,230,840)}
     else{ctx.fillStyle='#ffd45a';ctx.font='700 24px '+FONT;ctx.fillText(RMT.msg||'Connexion…',480,230)}
     ctx.textAlign='left';
-    btn(menuRects,500,368,200,40,'AUTRE CODE',{act:()=>{joinCode='';state='padjoin'},size:16});
+    btn(menuRects,500,368,200,40,'AUTRE CODE',{act:()=>{joinCode='';state=RMT.rp?'rpjoin':'padjoin'},size:16});
     btn(menuRects,720,368,200,40,st==='ok'?'DÉCONNECTER':'ANNULER',{act:rmtStop,size:16});
   }
   btn(menuRects,40,470,200,44,'RETOUR',{act:()=>{state='options';optTab=3}});
@@ -4685,6 +4694,17 @@ function drawPadJoin(){
   btn(menuRects,kx+180,418,250,44,'CONNECTER',{act:joinGo,size:20,dim:joinCode.length<5});
   btn(menuRects,40,470,200,44,'RETOUR',{act:()=>state='remote'});
 }
+function drawRpJoin(){
+  ctx.fillStyle='#000000d8';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
+  ctx.fillStyle='#000';ctx.font='400 38px '+TITLE;ctx.fillText('REMOTE PLAY : CODE',43,61);ctx.fillStyle='#e9e1d0';ctx.fillText('REMOTE PLAY : CODE',40,58);ctx.fillStyle='#7a2c1c';ctx.fillRect(40,66,260,3);
+  ctx.fillStyle='#b9b1a6';ctx.font='500 15px '+FONT;ctx.fillText('Tape (clavier) ou touche (écran) le code de 5 caractères affiché sur l\'écran du jeu.',40,98);
+  for(let i=0;i<5;i++){const x=300+i*70;panel(x,114,60,76,{norivets:true});ctx.textAlign='center';ctx.fillStyle=joinCode[i]?'#ffd45a':'#4a3a2e';ctx.font='400 54px '+TITLE;ctx.fillText(joinCode[i]||'–',x+30,172);ctx.textAlign='left'}
+  const cols=8,kw=52,kh=44,kx=(960-cols*(kw+6))/2;
+  [...RCHARS].forEach((ch,i)=>{const x=kx+(i%cols)*(kw+6),y=218+Math.floor(i/cols)*(kh+6);btn(menuRects,x,y,kw,kh,'',{act:()=>{if(joinCode.length<5) joinCode+=ch},size:20});ctx.fillStyle='#f2efe8';ctx.font='700 22px '+FONT;ctx.textAlign='center';ctx.fillText(ch,x+kw/2+4,y+30);ctx.textAlign='left'});
+  btn(menuRects,kx,418,170,44,'⌫  EFFACER',{act:()=>{joinCode=joinCode.slice(0,-1)},size:16});
+  btn(menuRects,kx+180,418,250,44,'CONNECTER',{act:rpJoinGo,size:20,dim:joinCode.length<5});
+  btn(menuRects,40,470,200,44,'RETOUR',{act:()=>state='remote'});
+}
 function mpJoinGo(){if(joinCode.length===5) mpJoin(joinCode)}
 function drawMpJoin(){
   ctx.fillStyle='#000000d8';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
@@ -4697,7 +4717,7 @@ function drawMpJoin(){
   btn(menuRects,kx+180,418,250,44,'CONNECTER',{act:mpJoinGo,size:20,dim:joinCode.length<5});
   btn(menuRects,40,470,200,44,'RETOUR',{act:()=>state='mpmenu'});
 }
-addEventListener('keydown',e=>{if(state==='padjoin'||state==='mpjoin'){if(!e.repeat) padJoinKey(e);e.preventDefault();e.stopImmediatePropagation()}},true);
+addEventListener('keydown',e=>{if(state==='padjoin'||state==='mpjoin'||state==='rpjoin'){if(!e.repeat) padJoinKey(e);e.preventDefault();e.stopImmediatePropagation()}},true);
 
 // ===== V0.52 : multijoueur coopératif (l'hôte fait tourner la partie, les invités reçoivent l'état en direct) =====
 const MP={on:false,role:'',started:false,peer:null,code:'',status:'off',msg:'',guests:[],lobby:{pl:[],map:'ruines',diff:'normal'},sel:{map:'ruines',diff:'normal'},myId:0,hostConn:null,ready:false,gid:'',
@@ -4728,6 +4748,7 @@ const mpMul=()=>mpHost()?1+.35*MP.guests.length:1;
 function flashG(t){flash(t);if(mpHost()) MP.evq.push(['f',t])}                  // message pour tout le monde
 // --- arrêt / quitter ---
 function mpStop(){
+  if(MP.rp){const gs=MP.guests;MP.guests=[];for(const g of gs){try{g.conn.send({t:'end'})}catch(e){}}rpStop();MP.rp=false;MP.hostLook=null}
   try{for(const g of MP.guests){try{g.conn.send({t:'end',why:'L\'hôte a fermé la partie'});g.conn.close()}catch(e){}}}catch(e){}
   try{MP.hostConn&&MP.hostConn.send({t:'leave'})}catch(e){}
   try{MP.hostConn&&MP.hostConn.close()}catch(e){}try{MP.peer&&MP.peer.destroy()}catch(e){}
@@ -4905,6 +4926,7 @@ function mpGameOver(){
   MP.started=false;
 }
 function mpBackToLobby(){
+  if(MP.rp){rpBackToSetup();return}
   MP.on=false;MP.started=false;MP.zmap.clear();MP.zst.clear();MP.others.clear();
   for(const g of MP.guests){g.ready=false;g.p=null}
   if(MP.role==='host'){reset(true);state='mphost';mpLobbySend()}
@@ -5065,11 +5087,12 @@ function guestUpdate(dt){
 }
 // --- tâches périodiques ---
 function mpTick(t){
+  rpTick(t);
   if(MP.role==='host'){
-    if(t-MP.pingT>1000){MP.pingT=t;for(const g of MP.guests){if(g.ok&&g.conn.open){try{g.conn.send({t:'p',n:t})}catch(e){}}}}
-    if(!MP.started&&t-MP.lobT>600){MP.lobT=t;mpLobbySend()}
-    if(MP.started&&t-MP.snapT>48){MP.snapT=t;mpHostSend()}
-    for(const g of MP.guests.slice()) if(t-g.last>12000) mpGuestLeft(g);
+    if(!MP.rp&&t-MP.pingT>1000){MP.pingT=t;for(const g of MP.guests){if(g.ok&&g.conn.open){try{g.conn.send({t:'p',n:t})}catch(e){}}}}
+    if(!MP.rp&&!MP.started&&t-MP.lobT>600){MP.lobT=t;mpLobbySend()}
+    if(!MP.rp&&MP.started&&t-MP.snapT>48){MP.snapT=t;mpHostSend()}
+    if(!MP.rp) for(const g of MP.guests.slice()) if(t-g.last>12000) mpGuestLeft(g);
   } else if(MP.role==='guest'&&MP.hostConn&&MP.started&&t-MP.lastSnapAt>9000){/* géré dans guestUpdate */}
 }
 // --- relais d'événements visuels / sonores de l'hôte vers les invités ---
@@ -5102,7 +5125,7 @@ function mpDrawOthers(){
 function mpDrawHud(){
   if(!MP.on) return;
   const rows=[];
-  if(mpHost()){rows.push({n:cleanName(mpName())+' (HÔTE)',hp:player.hp,mx:player.maxhp,dead:player.dead});for(const g of MP.guests) if(g.p) rows.push({n:g.name,hp:g.p.hp,mx:g.p.maxhp,dead:g.p.dead,ping:g.ping})}
+  if(mpHost()){rows.push({n:MP.rp?'JOUEUR 1':cleanName(mpName())+' (HÔTE)',hp:player.hp,mx:player.maxhp,dead:player.dead});for(const g of MP.guests) if(g.p) rows.push({n:g.name,hp:g.p.hp,mx:g.p.maxhp,dead:g.p.dead,ping:g.ping})}
   else{const hn=(MP.pinfo[0]||{}).n||'HÔTE';rows.push({n:hn+' (HÔTE)',hp:(MP.others.get(0)||{}).hp||0,mx:(MP.others.get(0)||{}).maxhp||100,dead:(MP.others.get(0)||{}).dead});rows.push({n:cleanName(mpName())+' (TOI)',hp:player.hp,mx:player.maxhp,dead:player.dead});for(const o of MP.others.values()) if(o.id!==0){const inf=MP.pinfo[o.id]||{n:'JOUEUR'};rows.push({n:inf.n,hp:o.hp,mx:o.maxhp,dead:o.dead})}}
   const x=W-262,y0=82;
   rows.forEach((r,i)=>{
@@ -5140,6 +5163,7 @@ function drawMpMenu(){
   const ok=ACG.ok()&&gameMode==='2D';
   btn(menuRects,40,124,420,96,'HÔTE',{act:mpStartHost,size:28,sub:'créer une partie et obtenir un code',dim:!ok});
   btn(menuRects,500,124,420,96,'REJOINDRE',{act:()=>{joinCode='';state='mpjoin'},size:28,sub:'entrer le code d\'un ami',dim:!ok});
+  btn(menuRects,500,236,420,44,'REMOTE PLAY  ›',{act:()=>{if(gameMode==='2D') state='rpsetup'},size:20,sub:'plusieurs joueurs sur le même écran, un téléphone chacun',dim:gameMode!=='2D'});
   btn(menuRects,40,236,420,44,'PSEUDO : '+cleanName(mpName()),{act:()=>{const n=prompt('Ton pseudo (14 caractères max)',mpName());if(n!==null){save.mpname=cleanName(n);persist()}},size:18});
   ctx.fillStyle='#b9b1a6';ctx.font='500 14px '+FONT;
   ['Hôte : tu crées le salon, tu choisis la carte et la difficulté, puis tu lances quand tout le monde est prêt.','Invités : tu entres le code, tu te mets « prêt », et la partie démarre.','Caisses : le premier qui les prend les garde. Cadeaux de Noël : tout le monde reçoit le bonus.','Les zombies sont plus nombreux et plus résistants selon le nombre de joueurs.'].forEach((t,i)=>ctx.fillText(t,40,312+i*24,880));
@@ -5313,6 +5337,267 @@ function drawProfileCard(){                                               // car
   ctx.textAlign='left';ctx.fillStyle=hot?'#ffd45a':'#f2efe8';ctx.font='700 21px '+FONT;ctx.fillText(cleanName(mpName()),x+80,y+32,w-90);
   ctx.fillStyle='#8a8178';ctx.font='500 12px '+FONT;ctx.fillText(hot?'✎ cliquer pour changer le pseudo':'NIVEAU '+curLevel()+'  ·  ✎ pseudo',x+80,y+48,w-90);
   ctx.fillStyle='#b9b1a6';ctx.fillText('clic sur l\'avatar : changer',x+80,y+64,w-90);
+}
+
+// ===== V0.58 : REMOTE PLAY — plusieurs joueurs sur le même écran (non divisé, carte fixe), chacun avec son téléphone =====
+const RP={n:0,slots:[],sel:{map:'ruines',diff:'normal'},msg:'',stT:0};
+const RP_COL=['#e2542e','#4aa0e8','#6fd06a','#ffd45a'];
+const rpPlaying=()=>MP.rp&&MP.on&&MP.started;
+function rpStop(){
+  for(const s of RP.slots){try{s.conn&&s.conn.close()}catch(e){}try{s.peer&&s.peer.destroy()}catch(e){}}
+  RP.slots=[];RP.n=0;RP.msg='';
+}
+function rpNewSlots(n){
+  rpStop();RP.n=n;RP.sel.map=curMap.id;RP.sel.diff='normal';
+  for(let i=0;i<n;i++) RP.slots.push({i,usePC:i===0,code:'',peer:null,conn:null,status:'idle',av:i===0?-1:avIdx(i*9+3),rdy:false,msg:'',last:performance.now(),g:null});
+}
+const rpActive=()=>RP.slots.find(s=>!s.rdy);
+function rpSlotPeer(sl){
+  if(sl.peer||sl.status==='load') return;
+  sl.status='load';sl.msg='Chargement…';
+  loadPeerJS(()=>{
+    const open=tries=>{
+      sl.code=genCode();const peer=new Peer('ic02r-'+sl.code,{debug:0});sl.peer=peer;
+      peer.on('open',()=>{sl.status=sl.conn&&sl.conn.open?'ok':'wait';sl.msg=''});
+      peer.on('connection',c=>rpSlotConn(sl,c));
+      peer.on('error',e=>{if(e.type==='unavailable-id'&&tries<6){try{peer.destroy()}catch(_){}open(tries+1);return}sl.status='err';sl.msg=errText(e)});
+      peer.on('disconnected',()=>{try{peer.reconnect()}catch(e){}});
+    };open(0);
+  },()=>{sl.status='err';sl.msg='Module de connexion introuvable (hors ligne ?)'});
+}
+function rpSend(sl,o){if(sl.conn&&sl.conn.open){try{sl.conn.send(o)}catch(e){}}}
+function rpSlotConn(sl,c){
+  if(sl.conn&&sl.conn.open){try{c.close()}catch(e){}return}
+  sl.conn=c;c.on('data',d=>rpSlotData(sl,d));
+  c.on('open',()=>{sl.status='ok';sl.last=performance.now();sl.rdy=false;sl.msg='';sfx('bonus');rpPush(sl)});
+  c.on('close',()=>{if(sl.conn!==c) return;sl.conn=null;sl.status=sl.peer?'wait':'idle';sl.rdy=false;if(sl.i===0) rinClear();if(sl.g) sl.g.inp={l:0,r:0,j:0,f:0,a:0,fc:1};if(rpPlaying()) flashG('JOUEUR '+(sl.i+1)+' : téléphone déconnecté')});
+  c.on('error',()=>{});
+}
+function rpPush(sl){rpSend(sl,rpPlaying()?rpStPlay(sl):{t:'st',m:'choose',rp:1,av:sl.av,rdy:sl.rdy?1:0,pn:'JOUEUR '+(sl.i+1),np:RP.n})}
+function rpSlotData(sl,d){
+  if(!d||typeof d!=='object') return;sl.last=performance.now();
+  switch(d.t){
+    case 'pick':if(!rpPlaying()){sl.av=avIdx(d.av);rpPush(sl)}break;
+    case 'rdy':if(!rpPlaying()){sl.rdy=!!d.r;rpPush(sl)}break;
+    case 'in':if(rpPlaying()) rpInput(sl,d);break;
+    case 'ev':if(rpPlaying()) rpEvent(sl,d.k);break;
+    case 'ping':rpSend(sl,{t:'pong',n:d.n});break;
+    case 'hello':rpPush(sl);break;
+  }
+}
+function rpInput(sl,d){
+  if(sl.i===0){rin.left=!!d.l;rin.right=!!d.r;rin.jump=!!d.j;rin.fire=!!d.f;rin.aim=!!d.a;rin.ax=+d.ax||0;rin.ay=+d.ay||0;return}
+  const g=sl.g;if(!g) return;
+  const ax=num(d.ax,-1,1,0),ay=num(d.ay,-1,1,0);let a,fc;
+  if(d.a){a=Math.atan2(ay,ax);fc=ax>=0?1:-1}else{fc=d.r?1:d.l?-1:(g.inp.fc||1);a=fc>0?0:Math.PI}
+  g.inp={l:d.l?1:0,r:d.r?1:0,j:d.j?1:0,f:d.f?1:0,a,fc};
+}
+function rpEvent(sl,k){
+  if(k==='pause'){keyPress('Escape');return}
+  if(k==='back'){keyPress('Escape');return}
+  if(state!=='play') return;
+  if(sl.i===0){if(player.dead) return;if(k==='pick') tryPickup();else if(k==='bonus') useBonus()}
+  else if(sl.g&&sl.g.p&&!sl.g.p.dead){if(k==='pick') guestPick(sl.g);else if(k==='bonus') runAs(sl.g,useBonus)}
+}
+function rpStPlay(sl){
+  let p,fb,fm,st;if(sl.i===0||!sl.g){p=player;fb=fxB;fm=fxMax;st=stock}else{p=sl.g.p;fb=sl.g.fxb;fm=sl.g.fxm;st=sl.g.stock}
+  const gun=p.gun,w=WEAPONS[p.w],fx=[];
+  for(const k in fb) if(fb[k]>0) fx.push([k,Math.round(100*fb[k]/(fm[k]||8000))]);
+  return{t:'st',m:'play',rp:1,pn:'JOUEUR '+(sl.i+1),hp:Math.ceil(Math.max(0,p.hp)),mx:p.maxhp,w:wave,k:kills,wn:w.name,am:gun?(gun.time>0?Math.ceil(gun.time/1000)+' s':String(gun.ammo)):'',amp:gun?Math.round(100*(gun.time>0?gun.time/gun.t0:gun.ammo/gun.a0)):100,fx,st:(st||[]).slice(0,4),d:p.dead?1:0,pz:state==='pause'?1:0};
+}
+function rpTick(t){
+  if(!RP.slots.length) return;
+  if(t-RP.stT>250){RP.stT=t;for(const s of RP.slots) if(s.conn&&s.conn.open) rpPush(s)}
+  for(const s of RP.slots){
+    if(s.conn&&t-s.last>2500){if(s.i===0) rinClear();if(s.g) s.g.inp={l:0,r:0,j:0,f:0,a:0,fc:1}}
+    if(s.conn&&t-s.last>10000){try{s.conn.close()}catch(e){}}
+  }
+  const a=rpActive();if(a&&state==='rpsetup'&&!(a.i===0&&a.usePC)) rpSlotPeer(a);                // « chacun son tour » : le code du joueur suivant apparaît quand le précédent est prêt
+}
+function rpStart(){
+  if(!RP.slots.length||RP.slots.some(s=>!s.rdy)){RP.msg='Tous les joueurs doivent être prêts';return}
+  const m=MAPS.find(x=>x.id===RP.sel.map)||MAPS[0],d=DIFFS.find(x=>x.id===RP.sel.diff)||DIFFS[1];
+  if(!mapUnlocked(m)||!diffUnlocked(m,d)){RP.msg='Carte ou difficulté non débloquée';return}
+  RP.msg='';MP.rp=true;MP.role='host';MP.on=true;MP.started=true;MP.gid='rp'+genCode()+Date.now().toString(36);
+  MP.guests=[];
+  for(const s of RP.slots){
+    if(s.i===0) continue;
+    const g={id:s.i,conn:s.conn,name:'JOUEUR '+(s.i+1),lvl:curLevel(),ready:true,ok:true,ping:0,rtts:[],q:4,nonce:'',inp:{l:0,r:0,j:0,f:0,a:0,fc:1},p:null,msgs:[],known:new Set(),cnt:0,cntT:0,last:performance.now(),look:AVATARS[avIdx(s.av)].look,av:avIdx(s.av),up:save.up,hpLvl:save.hpLvl|0,mel:save.melee,fxb:{},fxl:{},fxm:{},stock:[],cxp:0,clv:1,dead:false};
+    s.g=g;MP.guests.push(g);
+  }
+  curMap=m;curDiff=d;training=false;mapTrain=false;applyMap();
+  for(const g of MP.guests) mpMakeGuest(g);
+  reset(false);MP.hostP=player;
+  MP.hostLook=RP.slots[0].av>=0?AVATARS[avIdx(RP.slots[0].av)].look:null;
+  for(const s of RP.slots) rpPush(s);
+}
+function rpBackToSetup(){
+  MP.on=false;MP.started=false;MP.rp=false;MP.role='';MP.guests=[];MP.hostLook=null;
+  for(const s of RP.slots){s.rdy=false;s.g=null}
+  rinClear();reset(true);state='rpsetup';
+}
+// --- portrait d'un look quelconque (avatar « mon personnage ») ---
+function avDrawLook(look,x,y,size,ring,tag){
+  const key='L'+tag+'|'+JSON.stringify(look)+'|'+size+'|'+RES;let c=AVC.get(key);
+  if(!c){
+    const px=Math.max(1,Math.round(size*RES));c=document.createElement('canvas');c.width=c.height=px;
+    const g=c.getContext('2d'),mc=ctx,sl=save.look,sp=prevO;ctx=g;g.scale(px/size,px/size);
+    try{const bg=g.createLinearGradient(0,0,0,size);bg.addColorStop(0,'#5a4a2a');bg.addColorStop(1,'#14100e');g.fillStyle=bg;g.beginPath();g.arc(size/2,size/2,size/2,0,7);g.fill();g.save();g.beginPath();g.arc(size/2,size/2,size/2-.5,0,7);g.clip();
+      save.look=look;prevO=look.outfit;const k=size/60;g.translate(size/2,size*.60+60*k);g.scale(k,k);drawSoldier({x:0,y:0,face:1,step:0,w:0,aim:0,swing:0,cd:0,muz0:0,muz1:0,hurtCd:0});g.restore()}catch(e){}finally{save.look=sl;prevO=sp;ctx=mc}
+    if(AVC.size>300) AVC.clear();AVC.set(key,c);
+  }
+  ctx.drawImage(c,x,y,size,size);
+  if(ring){ctx.strokeStyle=ring===true?'#e0a526':ring;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(x+size/2,y+size/2,size/2,0,7);ctx.stroke()}
+}
+function rpAvDraw(sl,x,y,size,ring){if(sl.av<0) avDrawLook(save.look,x,y,size,ring,'me');else avDraw(sl.av,x,y,size,ring)}
+const rpAvName=sl=>sl.av<0?'MON PERSONNAGE':AVATARS[avIdx(sl.av)].n;
+function rpCycle(sl,dir){const lo=sl.i===0?-1:0,hi=AVATARS.length-1;let v=sl.av+dir;if(v>hi) v=lo;if(v<lo) v=hi;sl.av=v}
+// --- page de préparation (PC) ---
+function drawRpSetup(){
+  ctx.fillStyle='#000000d8';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
+  ctx.fillStyle='#000';ctx.font='400 38px '+TITLE;ctx.fillText('REMOTE PLAY',43,61);ctx.fillStyle='#e9e1d0';ctx.fillText('REMOTE PLAY',40,58);ctx.fillStyle='#7a2c1c';ctx.fillRect(40,66,230,3);
+  if(!RP.n){
+    ctx.fillStyle='#d8d2c8';ctx.font='500 16px '+FONT;ctx.fillText('Jouez à plusieurs sur ce même écran : chacun contrôle son personnage avec son téléphone.',40,98);
+    ctx.fillStyle='#b9b1a6';ctx.font='500 14px '+FONT;ctx.fillText('Écran non divisé, carte fixe (elle ne défile pas). Vie, bonus et armes s\'affichent sur le téléphone de chaque joueur.',40,120,880);
+    for(let n=2;n<=4;n++){
+      const x=40+(n-2)*300,y=150,w=280,h=250,hot=mouse.x>=x&&mouse.x<=x+w&&mouse.y>=y&&mouse.y<=y+h;
+      menuRects.push({x,y,w,h,act:()=>rpNewSlots(n)});
+      panel(x,y,w,h,{top:hot?'#4a2018':'#2d2723',bot:hot?'#2a100c':'#17120f',edge:hot?'#e2542e':'#4a3a2e'});
+      const sw=220,sh=124,sx=x+30,sy=y+26;ctx.fillStyle='#0b0908';ctx.fillRect(sx,sy,sw,sh);
+      for(let i=0;i<n;i++){ctx.fillStyle=RP_COL[i]+'66';ctx.fillRect(sx+i*sw/n+2,sy+2,sw/n-4,sh-4);ctx.fillStyle=RP_COL[i];ctx.font='700 30px '+FONT;ctx.textAlign='center';ctx.fillText(String(i+1),sx+i*sw/n+sw/n/2,sy+sh/2+10);ctx.textAlign='left'}
+      ctx.fillStyle='#f2efe8';ctx.font='700 28px '+FONT;ctx.textAlign='center';ctx.fillText(n+' JOUEURS',x+w/2,y+196);ctx.fillStyle='#8a8178';ctx.font='500 13px '+FONT;ctx.fillText('même écran, chacun son téléphone',x+w/2,y+220);ctx.textAlign='left';
+    }
+    btn(menuRects,40,470,200,44,'RETOUR',{act:()=>{rpStop();state='mpmenu'}});
+    return;
+  }
+  const N=RP.n,pw=Math.floor(880/N),act=rpActive();
+  ctx.fillStyle='#b9b1a6';ctx.font='500 14px '+FONT;ctx.fillText(N+' joueurs  ·  chacun son tour : connecte ton téléphone, choisis ton personnage, puis « PRÊT ».',40,92,880);
+  RP.slots.forEach(sl=>{
+    const x=40+sl.i*pw,y=102,w=pw-10,h=284,col=RP_COL[sl.i],isAct=sl===act;
+    panel(x,y,w,h,{edge:isAct?col:'#4a3a2e'});ctx.fillStyle=col;ctx.fillRect(x+2,y+2,w-4,28);
+    ctx.fillStyle='#0b0908';ctx.font='700 17px '+FONT;ctx.textAlign='center';ctx.fillText('JOUEUR '+(sl.i+1),x+w/2,y+22);
+    const asz=Math.min(112,w-40);
+    if(sl.rdy){
+      rpAvDraw(sl,x+w/2-asz/2,y+44,asz,col);ctx.fillStyle='#f2efe8';ctx.font='700 15px '+FONT;ctx.fillText(rpAvName(sl),x+w/2,y+44+asz+22,w-16);
+      ctx.fillStyle='#9fd18a';ctx.font='700 20px '+FONT;ctx.fillText('✔ PRÊT',x+w/2,y+44+asz+50);ctx.fillStyle='#8a8178';ctx.font='500 12px '+FONT;ctx.fillText(sl.i===0&&sl.usePC?'clavier / manette de ce PC':'téléphone connecté',x+w/2,y+44+asz+68,w-16);
+      menuRects.push({x:x+10,y:y+h-40,w:w-20,h:32,act:()=>{sl.rdy=false;rpPush(sl)}});
+      ctx.fillStyle='#3a2e28';ctx.fillRect(x+10,y+h-40,w-20,32);ctx.fillStyle='#fff';ctx.font='700 13px '+FONT;ctx.fillText('MODIFIER',x+w/2,y+h-19);
+    } else if(!isAct){
+      ctx.fillStyle='#6b625b';ctx.font='700 15px '+FONT;ctx.fillText('EN ATTENTE…',x+w/2,y+130);ctx.font='500 12px '+FONT;ctx.fillText(sl.i?'après le joueur '+sl.i:'',x+w/2,y+152);
+    } else if(sl.i===0&&sl.usePC){
+      rpAvDraw(sl,x+w/2-asz/2,y+40,asz,col);ctx.fillStyle='#f2efe8';ctx.font='700 14px '+FONT;ctx.fillText(rpAvName(sl),x+w/2,y+40+asz+18,w-16);ctx.textAlign='left';
+      const by=y+40+asz+28,bw=Math.floor((w-30)/2);
+      btn(menuRects,x+10,by,bw,32,'‹',{act:()=>rpCycle(sl,-1),size:22});btn(menuRects,x+20+bw,by,bw,32,'›',{act:()=>rpCycle(sl,1),size:22});
+      btn(menuRects,x+10,by+38,w-20,32,'PRÊT',{act:()=>{sl.rdy=true},size:16});
+      btn(menuRects,x+10,by+76,w-20,26,'TÉLÉPHONE',{act:()=>{sl.usePC=false;rpSlotPeer(sl)},size:12});
+    } else {
+      ctx.textAlign='center';
+      if(sl.status==='ok'&&sl.conn){
+        rpAvDraw(sl,x+w/2-asz/2,y+40,asz,col);ctx.fillStyle='#9fd18a';ctx.font='700 14px '+FONT;ctx.fillText('● TÉLÉPHONE CONNECTÉ',x+w/2,y+40+asz+22,w-12);ctx.fillStyle='#f2efe8';ctx.font='700 14px '+FONT;ctx.fillText(rpAvName(sl),x+w/2,y+40+asz+42,w-12);
+        ctx.fillStyle='#b9b1a6';ctx.font='500 12px '+FONT;ctx.fillText('choisis ton personnage',x+w/2,y+40+asz+60,w-12);ctx.fillText('sur ton téléphone',x+w/2,y+40+asz+76,w-12);
+      } else {
+        ctx.fillStyle='#8a8178';ctx.font='500 12px '+FONT;ctx.fillText('CODE À ENTRER SUR LE TÉLÉPHONE',x+w/2,y+52,w-8);
+        ctx.fillStyle=col;ctx.font='400 '+(w>200?46:34)+'px '+TITLE;ctx.fillText(sl.status==='wait'||sl.status==='ok'?sl.code:'· · · · ·',x+w/2,y+112,w-8);
+        ctx.fillStyle=sl.status==='err'?'#e2542e':'#b9b1a6';ctx.font='500 12px '+FONT;
+        if(sl.status==='err') ctx.fillText(sl.msg,x+w/2,y+138,w-12);
+        else ['Téléphone : Options →','Commandes → Téléphone-','manette → REMOTE PLAY,','puis tape ce code.'].forEach((t,i)=>ctx.fillText(t,x+w/2,y+142+i*17,w-12));
+        ctx.fillStyle='#e0a526';ctx.font='700 13px '+FONT;ctx.fillText('En attente du téléphone…',x+w/2,y+222,w-12);
+        if(sl.i===0) {ctx.textAlign='left';btn(menuRects,x+10,y+h-38,w-20,28,'CE PC',{act:()=>{sl.usePC=true;try{sl.conn&&sl.conn.close()}catch(e){}try{sl.peer&&sl.peer.destroy()}catch(e){}sl.peer=null;sl.conn=null;sl.status='idle'},size:12});ctx.textAlign='center'}
+      }
+      ctx.textAlign='left';
+    }
+    ctx.textAlign='left';
+  });
+  const m=MAPS.find(x=>x.id===RP.sel.map)||MAPS[0],d=DIFFS.find(x=>x.id===RP.sel.diff)||DIFFS[1],maps=mapOptions(),all=RP.slots.every(s=>s.rdy);
+  btn(menuRects,40,398,290,38,'CARTE : '+m.name+'  ›',{act:()=>{const k=maps.findIndex(x=>x.id===m.id);RP.sel.map=maps[(k+1)%maps.length].id;const mm=MAPS.find(x=>x.id===RP.sel.map);if(!diffUnlocked(mm,DIFFS.find(x=>x.id===RP.sel.diff))) RP.sel.diff='normal'},size:15});
+  btn(menuRects,340,398,290,38,'DIFFICULTÉ : '+d.n+'  ›',{act:()=>{const ds=DIFFS.filter(x=>diffUnlocked(m,x)),k=ds.findIndex(x=>x.id===d.id);RP.sel.diff=ds[(k+1)%ds.length].id},size:15});
+  btn(menuRects,640,398,280,38,all?'LANCER LA PARTIE':'EN ATTENTE DES JOUEURS…',{act:rpStart,size:16,dim:!all});
+  ctx.fillStyle='#8a8178';ctx.font='500 13px '+FONT;ctx.fillText('Gains ×'+(m.gain*d.g).toFixed(2)+'  ·  l\'XP et les crédits reviennent au compte principal de ce jeu.',40,458,600);
+  if(RP.msg){ctx.fillStyle='#e2542e';ctx.font='700 14px '+FONT;ctx.fillText(RP.msg,640,458,280)}
+  btn(menuRects,40,470,200,44,'QUITTER',{act:()=>{rpStop();state='mpmenu'},size:18});
+  btn(menuRects,250,470,200,44,'CHANGER LE NOMBRE',{act:()=>rpNewSlots(0),size:14});
+}
+// --- téléphone : rejoindre un remote play (entrer le code affiché sur l'écran) ---
+function rpJoin(code){
+  rmtStop();RMT.role='pad';RMT.rp=true;RMT.code=code;RMT.status='load';RMT.msg='Chargement…';state='remote';
+  loadPeerJS(()=>{
+    const peer=new Peer({debug:0});RMT.peer=peer;let to=0;
+    const fail=m=>{if(RMT.status!=='ok'){RMT.status='err';RMT.msg=m}};
+    peer.on('open',()=>{
+      RMT.status='conn';RMT.msg='Connexion…';
+      const c=peer.connect('ic02r-'+code,{serialization:'json',reliable:true});RMT.conn=c;
+      to=setTimeout(()=>fail('Connexion impossible : code incorrect, joueur pas encore actif ou réseau trop restrictif'),15000);
+      c.on('data',rmtData);
+      c.on('open',()=>{clearTimeout(to);RMT.status='ok';RMT.lastRx=performance.now();RMT.info={};state='padmode';PADS.touches.clear();PADS.cp=0;rmtSend({t:'hello'});padSendIn(true)});
+      c.on('close',()=>{clearTimeout(to);if(RMT.conn===c&&RMT.status==='ok'){RMT.status='err';RMT.msg='Connexion perdue';RMT.conn=null;if(state==='padmode') state='remote'}});
+      c.on('error',()=>fail('Erreur de connexion'));
+    });
+    peer.on('error',e=>fail(errText(e)));
+  },()=>{RMT.status='err';RMT.msg='Module de connexion introuvable (hors ligne ?)'});
+}
+function rpJoinGo(){if(joinCode.length===5) rpJoin(joinCode)}
+// --- téléphone : choix du personnage ---
+function padChooseGeo(){const cols=8,t=58,g=8,tw=cols*(t+g)-g;return{cols,t,g,x0:Math.round((W-tw)/2),y0:62,per:32}}
+function drawPadChoose(inf){
+  const G=padChooseGeo(),pages=Math.ceil(AVATARS.length/G.per),page=Math.min(PADS.cp||0,pages-1),col=RP_COL[inf.pc||0];
+  ctx.textAlign='center';ctx.fillStyle='#e9e1d0';ctx.font='400 26px '+TITLE;ctx.fillText('CHOISIS TON PERSONNAGE',W/2,38);
+  ctx.fillStyle=RP_COL[(inf.pn||'JOUEUR 1').slice(-1)-1]||col;ctx.font='700 14px '+FONT;ctx.fillText(inf.pn||'',W/2,54);
+  for(let k=0;k<G.per;k++){
+    const i=page*G.per+k;if(i>=AVATARS.length) break;
+    const x=G.x0+(k%G.cols)*(G.t+G.g),y=G.y0+Math.floor(k/G.cols)*(G.t+G.g),sel=i===inf.av;
+    if(sel){ctx.fillStyle='rgba(224,165,38,.3)';ctx.beginPath();ctx.roundRect(x-3,y-3,G.t+6,G.t+6,10);ctx.fill()}
+    avDraw(i,x,y,G.t,sel?'#ffd45a':false);
+  }
+  const by=H-84,bh=64,l=SAFE.l,sw=Math.min(300,W*.3);
+  ctx.fillStyle='#e9e1d0';ctx.font='700 16px '+FONT;ctx.fillText(inf.av>=0&&AVATARS[inf.av]?AVATARS[inf.av].n:'MON PERSONNAGE',W/2,by-12);
+  for(const[lab,bx,bw2,on] of[['◀',l+14,110,false],['PAGE '+(page+1)+'/'+pages+'  ▶',W-SAFE.r-14-130,130,false],[inf.rdy?'✔ PRÊT (annuler)':'JE SUIS PRÊT',W/2-sw/2,sw,!!inf.rdy]]){
+    ctx.fillStyle=on?'#2e7d32':'rgba(58,46,40,.95)';ctx.beginPath();ctx.roundRect(bx,by,bw2,bh,12);ctx.fill();ctx.strokeStyle='rgba(255,255,255,.4)';ctx.lineWidth=2;ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font='700 '+(bw2>200?22:17)+'px '+FONT;ctx.fillText(lab,bx+bw2/2,by+bh/2+7);
+  }
+  ctx.textAlign='left';
+}
+function padChooseTap(p){
+  const G=padChooseGeo(),inf=RMT.info,pages=Math.ceil(AVATARS.length/G.per),page=Math.min(PADS.cp||0,pages-1);
+  const by=H-84,bh=64,l=SAFE.l,sw=Math.min(300,W*.3);
+  if(p.y>=by&&p.y<=by+bh){
+    if(p.x>=l+14&&p.x<=l+124){PADS.cp=(page+pages-1)%pages;return}
+    if(p.x>=W-SAFE.r-144&&p.x<=W-SAFE.r-14){PADS.cp=(page+1)%pages;return}
+    if(p.x>=W/2-sw/2&&p.x<=W/2+sw/2){rmtSend({t:'rdy',r:inf.rdy?0:1});return}
+    return;
+  }
+  for(let k=0;k<G.per;k++){
+    const i=page*G.per+k;if(i>=AVATARS.length) break;
+    const x=G.x0+(k%G.cols)*(G.t+G.g),y=G.y0+Math.floor(k/G.cols)*(G.t+G.g);
+    if(p.x>=x&&p.x<=x+G.t&&p.y>=y&&p.y<=y+G.t){rmtSend({t:'pick',av:i});try{navigator.vibrate&&navigator.vibrate(10)}catch(e){}return}
+  }
+}
+// --- téléphone : vie, arme, bonus du joueur ---
+function drawPadHud(inf){
+  const w=Math.min(470,W-2*(SAFE.l+250)-20),x=(W-w)/2,y=8;
+  ctx.fillStyle='rgba(8,6,5,.85)';ctx.beginPath();ctx.roundRect(x,y,w,86,10);ctx.fill();ctx.strokeStyle=RP_COL[inf.pc||0]||'#e2542e';ctx.lineWidth=2;ctx.stroke();
+  ctx.textAlign='left';ctx.fillStyle=RP_COL[(inf.pn||'JOUEUR 1').slice(-1)-1]||'#fff';ctx.font='700 13px '+FONT;ctx.fillText((inf.pn||'')+'   ·   VAGUE '+(inf.w||0)+'   ·   '+(inf.k||0)+' TUÉS',x+10,y+17,w-20);
+  const hr=Math.max(0,Math.min(1,(inf.hp||0)/(inf.mx||100)));
+  ctx.fillStyle='#2a1a18';ctx.fillRect(x+10,y+24,w-20,14);ctx.fillStyle=hr>.5?'#c9372c':hr>.25?'#e07a2a':'#ff3a2a';ctx.fillRect(x+10,y+24,(w-20)*hr,14);
+  ctx.fillStyle='#fff';ctx.font='700 12px '+FONT;ctx.textAlign='center';ctx.fillText((inf.hp||0)+' / '+(inf.mx||100),x+w/2,y+35);
+  ctx.textAlign='left';ctx.fillStyle='#e9e1d0';ctx.font='700 13px '+FONT;ctx.fillText(String(inf.wn||'').toUpperCase(),x+10,y+54,w*.5);
+  ctx.textAlign='right';ctx.fillStyle='#ffd45a';ctx.fillText(inf.am||'ILLIMITÉ',x+w-10,y+54);
+  if(inf.am){ctx.fillStyle='#2a2418';ctx.fillRect(x+10,y+59,w-20,5);ctx.fillStyle='#e0a526';ctx.fillRect(x+10,y+59,(w-20)*Math.max(0,Math.min(1,(inf.amp||0)/100)),5)}
+  ctx.textAlign='left';
+  (inf.fx||[]).slice(0,7).forEach((f,i)=>{const bx=x+22+i*44;bonusIcon(f[0],bx,y+76,9);ctx.fillStyle='#0008';ctx.fillRect(bx-10,y+86,20,3);ctx.fillStyle=BON[f[0]]?BON[f[0]].c:'#fff';ctx.fillRect(bx-10,y+86,20*Math.max(0,f[1])/100,3)});
+  const sb=PB.bonus;if(inf.st&&inf.st.length){ctx.save();ctx.globalAlpha=TOP();bonusIcon(inf.st[0],sb.cx,sb.cy,sb.r*.62);ctx.fillStyle='#fff';ctx.font='700 12px '+FONT;ctx.textAlign='center';ctx.fillText(inf.st.length>1?'×'+inf.st.length:'',sb.cx+sb.r*.6,sb.cy+sb.r*.9);ctx.restore()}
+  if(inf.d){ctx.textAlign='center';ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,H*.4,W,70);ctx.fillStyle='#ff6a5a';ctx.font='400 34px '+TITLE;ctx.fillText('À TERRE',W/2,H*.4+36);ctx.fillStyle='#e9e1d0';ctx.font='500 14px '+FONT;ctx.fillText('tu reviens à la prochaine manche',W/2,H*.4+58);ctx.textAlign='left'}
+  if(inf.pz){ctx.textAlign='center';ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(0,H*.4,W,50);ctx.fillStyle='#ffd45a';ctx.font='700 24px '+FONT;ctx.fillText('PAUSE',W/2,H*.4+34);ctx.textAlign='left'}
+}
+// repères de joueurs sur l'écran partagé
+function rpTags(){
+  if(!MP.rp) return;
+  const arr=[{p:player,i:0}].concat(MP.guests.filter(g=>g.p).map(g=>({p:g.p,i:g.id})));
+  for(const e of arr){
+    const p=e.p;if(p.dead) continue;const c=RP_COL[e.i]||'#fff',y=p.y-112;
+    ctx.fillStyle='#0b0908';ctx.beginPath();ctx.moveTo(p.x-8,y-8);ctx.lineTo(p.x+8,y-8);ctx.lineTo(p.x,y+2);ctx.closePath();ctx.fill();
+    ctx.fillStyle=c;ctx.beginPath();ctx.moveTo(p.x-6,y-7);ctx.lineTo(p.x+6,y-7);ctx.lineTo(p.x,y);ctx.closePath();ctx.fill();
+    ctx.textAlign='center';ctx.font='700 13px '+FONT;ctx.fillStyle='#000';ctx.fillText(String(e.i+1),p.x+1,y-12+1);ctx.fillStyle=c;ctx.fillText(String(e.i+1),p.x,y-12);ctx.textAlign='left';
+  }
 }
 
 // --- Boucle ---

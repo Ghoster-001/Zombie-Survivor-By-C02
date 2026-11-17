@@ -33,6 +33,9 @@ Ou télécharge le dépôt et ouvre `index.html` dans un navigateur moderne.
 - Graphismes : profils AUTO / ÉCO à EXTRÊME, limite de FPS jusqu'au taux de l'écran, compteur FPS déplaçable, animations réductibles, luminosité
 - Commandes : boutons tactiles personnalisables (mode immortel), manettes (Xbox, PlayStation, Switch Pro), téléphone utilisable comme manette
 - **Multijoueur coopératif (2 à 4 joueurs)** : un hôte crée un salon (code), les invités le rejoignent et se mettent « prêt » ; l'hôte choisit la carte et la difficulté ; chacun garde sa progression ; caisses au premier arrivé, cadeaux de Noël partagés
+- **Remote Play** : 2 à 4 joueurs sur le même écran (non divisé, carte fixe), chacun avec son téléphone (code par joueur, choix du personnage parmi 53 avatars) ; vie, armes et bonus s'affichent sur chaque téléphone ; XP et crédits reviennent au compte principal
+- Profil : 53 avatars prédéfinis et pseudo modifiable depuis le menu principal
+- Mises à jour : bouton de recherche et d'installation, recherche automatique à chaque passage par le menu, progression conservée
 - **C02 Anti-Cheat** : signature de la sauvegarde, détection des valeurs impossibles et des modifications en partie, horloge surveillée, profil et gains signés en multijoueur (page dédiée dans Options → Données)
 
 Jeu et graphismes originaux, inspirés par le genre des shooters de survie.
