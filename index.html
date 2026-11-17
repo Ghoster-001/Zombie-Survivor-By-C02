@@ -155,7 +155,7 @@ function resWanted(vw){
 }
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.56';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.57';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -963,7 +963,7 @@ addEventListener('keydown',e=>{
   else if(state==='wheel' && e.code==='Escape'){wheelConf=false;state=wheelFrom==='menu'?'menu':'boosts'}
   else if(state==='boosts' && e.code==='Escape') state='upgrades';
   else if(state==='fpsopt' && e.code==='Escape'){state='options';optTab=2}
-  else if(state==='mpmenu' && e.code==='Escape') state='menu';
+  else if((state==='mpmenu'||state==='avatars') && e.code==='Escape') state='menu';
   else if((state==='mphost'||state==='mplobby'||state==='mpjoining') && e.code==='Escape'){mpStop();state='mpmenu'}
   else if(state==='acpage' && e.code==='Escape'){state='options';optTab=4}
   else if((state==='gamepad'||state==='remote') && e.code==='Escape'){state='options';optTab=3}
@@ -1016,7 +1016,7 @@ function layoutPad(){
   for(const k of PADK){const e=PB[k],o=L[k],d=o?[o.x,o.y]:PDEF[k];e.s=o?(o.s||1):1;e.r=PBASE[k]*e.s;placeEl(e,l+d[0]*(W-l-rr),d[1]*H)}
 }
 layoutTouch();
-const MENU_STATES=['menu','shop','quit','bye','maps','saves','options','credits','upgrades','weapon','keys','custom','lang','pause','trainpick','over','boosts','wheel','fpsopt','maint','gamepad','remote','padjoin','mpmenu','mphost','mplobby','mpjoin','mpjoining','acpage'];
+const MENU_STATES=['menu','shop','quit','bye','maps','saves','options','credits','upgrades','weapon','keys','custom','lang','pause','trainpick','over','boosts','wheel','fpsopt','maint','gamepad','remote','padjoin','mpmenu','mphost','mplobby','mpjoin','mpjoining','acpage','avatars'];
 let autoTarget=null;
 const inR=(p,r)=>p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h;
 function tpos(t){
@@ -2630,7 +2630,7 @@ function drawMinimap(){
 function draw(){
   syncMouse();
   if(state==='padmode'){drawPadScreen();return}
-  if(state==='menu'||state==='options'||state==='credits'||state==='upgrades'||state==='weapon'||state==='keys'||state==='custom'||state==='lang'||state==='saves'||state==='maps'||state==='quit'||state==='bye'||state==='shop'||state==='boosts'||state==='wheel'||state==='fpsopt'||state==='maint'||state==='gamepad'||state==='remote'||state==='padjoin'||state==='mpmenu'||state==='mphost'||state==='mplobby'||state==='mpjoin'||state==='mpjoining'||state==='acpage'){drawMenu();overlayFx(0);drawCursor();return}
+  if(state==='menu'||state==='options'||state==='credits'||state==='upgrades'||state==='weapon'||state==='keys'||state==='custom'||state==='lang'||state==='saves'||state==='maps'||state==='quit'||state==='bye'||state==='shop'||state==='boosts'||state==='wheel'||state==='fpsopt'||state==='maint'||state==='gamepad'||state==='remote'||state==='padjoin'||state==='mpmenu'||state==='mphost'||state==='mplobby'||state==='mpjoin'||state==='mpjoining'||state==='acpage'||state==='avatars'){drawMenu();overlayFx(0);drawCursor();return}
   ctx.save();
   if(shake>.5){ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake*=.88}
   drawBackground();ash();
@@ -2894,7 +2894,7 @@ function embers(){
 }
 // Les menus sont dessinés dans un espace de 960x540 centré en bas de l'écran, le décor et les voiles couvrent tout l'écran.
 let MENU_MODE=false,MOX=0,MOY=0,MRW=960,MRH=540;
-const MENU_SPACE=['menu','shop','quit','bye','maps','saves','options','credits','upgrades','weapon','keys','custom','lang','trainpick','boosts','wheel','fpsopt','maint','gamepad','remote','padjoin','mpmenu','mphost','mplobby','mpjoin','mpjoining','acpage'];
+const MENU_SPACE=['menu','shop','quit','bye','maps','saves','options','credits','upgrades','weapon','keys','custom','lang','trainpick','boosts','wheel','fpsopt','maint','gamepad','remote','padjoin','mpmenu','mphost','mplobby','mpjoin','mpjoining','acpage','avatars'];
 function syncMouse(){const m=MENU_SPACE.includes(state);mouse.x=mouse.rx-(m?(W-960)/2:0);mouse.y=mouse.ry-(m?(H-540):0)}
 function inMenuSpace(fn){
   const RW=W,RH=H,RG=GROUND,ox=(RW-960)/2,oy=RH-540;
@@ -2994,6 +2994,7 @@ function drawMenuBody(){
   if(state==='mpjoin'){drawMpJoin();return}
   if(state==='mpjoining'){drawMpJoining();return}
   if(state==='acpage'){drawAcPage();return}
+  if(state==='avatars'){drawAvatars();return}
   if(state==='wheel'){drawWheel();return}
   if(state==='weapon'){drawWeaponDetail();return}
   if(state==='keys'){drawKeys();return}
@@ -3022,6 +3023,7 @@ function drawMenuBody(){
     ctx.textAlign='left';ctx.font='700 14px '+FONT;ctx.fillStyle='#ffd45a';ctx.fillText('★  ÉDITION NOËL APOCALYPTIQUE  ★',70,50);
   }
   if(state==='menu'){
+    drawProfileCard();
     {const it=[['JOUER',()=>{mapTrain=false;training=false;state='maps'}],['MULTIJOUEUR',()=>{MP.msg='';MP.status='off';state='mpmenu'}],['ARSENAL',openUpgrades],['ENTRAÎNEMENT',()=>{mapTrain=true;state='maps'}],['PERSONNALISATION',()=>state='custom'],['BOUTIQUE',()=>state='shop'],['OPTIONS',()=>{optFrom='menu';state='options'}],['CRÉDITS',()=>state='credits'],['QUITTER',()=>state='quit']];
      it.forEach(([lab,act],k)=>btn(menuRects,70,232+k*31,300,28,lab,{act,size:18}))}
     {const li=langInfo(),x=W-210,y=H-104,w=170,h=36,hot=mouse.x>=x&&mouse.x<=x+w&&mouse.y>=y&&mouse.y<=y+h;menuRects.push({x,y,w,h,act:()=>state='lang'});
@@ -4777,7 +4779,7 @@ function mpValidHello(g,d){
   const up={};if(d.up&&typeof d.up==='object'){let n=0;for(const k in d.up){if(++n>260) return 'profil invalide';const w=WEAPONS.find(x=>x.name===k);const l=d.up[k];if(!w||!Number.isInteger(l)||l<0||l>4) return 'améliorations invalides';up[k]=l}}
   const n=cleanName(d.n);
   if(d.tok!==ACG.profTok(g.nonce,{n:d.n,lvl:d.lvl,hp:d.hp,mel:d.mel,v:d.v,up:d.up||{}})) return 'jeton anti-triche invalide';
-  g.name=n;g.lvl=lvl;g.hpLvl=hp;g.mel=melee.name;g.up={};for(const k in up) g.up[k]={lvl:up[k]};g.look=sanitizeLook(d.look);g.ok=true;
+  g.name=n;g.lvl=lvl;g.hpLvl=hp;g.mel=melee.name;g.up={};for(const k in up) g.up[k]={lvl:up[k]};g.look=sanitizeLook(d.look);g.av=avIdx(d.av);g.ok=true;
   return '';
 }
 function sanitizeLook(L){const o={outfit:0,sex:'m',build:0,skin:null,hair:null,top:null,pants:null,hat:null,shoes:null};if(!L||typeof L!=='object') return o;
@@ -4801,10 +4803,10 @@ function mpHostData(g,d){
     case 'leave':mpGuestLeft(g);break;
   }
 }
-const lobEntry=(id,n,lvl,ping,q,r)=>({id,n,lvl,ping,q,r});
+const lobEntry=(id,n,lvl,ping,q,r,av)=>({id,n,lvl,ping,q,r,av:av|0});
 function mpLobbyList(){
-  const l=[lobEntry(0,cleanName(mpName()),curLevel(),0,4,1)];
-  for(const g of MP.guests) if(g.ok) l.push(lobEntry(g.id,g.name,g.lvl,g.ping,g.q,g.ready?1:0));
+  const l=[lobEntry(0,cleanName(mpName()),curLevel(),0,4,1,save.avatar)];
+  for(const g of MP.guests) if(g.ok) l.push(lobEntry(g.id,g.name,g.lvl,g.ping,g.q,g.ready?1:0,g.av));
   return l;
 }
 function mpLobbySend(){
@@ -4935,7 +4937,7 @@ function mpGuestData(d){
   switch(d.t){
     case 'chal':{
       const o=mpProfile(),n=d.n;
-      mpSend({t:'hello',n:o.n,lvl:o.lvl,hp:o.hp,mel:o.mel,v:o.v,up:o.up,look:save.look,acv:ACG.VER,tok:ACG.profTok(n,o)});break}
+      mpSend({t:'hello',n:o.n,lvl:o.lvl,hp:o.hp,mel:o.mel,v:o.v,up:o.up,look:save.look,av:save.avatar|0,acv:ACG.VER,tok:ACG.profTok(n,o)});break}
     case 'wel':MP.status='ok';MP.msg='';MP.myId=d.id;state='mplobby';break;
     case 'rej':MP.status='err';MP.msg=String(d.why||'Refusé').slice(0,80);try{MP.hostConn.close()}catch(e){}state='mpmenu';break;
     case 'lob':MP.lobby={pl:Array.isArray(d.pl)?d.pl:[],map:d.map,diff:d.diff};MP.myId=d.you;if(state==='mplobby'||state==='mpjoining') state='mplobby';break;
@@ -5123,7 +5125,7 @@ function drawMpList(){
     const e=pl[i],y=130+i*54;
     ctx.fillStyle=e?'#241d19':'#17120f';ctx.fillRect(52,y,476,46);ctx.strokeStyle='#4a3a2e';ctx.lineWidth=1;ctx.strokeRect(52.5,y+.5,475,45);
     if(!e){ctx.fillStyle='#4a3a2e';ctx.font='500 15px '+FONT;ctx.fillText('— emplacement libre —',66,y+28);continue}
-    ctx.fillStyle=e.id===0?'#ffd45a':'#f2efe8';ctx.font='700 18px '+FONT;ctx.fillText(e.n+(e.id===0?'  ★ HÔTE':'')+(e.id===MP.myId&&MP.role==='guest'?'  (TOI)':''),66,y+29,180);
+    avDraw(e.av,58,y+5,36,false);ctx.fillStyle=e.id===0?'#ffd45a':'#f2efe8';ctx.font='700 17px '+FONT;ctx.fillText(e.n+(e.id===0?'  ★':'')+(e.id===MP.myId&&MP.role==='guest'?'  (TOI)':''),100,y+29,146);
     ctx.fillStyle='#d8d2c8';ctx.font='700 16px '+FONT;ctx.fillText('NIV '+e.lvl,250,y+29);
     ctx.fillText(e.id===0?'—':e.ping+' ms',320,y+29);
     connBars(372,y+14,e.q);ctx.fillStyle='#b9b1a6';ctx.font='500 11px '+FONT;ctx.fillText(QL[e.q]||'—',402,y+28,60);
@@ -5248,6 +5250,71 @@ function updApply(){
   }
 }
 try{if(location.search&&/[?&](v|t)=/.test(location.search)) history.replaceState(null,'',location.pathname)}catch(e){}
+// ===== V0.57 : profil du joueur (avatar prédéfini + pseudo) =====
+const AV_SK=['#f1c27d','#e2b58c','#c68642','#8d5524','#ffdbac'],AV_HR=['#2a1a10','#4a3020','#8a5a2a','#d8c068','#a02a1a','#b8b8b8','#111111'],AV_TOP=['#a02a2a','#2a5aa0','#2a8a4a','#7a4a9a','#c8801a','#3a3a3a'];
+const AVATARS=[];
+OUTFITS.forEach((o,i)=>{for(const sex of['m','f']){const k=AVATARS.length;AVATARS.push({n:(sex==='f'&&o.nf?o.nf:o.n)+(sex==='f'&&!o.nf?' (F)':''),look:{outfit:i,sex,build:o.belly?1:0,skin:AV_SK[k%5],hair:AV_HR[(k*3)%7],top:null,pants:null,hat:null,shoes:null}})}});
+for(let i=0;i<7;i++) for(let v=0;v<3;v++){const k=AVATARS.length,sex=(i+v)%2?'f':'m';AVATARS.push({n:OUTFITS[i].n+' '+(v+2),look:{outfit:i,sex,build:v===2?1:0,skin:AV_SK[(k+2)%5],hair:AV_HR[(k*5+2)%7],top:AV_TOP[(i+v*2)%6],pants:null,hat:null,shoes:null}})}
+const AV_BG=['#3a4a6a','#6a3a3a','#3a6a4a','#6a5a2a','#5a3a6a','#2a5a6a','#6a3a5a','#4a4a4a'];
+const avIdx=i=>Math.max(0,Math.min(AVATARS.length-1,(i|0)));
+const AVC=new Map();
+function avCanvas(idx,size){                                              // portrait mis en cache : tête et épaules du personnage, dessinés avec la vraie tenue
+  idx=avIdx(idx);const key=idx+'|'+size+'|'+RES;let c=AVC.get(key);if(c) return c;
+  if(AVC.size>300) AVC.clear();
+  const px=Math.max(1,Math.round(size*RES));c=document.createElement('canvas');c.width=c.height=px;
+  const g=c.getContext('2d'),mc=ctx,sl=save.look,sp=prevO,A=AVATARS[idx];
+  ctx=g;g.scale(px/size,px/size);
+  try{
+    const bg=g.createLinearGradient(0,0,0,size);bg.addColorStop(0,AV_BG[idx%AV_BG.length]);bg.addColorStop(1,'#14100e');
+    g.fillStyle=bg;g.beginPath();g.arc(size/2,size/2,size/2,0,7);g.fill();
+    g.save();g.beginPath();g.arc(size/2,size/2,size/2-.5,0,7);g.clip();
+    save.look=A.look;prevO=A.look.outfit;
+    const k=size/60;g.translate(size/2,size*.60+60*k);g.scale(k,k);
+    drawSoldier({x:0,y:0,face:1,step:0,w:0,aim:0,swing:0,cd:0,muz0:0,muz1:0,hurtCd:0});
+    g.restore();
+  }catch(e){}finally{save.look=sl;prevO=sp;ctx=mc}
+  AVC.set(key,c);return c;
+}
+function avDraw(idx,x,y,size,ring){
+  ctx.drawImage(avCanvas(idx,size),x,y,size,size);
+  if(ring){ctx.strokeStyle=ring===true?'#e0a526':ring;ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(x+size/2,y+size/2,size/2,0,7);ctx.stroke()}
+}
+function renamePseudo(){const n=prompt('Ton pseudo (14 caractères max)',mpName());if(n!==null){save.mpname=cleanName(n);persist()}}
+let avPage=0;
+function drawAvatars(){
+  ctx.fillStyle='#000000d8';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
+  ctx.fillStyle='#000';ctx.font='400 38px '+TITLE;ctx.fillText('MON AVATAR',43,61);ctx.fillStyle='#e9e1d0';ctx.fillText('MON AVATAR',40,58);ctx.fillStyle='#7a2c1c';ctx.fillRect(40,66,200,3);
+  const per=32,pages=Math.ceil(AVATARS.length/per);if(avPage>=pages) avPage=0;
+  for(let k=0;k<per;k++){
+    const i=avPage*per+k;if(i>=AVATARS.length) break;
+    const x=40+(k%8)*80,y=92+Math.floor(k/8)*80,sel=i===avIdx(save.avatar),hot=mouse.x>=x&&mouse.x<=x+72&&mouse.y>=y&&mouse.y<=y+72;
+    menuRects.push({x,y,w:72,h:72,act:()=>{save.avatar=i;persist()}});
+    if(hot||sel){ctx.fillStyle=sel?'rgba(224,165,38,.25)':'rgba(255,255,255,.1)';ctx.beginPath();ctx.roundRect(x-3,y-3,78,78,10);ctx.fill()}
+    avDraw(i,x,y,72,sel?'#ffd45a':false);
+  }
+  ctx.fillStyle='#8a8178';ctx.font='500 14px '+FONT;ctx.fillText('PAGE '+(avPage+1)+' / '+pages+'  ·  '+AVATARS.length+' avatars',40,436);
+  panel(700,92,220,320,{});
+  const a=avIdx(save.avatar);avDraw(a,730,110,160,'#e0a526');
+  ctx.textAlign='center';ctx.fillStyle='#f2efe8';ctx.font='700 20px '+FONT;ctx.fillText(cleanName(mpName()),810,306,200);
+  ctx.fillStyle='#b9b1a6';ctx.font='500 14px '+FONT;ctx.fillText(AVATARS[a].n,810,330,200);ctx.fillText('NIVEAU '+curLevel(),810,352);
+  ctx.textAlign='left';
+  btn(menuRects,712,364,196,38,'CHANGER LE PSEUDO',{act:renamePseudo,size:15});
+  btn(menuRects,40,470,200,44,'RETOUR',{act:()=>state='menu'});
+  btn(menuRects,360,452,140,38,'<  PRÉC.',{act:()=>avPage=(avPage+pages-1)%pages,size:14});
+  btn(menuRects,510,452,140,38,'SUIV.  >',{act:()=>avPage=(avPage+1)%pages,size:14});
+}
+function drawProfileCard(){                                               // carte du joueur dans le menu principal : avatar (clic = choisir) + pseudo (clic = changer)
+  const x=520,y=70,w=272,h=78;
+  panel(x,y,w,h,{norivets:true});
+  avDraw(save.avatar,x+9,y+9,60,'#e0a526');
+  menuRects.push({x:x+6,y:y+6,w:66,h:66,act:()=>state='avatars'});
+  menuRects.push({x:x+78,y:y+8,w:w-86,h:34,act:renamePseudo});
+  const hot=mouse.x>=x+78&&mouse.x<=x+w-8&&mouse.y>=y+8&&mouse.y<=y+42;
+  ctx.textAlign='left';ctx.fillStyle=hot?'#ffd45a':'#f2efe8';ctx.font='700 21px '+FONT;ctx.fillText(cleanName(mpName()),x+80,y+32,w-90);
+  ctx.fillStyle='#8a8178';ctx.font='500 12px '+FONT;ctx.fillText(hot?'✎ cliquer pour changer le pseudo':'NIVEAU '+curLevel()+'  ·  ✎ pseudo',x+80,y+48,w-90);
+  ctx.fillStyle='#b9b1a6';ctx.fillText('clic sur l\'avatar : changer',x+80,y+64,w-90);
+}
+
 // --- Boucle ---
 for(const ev of['mousemove','mousedown','mouseup','touchstart','touchmove','keydown','wheel']) addEventListener(ev,()=>{uiDirty=true},{passive:true});
 let last=performance.now();
