@@ -33,7 +33,7 @@ Ou télécharge le dépôt et ouvre `index.html` dans un navigateur moderne.
 - **Multijoueur 3D** : coop (jusqu'à 4, vagues de zombies) et **Battle Royale** (jusqu'à 10 joueurs, chacun pour soi ou par équipes, zone qui rétrécit, butin, classement et récompenses signées par l'hôte)
 - **Mode NIGHTMARE** (2D et 3D, dispo dès le début) : une arme par catégorie changée à la molette (haut = suivante, bas = précédente, configurable), munitions illimitées, vagues infinies de zombies ultra forts ; bonus désactivables (gains ×10 sans, ×9 avec)
 - **Skins** : tous les zombies (et animaux) jouables, skin Sapin de Noël aux guirlandes clignotantes, personnage 2D et 3D plus détaillé
-- **C02 Anti-Cheat v1.2** : coffre chiffré de la sauvegarde (AES-GCM, clé non extractable liée à l'appareil) — un éditeur de sauvegarde peut modifier le fichier mais la modification est annulée au démarrage ; exports signés par l'appareil ; contrôle des données des armes et zombies ; surveillance en 3D
+- **C02 Anti-Cheat v1.2** : coffre chiffré de la sauvegarde (AES-GCM, clé non extractable liée à l'appareil) — un éditeur de sauvegarde peut modifier le fichier mais la modification est annulée au démarrage ; exports signés par l'appareil (les sauvegardes d'une mise à jour antérieure restent importables) ; contrôle des données des armes et zombies ; surveillance en 3D
 - Visée souris ou tir dans la direction du déplacement, touches configurables, pause (Échap / P)
 - Cartes (6), difficultés, boss toutes les 5 manches, manche finale du magicien qui débloque la carte suivante
 - Boosts améliorables (24 types : barricade, nounours piégé, mines, drone, molotov…), roulette du jour, Seconde vie

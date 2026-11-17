@@ -155,7 +155,7 @@ function resWanted(vw){
 }
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.63';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.64';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -773,8 +773,8 @@ var VAULT=(()=>{
   const getKey=async(db,name,algo,usages)=>{let k=await rq(db.transaction('s').objectStore('s').get(name));if(!k){k=await crypto.subtle.generateKey(algo,false,usages);await put(db,name,k)}return k};
   const AES={name:'AES-GCM',length:256},HM={name:'HMAC',hash:'SHA-256'};
   const enc=new TextEncoder(),b64=u=>btoa(String.fromCharCode(...new Uint8Array(u))),unb64=t=>Uint8Array.from(atob(t),c=>c.charCodeAt(0));
-  async function sealNow(obj){const db=await idb();try{const k=await getKey(db,'key',AES,['encrypt','decrypt']),iv=crypto.getRandomValues(new Uint8Array(12));
-    const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},k,enc.encode(JSON.stringify({v:GAME_VERSION,t:Date.now(),s:obj})));await put(db,'v',{iv,ct})}finally{db.close()}}
+  async function sealNow(obj,imp){const db=await idb();try{const k=await getKey(db,'key',AES,['encrypt','decrypt']),iv=crypto.getRandomValues(new Uint8Array(12));
+    const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv},k,enc.encode(JSON.stringify({v:GAME_VERSION,t:Date.now(),s:obj,imp:imp?1:0})));await put(db,'v',{iv,ct})}finally{db.close()}}
   async function openNow(){const db=await idb();try{const v=await rq(db.transaction('s').objectStore('s').get('v'));if(!v) return null;
     const k=await rq(db.transaction('s').objectStore('s').get('key'));if(!k) return 'bad';
     try{return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:v.iv},k,v.ct)))}catch(e){return 'bad'}}finally{db.close()}}
@@ -783,7 +783,7 @@ var VAULT=(()=>{
   const clone=o=>JSON.parse(JSON.stringify(o));
   return{ok,
     seal(obj){if(!ok||halt) return Promise.resolve();const c=clone(obj);return q=q.then(()=>sealNow(c)).catch(()=>{})},
-    sealThen(obj,cb){if(!ok){cb();return}halt=false;const c=clone(obj);q=q.then(()=>sealNow(c)).catch(()=>{}).then(()=>cb())},
+    sealThen(obj,cb,imp){if(!ok){cb();return}halt=false;const c=clone(obj);q=q.then(()=>sealNow(c,imp)).catch(()=>{}).then(()=>cb())},
     clearThen(cb){if(!ok){cb();return}q=q.then(async()=>{try{const db=await idb();try{const tx=db.transaction('s','readwrite');tx.objectStore('s').clear();await new Promise(r=>tx.oncomplete=r)}finally{db.close()}}catch(e){}}).then(()=>cb())},
     mac:t=>ok?macNow(t).catch(()=>''):Promise.resolve(''),macOk:(t,s2)=>ok?macOk(t,s2):Promise.resolve(false),
     open:()=>ok?q.then(()=>openNow()).catch(()=>undefined):Promise.resolve(undefined),
@@ -799,7 +799,7 @@ var VAULT=(()=>{
           try{localStorage.setItem('zs_vault_on','1')}catch(e){}
           await sealNow(clone(save));return}
         if(!v||typeof v!=='object'||!v.s){ACG.st.vault='bad';await sealNow(clone(save));return}
-        if(v.v!==GAME_VERSION){ACG.st.vault='ok';await sealNow(clone(save));return}           // changement de version : migration légitime, le coffre est refait
+        if(v.imp||v.v!==GAME_VERSION){ACG.st.vault='ok';await sealNow(clone(save));return}           // import légitime ou changement de version : le coffre est refait           // changement de version : migration légitime, le coffre est refait
         const cur=ACG.canon(save),old=ACG.canon(v.s);
         if(cur===old){ACG.st.vault='ok';return}
         let guard=false;try{guard=sessionStorage.getItem('zs_vault_rs')==='1'}catch(e){}
@@ -855,18 +855,22 @@ function importSave(){
       try{
         let o=JSON.parse(rd.result);const vs=o&&o.vs;if(o&&o.data) o=o.data;
         if(!o||typeof o!=='object'||typeof o.own!=='object'||isNaN(+o.bank)) throw 0;
-        if(o.ac&&o.ac.s&&o.ac.s!==ACG.sign(ACG.canon(o))){saveNote('Fichier modifié : import refusé (C02 Anti-Cheat)');return}
         if(ACG.plaus(o).length){saveNote('Valeurs impossibles : import refusé (C02 Anti-Cheat)');return}
-        // contrôle du coffre : signature de l'appareil valide, sinon le fichier ne doit rien apporter de plus que ce qui est déjà dans le coffre
-        if(VAULT.ok){
-          const good=vs?await VAULT.macOk(ACG.canon(o),vs):false;
-          if(!good){const cur=await VAULT.open();
-            if(cur&&cur!=='bad'&&cur.s){if(!notBetter(o,cur.s)){saveNote('Import refusé (C02 Anti-Cheat) : fichier non signé par cet appareil et supérieur à ta progression');return}}
-            else if(cur==='bad'){saveNote('Import refusé : coffre de sauvegarde illisible');return}}
+        const older=!o.ver||verCmp(String(o.ver),GAME_VERSION)<0;              // sauvegarde exportée par une mise à jour antérieure
+        const sigOk=o.ac&&o.ac.s?o.ac.s===ACG.sign(ACG.canon(o)):null;
+        let how='';
+        if(VAULT.ok&&vs&&await VAULT.macOk(ACG.canon(o),vs)) how='appareil';                 // exportée par cet appareil : toujours acceptée
+        else if(older&&sigOk!==false||older&&sigOk===false) how='ancienne version';          // ancienne mise à jour : acceptée (vérifications de plausibilité faites)
+        else if(sigOk!==false){                                                              // version actuelle sans signature d'appareil : ne doit rien apporter de plus que le coffre
+          const cur=VAULT.ok?await VAULT.open():null;
+          if(cur&&cur!=='bad'&&cur.s&&notBetter(o,cur.s)) how='coffre';
+          else if(!VAULT.ok||cur===null||cur===undefined) how='sans coffre';
         }
+        if(!how){saveNote('Import refusé (C02 Anti-Cheat) : fichier modifié ou non signé par cet appareil');return}
+        ACG.note('Import de sauvegarde accepté ('+how+(o.ver?', V'+o.ver:'')+')');
         delete o.ac;try{localStorage.setItem('zs_acimp','1')}catch(e){}
-        const apply=()=>{localStorage.setItem(SAVE_KEY+'_bak',localStorage.getItem(SAVE_KEY)||JSON.stringify(save));localStorage.setItem(SAVE_KEY,JSON.stringify(o));noPersist=true;saveNote('Progression importée…');setTimeout(()=>location.reload(),600)};
-        VAULT.sealThen(o,apply);
+        const apply=()=>{localStorage.setItem(SAVE_KEY+'_bak',localStorage.getItem(SAVE_KEY)||JSON.stringify(save));localStorage.setItem(SAVE_KEY,JSON.stringify(o));noPersist=true;saveNote('Progression importée'+(older?' (version antérieure convertie)':'')+'…');setTimeout(()=>location.reload(),600)};
+        VAULT.sealThen(o,apply,true);
       }catch(e){saveNote('Fichier invalide')}
     };
     rd.readAsText(f);
@@ -3204,8 +3208,17 @@ function drawMenuBody(){
   }
   if(state==='menu'){
     drawProfileCard();
-    {const it=[['JOUER',()=>{mapTrain=false;training=false;NM.on=false;state='maps'}],['NIGHTMARE  ·  infini',()=>{if(MP.on) return;mapTrain=false;training=false;state='nmsetup'}],['MULTIJOUEUR'+(gameMode==='3D'?'  ·  3D : coop / battle royale':''),()=>{MP.msg='';MP.status='off';state='mpmenu'}],['ARSENAL',openUpgrades],['ENTRAÎNEMENT',()=>{mapTrain=true;state='maps'}],['PERSONNALISATION',()=>state='custom'],['BOUTIQUE',()=>state='shop'],['OPTIONS',()=>{optFrom='menu';state='options'}],['CRÉDITS',()=>state='credits'],['QUITTER',()=>state='quit']];
-     it.forEach(([lab,act],k)=>btn(menuRects,70,232+k*31,300,28,lab,{act,size:18}))}
+    {const it=[['JOUER',()=>{mapTrain=false;training=false;NM.on=false;state='maps'},'solo · cartes et difficultés'],
+      ['NIGHTMARE',()=>{if(MP.on) return;mapTrain=false;training=false;state='nmsetup'},'mode infini · 2D et 3D'],
+      ['MULTIJOUEUR',()=>{MP.msg='';MP.status='off';state='mpmenu'},gameMode==='3D'?'3D : coop · battle royale':'coop · remote play'],
+      ['ENTRAÎNEMENT',()=>{mapTrain=true;state='maps'},'toutes les armes, rien n\'est sauvé'],
+      ['ARSENAL',openUpgrades,'armes · boosts · améliorations'],
+      ['PERSONNALISATION',()=>state='custom','skins · zombies · sapin'],
+      ['BOUTIQUE',()=>state='shop','tenues et packs'],
+      ['OPTIONS',()=>{optFrom='menu';state='options'},'jeu · son · graphismes · touches'],
+      ['CRÉDITS',()=>state='credits',''],
+      ['QUITTER',()=>state='quit','']];
+     it.forEach(([lab,act,sub],k)=>{const col=k<5?0:1,row=k%5;btn(menuRects,60+col*250,240+row*56,240,50,lab,{act,size:19,sub})})}
     {const li=langInfo(),x=W-210,y=H-104,w=170,h=36,hot=mouse.x>=x&&mouse.x<=x+w&&mouse.y>=y&&mouse.y<=y+h;menuRects.push({x,y,w,h,act:()=>state='lang'});
      panel(x,y,w,h,{top:hot?'#4a2018':'#2d2723',bot:hot?'#2a100c':'#17120f',edge:hot?'#e2542e':'#4a3a2e',norivets:true});drawFlag(li.f,x+10,y+6,34,24);
      ctx.fillStyle='#f2efe8';ctx.font='700 15px '+FONT;ctx.textAlign='left';ctx.fillText(li.n,x+54,y+24,w-62)}
