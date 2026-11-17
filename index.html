@@ -41,7 +41,7 @@ function resWanted(vw){
 }
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.47';   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.48';   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -742,11 +742,12 @@ addEventListener('keydown',e=>{
   else if(state==='pause' && e.code==='Escape' && !e.repeat){if(pauseConfirm) pauseConfirm=false; else closePause()}
   else if(state==='trainpick' && e.code==='Escape') state='pause';
   else if(state==='weapon' && e.code==='Escape') state='upgrades';
-  else if(state==='wheel' && e.code==='Escape'){wheelConf=false;state='boosts'}
+  else if(state==='wheel' && e.code==='Escape'){wheelConf=false;state=wheelFrom==='menu'?'menu':'boosts'}
+  else if(state==='boosts' && e.code==='Escape') state='upgrades';
   else if(state==='keys' && e.code==='Escape') state='options';
   else if((state==='maps'||state==='quit'||state==='bye'||state==='shop')&&e.code==='Escape') state='menu';
   else if(state==='saves'&&e.code==='Escape'){saveConfirm=false;state='options'}
-  else if((state==='options'||state==='credits'||state==='upgrades'||state==='custom'||state==='lang'||state==='boosts') && e.code==='Escape') state=(state==='options'&&optFrom==='pause')?'pause':'menu';
+  else if((state==='options'||state==='credits'||state==='upgrades'||state==='custom'||state==='lang') && e.code==='Escape') state=(state==='options'&&optFrom==='pause')?'pause':'menu';
 });
 addEventListener('keyup',e=>keys[e.code]=false);
 let sliderActive=null;
@@ -765,7 +766,7 @@ function layoutTouch(){
   Object.assign(TPICK,{x:W-rr-100,y:H-268});Object.assign(TPAUSE,{x:W-rr-56,y:84});Object.assign(STOCK,{x:W-rr-262,y:H-76});
 }
 layoutTouch();
-const MENU_STATES=['menu','shop','quit','bye','maps','saves','options','credits','upgrades','weapon','keys','custom','lang','pause','trainpick','over'];
+const MENU_STATES=['menu','shop','quit','bye','maps','saves','options','credits','upgrades','weapon','keys','custom','lang','pause','trainpick','over','boosts','wheel'];
 let autoTarget=null;
 const inR=(p,r)=>p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h;
 function tpos(t){
@@ -2685,11 +2686,23 @@ function drawMenuBody(){
     ctx.textAlign='left';ctx.font='700 14px '+FONT;ctx.fillStyle='#ffd45a';ctx.fillText('★  ÉDITION NOËL APOCALYPTIQUE  ★',70,50);
   }
   if(state==='menu'){
-    {const it=[['JOUER',()=>{mapTrain=false;training=false;state='maps'}],['ARSENAL',openUpgrades],['BOOSTS'+(freeReady()?'  ●':''),()=>{training=false;state='boosts'}],['ENTRAÎNEMENT',()=>{mapTrain=true;state='maps'}],['PERSONNALISATION',()=>state='custom'],['BOUTIQUE',()=>state='shop'],['OPTIONS',()=>{optFrom='menu';state='options'}],['CRÉDITS',()=>state='credits'],['QUITTER',()=>state='quit']];
-     it.forEach(([lab,act],k)=>btn(menuRects,70,236+k*30,300,27,lab,{act,size:18}))}
+    {const it=[['JOUER',()=>{mapTrain=false;training=false;state='maps'}],['ARSENAL',openUpgrades],['ENTRAÎNEMENT',()=>{mapTrain=true;state='maps'}],['PERSONNALISATION',()=>state='custom'],['BOUTIQUE',()=>state='shop'],['OPTIONS',()=>{optFrom='menu';state='options'}],['CRÉDITS',()=>state='credits'],['QUITTER',()=>state='quit']];
+     it.forEach(([lab,act],k)=>btn(menuRects,70,238+k*32,300,29,lab,{act,size:19}))}
     {const li=langInfo(),x=W-210,y=H-104,w=170,h=36,hot=mouse.x>=x&&mouse.x<=x+w&&mouse.y>=y&&mouse.y<=y+h;menuRects.push({x,y,w,h,act:()=>state='lang'});
      panel(x,y,w,h,{top:hot?'#4a2018':'#2d2723',bot:hot?'#2a100c':'#17120f',edge:hot?'#e2542e':'#4a3a2e',norivets:true});drawFlag(li.f,x+10,y+6,34,24);
      ctx.fillStyle='#f2efe8';ctx.font='700 15px '+FONT;ctx.textAlign='left';ctx.fillText(li.n,x+54,y+24,w-62)}
+    {const cx=W-110,cy=122,r=42,ids=['heal','dmg','freeze','turret','mine','barricade','molotov','shield'],fr=freeReady(),hot=Math.hypot(mouse.x-cx,mouse.y-cy)<r+8;
+     menuRects.push({x:cx-r-8,y:cy-r-8,w:2*r+16,h:2*r+34,act:()=>{wheelConf=false;wheelFrom='menu';state='wheel'}});
+     ctx.save();ctx.translate(cx,cy);if(hot||fr){ctx.shadowColor=fr?'#ffd45a':'#e2542e';ctx.shadowBlur=18}
+     ctx.fillStyle='#14100e';ctx.beginPath();ctx.arc(0,0,r+6,0,7);ctx.fill();ctx.strokeStyle=hot?'#e2542e':'#7a2c1c';ctx.lineWidth=3;ctx.stroke();ctx.shadowBlur=0;
+     ctx.rotate(tick*(fr||hot?.025:.006));
+     for(let i=0;i<8;i++){ctx.beginPath();ctx.moveTo(0,0);ctx.arc(0,0,r,i*Math.PI/4,(i+1)*Math.PI/4);ctx.closePath();ctx.fillStyle=BON[ids[i]].c;ctx.fill();ctx.fillStyle=i%2?'rgba(0,0,0,.35)':'rgba(255,255,255,.08)';ctx.fill();ctx.strokeStyle='#0b0908';ctx.lineWidth=1.5;ctx.stroke()}
+     ctx.restore();
+     ctx.fillStyle='#0b0908';ctx.beginPath();ctx.arc(cx,cy,10,0,7);ctx.fill();ctx.fillStyle='#e0a526';ctx.beginPath();ctx.arc(cx,cy,6,0,7);ctx.fill();
+     ctx.fillStyle='#e2542e';ctx.strokeStyle='#0b0908';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(cx-7,cy-r-9);ctx.lineTo(cx+7,cy-r-9);ctx.lineTo(cx,cy-r+3);ctx.closePath();ctx.stroke();ctx.fill();
+     ctx.textAlign='center';ctx.font='700 17px '+FONT;ctx.fillStyle=hot?'#fff':'#f2efe8';ctx.fillText('TIRAGE',cx,cy+r+24);
+     if(fr){const pu=1+.12*Math.sin(tick*.15);ctx.fillStyle='#d62d2d';ctx.beginPath();ctx.arc(cx+r-4,cy-r+8,11*pu,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.font='900 15px '+FONT;ctx.fillText('!',cx+r-4,cy-r+13)}
+     ctx.textAlign='left'}
     btn(menuRects,W-220,H-60,180,38,tr('Plein écran  ({0})',kn('full')).toUpperCase(),{act:toggleFull,size:15});
     ctx.fillStyle='#e0a526';ctx.font='700 24px '+FONT;ctx.textAlign='right';
     ctx.fillText(tr('Niveau').toUpperCase()+' '+curLevel()+'   ·   $'+save.bank+'   ·   '+tr('Record : vague {0}',save.best).toUpperCase(),W-40,50);ctx.textAlign='left';
@@ -3667,7 +3680,7 @@ function drawEnts(){
 }
 // --- Roulette du jour ---
 const DAY=864e5;
-let wheel={ang:0,from:0,to:0,t:0,dur:0,res:null,spin:false,win:null,gold:false},wheelConf=false,bPage=0;
+let wheelFrom='boosts',wheel={ang:0,from:0,to:0,t:0,dur:0,res:null,spin:false,win:null,gold:false},wheelConf=false,bPage=0;
 const wheelIds=()=>BKEYS();
 const freeReady=()=>Date.now()-save.daily.last>=DAY;
 const spinPrice=()=>freeReady()?0:Math.min(6400,100*Math.pow(2,save.daily.buys||0));
@@ -3725,7 +3738,7 @@ function drawWheel(){
   ctx.fillText('Le prix des tirages payants revient à $100 quand le tirage gratuit revient (toutes les 24 h).',X,392,400);
   ctx.fillText('Le boost gagné peut être n\'importe lequel, même non débloqué. 8 % de chance de version dorée.',X,412,400);
   if(wheel.res&&!wheel.spin){ctx.fillStyle='#ffd45a';ctx.font='700 22px '+FONT;ctx.fillText('GAGNÉ : '+BON[wheel.res].n+(wheel.gold?' (DORÉ)':'')+' !',X,444,400)}
-  btn(menuRects,40,484,200,44,'RETOUR',{act:()=>{wheelConf=false;state='boosts'}});
+  btn(menuRects,40,484,200,44,'RETOUR',{act:()=>{wheelConf=false;state=wheelFrom==='menu'?'menu':'boosts'}});
   if(msgT>0){msgT--;ctx.fillStyle='#e2542e';ctx.font='700 18px '+FONT;ctx.fillText(msg.toUpperCase(),260,512,640)}
 }
 // --- Page BOOSTS ---
@@ -3756,8 +3769,8 @@ function drawBoosts(){
   ctx.fillStyle='#d8d2c8';ctx.font='500 15px '+FONT;ctx.fillText(tr('Niveau').toUpperCase()+' '+L,W-40,64);ctx.textAlign='left';
   const per=9,pages=Math.ceil(BOOSTS.length/per);if(bPage>=pages) bPage=0;
   for(let k=0;k<per;k++){const b=BOOSTS[bPage*per+k];if(!b) break;boostCard(b,40+(k%3)*300,92+Math.floor(k/3)*128,290,120)}
-  btn(menuRects,40,484,200,44,'RETOUR',{act:()=>reset(true)});
-  btn(menuRects,250,484,300,44,freeReady()?'ROULETTE  ·  GRATUIT !':'ROULETTE DU JOUR',{act:()=>{wheelConf=false;state='wheel'},size:20});
+  btn(menuRects,40,484,200,44,'RETOUR',{act:()=>state='upgrades'});
+  btn(menuRects,250,484,300,44,freeReady()?'ROULETTE  ·  GRATUIT !':'ROULETTE DU JOUR',{act:()=>{wheelConf=false;wheelFrom='boosts';state='wheel'},size:20});
   ctx.fillStyle='#8a8178';ctx.font='500 14px '+FONT;ctx.textAlign='right';ctx.fillText('PAGE '+(bPage+1)+' / '+pages,W-40,476);ctx.textAlign='left';
   btn(menuRects,W-300,484,120,44,'<  PRÉC.',{act:()=>bPage=(bPage+pages-1)%pages,size:14});
   btn(menuRects,W-170,484,130,44,'SUIV.  >',{act:()=>bPage=(bPage+1)%pages,size:14});
