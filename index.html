@@ -36,23 +36,98 @@ const PROFS=[{id:'auto',n:'AUTO'},
  {id:'eco',n:'ÉCO',gfx:'std',fps:30,lights:0,fog:0,refl:0,post:0,bloom:0,parts:0},
  {id:'low',n:'BAS',gfx:'std',fps:60,lights:0,fog:0,refl:0,post:0,bloom:0,parts:1},
  {id:'med',n:'MOYEN',gfx:'high',fps:60,lights:1,fog:0,refl:0,post:1,bloom:0,parts:1},
- {id:'high',n:'ÉLEVÉ',gfx:'high',fps:60,lights:1,fog:1,refl:1,post:1,bloom:0,parts:2},
- {id:'ultra',n:'ULTRA',gfx:'ultra',fps:60,lights:1,fog:1,refl:1,post:1,bloom:0,parts:2},
- {id:'extreme',n:'EXTRÊME',gfx:'4k',fps:60,lights:1,fog:1,refl:1,post:1,bloom:1,parts:3},
+ {id:'high',n:'ÉLEVÉ',gfx:'high',fps:0,lights:1,fog:1,refl:1,post:1,bloom:0,parts:2},
+ {id:'ultra',n:'ULTRA',gfx:'ultra',fps:0,lights:1,fog:1,refl:1,post:1,bloom:0,parts:2},
+ {id:'extreme',n:'EXTRÊME',gfx:'4k',fps:0,lights:1,fog:1,refl:1,post:1,bloom:1,parts:3},
  {id:'custom',n:'PERSONNALISÉ'}];
 const PARTS=[{n:'MINIMALES',q:.3,max:110},{n:'RÉDUITES',q:.6,max:240},{n:'NORMALES',q:1,max:520},{n:'MAXIMALES',q:1.7,max:1000}];
 let autoDrop=MOBILE?2:0;                                              // paliers d'économie automatiques (profil AUTO) : 1 bloom · 2 reflets · 3 brume · 4 lumières · 5 vignette/grain · 6 particules
 let FXF={lights:1,fog:1,refl:1,post:1,bloom:0,pq:1,pmax:520,fps:60,xtra:0};
+// --- taux de rafraîchissement de l'écran : mesuré à l'exécution, les limites de FPS proposées vont jusqu'à lui ---
+let HZ=60,HZm=60,hzS=[];
+function hzSample(dt){
+  if(document.hidden||dt<.4||dt>60) return;
+  hzS.push(dt);
+  if(hzS.length>=90){
+    hzS.sort((a,b)=>a-b);const est=1000/hzS[Math.floor(hzS.length*.1)];hzS=[];
+    let best=Math.round(est);for(const v of[24,30,48,50,60,72,75,85,90,100,120,144,165,180,200,240,280,300,360,480,500,1000]) if(Math.abs(v-est)/v<.06){best=v;break}
+    if(best>HZm||!hzSample.set){HZm=hzSample.set?Math.max(HZm,best):best;hzSample.set=1}
+  }
+}
+function fpsOptions(){const o=[30,45,60,75,90,120,144,165,240,360,480,500,1000].filter(v=>v<HZ-1);return o.concat([0])}   // 0 = taux de l'écran
+const fpsName=v=>v>0?String(v):'ÉCRAN ('+HZ+')';
+// --- compteur FPS (à la Steam) ---
+const FC_DEF={on:false,fx:0,fy:0,pos:'tl',size:1,op:.9,bg:1,col:'auto',fps:1,ms:0,low:0,avg:0,res:0,prof:0,graph:0};
+const FT=new Float32Array(240);let ftN=0,fcT=0,fcFrames=0,fcStat={fps:0,ms:0,low:0,avg:0,min:0,max:0};
+function ftPush(d){FT[ftN%240]=d;ftN++;fcFrames++}
+function fcUpdate(t){
+  if(t-fcT<250) return;
+  const el=t-fcT;fcT=t;fcStat.fps=Math.round(fcFrames*1000/el);fcFrames=0;
+  const n=Math.min(240,ftN);if(n<3) return;
+  const a=Array.from(FT.subarray(0,n)).sort((x,y)=>x-y);let sum=0;for(const v of a) sum+=v;
+  fcStat.low=1000/a[Math.min(n-1,Math.floor(n*.99))];fcStat.min=1000/a[n-1];fcStat.max=1000/a[0];fcStat.avg=1000*n/sum;
+  let r=0;const m=Math.min(15,n);for(let i=0;i<m;i++) r+=FT[(ftN-1-i+240)%240];fcStat.ms=r/m;
+}
+function drawFps(){
+  const f=SET.fc;if(!f.on) return;
+  const st=fcStat,L=[];
+  if(f.fps) L.push([String(st.fps),'FPS',1]);
+  if(f.ms) L.push([st.ms.toFixed(1)+' ms','',0]);
+  if(f.low) L.push(['1 % bas  '+Math.round(st.low),'',0]);
+  if(f.avg) L.push(['moy '+Math.round(st.avg)+'   min '+Math.round(st.min)+'   max '+Math.round(st.max),'',0]);
+  if(f.res) L.push([cv.width+'×'+cv.height+'  ('+RES+'×)','',0]);
+  if(f.prof) L.push([(PROFS.find(x=>x.id===SET.prof)||PROFS[0]).n+(SET.prof==='auto'&&autoDrop?' (−'+autoDrop+')':''),'',0]);
+  const sz=f.size;
+  ctx.save();ctx.setTransform(RES,0,0,RES,0,0);
+  let bw=0,bh=8*sz;
+  for(const l of L){ctx.font=(l[2]?'700 ':'600 ')+(l[2]?24:13)*sz+'px '+FONT;let w=ctx.measureText(l[0]).width;if(l[1]){ctx.font='600 '+11*sz+'px '+FONT;w+=ctx.measureText(l[1]).width+6*sz}bw=Math.max(bw,w);bh+=(l[2]?28:17)*sz}
+  const gh=f.graph?34*sz:0,gw=Math.max(bw,100*sz);if(f.graph){bw=gw;bh+=gh+4*sz}
+  bw+=16*sz;if(!L.length&&!f.graph){ctx.restore();return}
+  const m=8,x=m+f.fx*Math.max(0,W-bw-2*m),y=m+f.fy*Math.max(0,H-bh-2*m);
+  ctx.globalAlpha=f.op;
+  if(f.bg){ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(x,y,bw,bh)}
+  const colOf=v=>f.col==='white'?'#f2f2f2':f.col==='green'?'#7dff6a':f.col==='yellow'?'#ffe14a':(v>=55?'#7dff6a':v>=30?'#ffe14a':'#ff6a5a');
+  let cy=y+4*sz;ctx.textAlign='left';
+  for(const l of L){
+    const big=l[2];cy+=(big?24:13)*sz+(big?0:1);
+    ctx.font=(big?'700 ':'600 ')+(big?24:13)*sz+'px '+FONT;
+    const c=big?colOf(st.fps):(f.col==='auto'?'#e8e8e8':colOf(60));
+    if(!f.bg){ctx.fillStyle='#000';ctx.fillText(l[0],x+8*sz+1,cy+1)}
+    ctx.fillStyle=c;ctx.fillText(l[0],x+8*sz,cy);
+    if(l[1]){const w=ctx.measureText(l[0]).width;ctx.font='600 '+11*sz+'px '+FONT;ctx.fillStyle='#c8c8c8';ctx.fillText(l[1],x+8*sz+w+6*sz,cy)}
+    cy+=(big?4:3)*sz;
+  }
+  if(f.graph){
+    const gx=x+8*sz,gy=y+bh-gh-4*sz,n=Math.min(90,ftN),bwid=(gw)/90;
+    ctx.fillStyle='rgba(255,255,255,.08)';ctx.fillRect(gx,gy,gw,gh);
+    for(let i=0;i<n;i++){const d=FT[(ftN-1-i+240)%240],hh=Math.min(gh,gh*d/50);ctx.fillStyle=d<=18?'#7dff6a':d<=33?'#ffe14a':'#ff6a5a';ctx.fillRect(gx+gw-(i+1)*bwid,gy+gh-hh,Math.max(1,bwid-.5),hh)}
+  }
+  ctx.restore();
+}
+// --- interpolation : à plus de 60 FPS, les positions sont lissées entre deux pas de logique ---
+let prevValid=false,prevCam=0,intList=[],savedCam=0;
+function snapPrev(){
+  const f=o=>{o.px=o.x;o.py=o.y};
+  f(player);for(const z of zombies) f(z);for(const b of bullets) f(b);for(const q of particles) f(q);for(const a of acid) f(a);for(const b of bonuses) f(b);for(const c of crates) f(c);for(const e of ents) f(e);
+  prevCam=camX;prevValid=true;
+}
+function interpOn(al){
+  intList.length=0;
+  const g=o=>{if(o.px===undefined) return;const dx=o.x-o.px,dy=o.y-o.py;if((dx===0&&dy===0)||dx*dx+dy*dy>40000) return;o.sx=o.x;o.sy=o.y;o.x=o.px+dx*al;o.y=o.py+dy*al;intList.push(o)};
+  g(player);for(const z of zombies) g(z);for(const b of bullets) g(b);for(const q of particles) g(q);for(const a of acid) g(a);for(const b of bonuses) g(b);for(const c of crates) g(c);for(const e of ents) g(e);
+  savedCam=camX;const dc=camX-prevCam;if(Math.abs(dc)<300) camX=prevCam+dc*al;
+}
+function interpOff(){for(const o of intList){o.x=o.sx;o.y=o.sy}intList.length=0;camX=savedCam}
 function fxUpdate(){
-  const s=SET,a=s.prof==='auto'?autoDrop:0;
+  const s=SET;HZ=s.hz>0?s.hz:HZm;const a=s.prof==='auto'?autoDrop:0;
   let pi=Math.max(0,Math.min(3,s.parts|0));if(a>=1) pi=Math.min(pi,2);if(a>=5) pi=Math.min(pi,1);if(a>=6) pi=0;
   FXF.lights=s.lights&&a<4?1:0;FXF.fog=s.fog&&a<3?1:0;FXF.refl=s.refl&&a<2?1:0;FXF.post=s.post&&a<5?1:0;FXF.bloom=s.bloom&&a<1?1:0;
-  FXF.pq=PARTS[pi].q;FXF.pmax=PARTS[pi].max;FXF.fps=s.fps===30?30:60;
+  FXF.pq=PARTS[pi].q;FXF.pmax=PARTS[pi].max;FXF.fps=s.fps>0?Math.max(15,Math.min(s.fps,HZ)):HZ;
   FXF.xtra=(s.bloom&&s.fog&&s.lights&&pi>=3&&a<1)?1:0;               // qualité supérieure : plus de brume, de rayons de lumière et de particules
 }
 function setProfile(id){
   const p=PROFS.find(x=>x.id===id)||PROFS[0];SET.prof=p.id;
-  if(p.id==='auto'){Object.assign(SET,{gfx:'auto',lights:1,fog:1,refl:1,post:1,bloom:0,parts:2,fps:60});autoDrop=MOBILE?2:0}
+  if(p.id==='auto'){Object.assign(SET,{gfx:'auto',lights:1,fog:1,refl:1,post:1,bloom:0,parts:2,fps:0});autoDrop=MOBILE?2:0}
   else if(p.id!=='custom'){Object.assign(SET,{gfx:p.gfx,fps:p.fps,lights:p.lights,fog:p.fog,refl:p.refl,post:p.post,bloom:p.bloom,parts:p.parts})}
   saveOpts();fit();
 }
@@ -67,10 +142,7 @@ function doBloom(){                                                    // lueur 
   b.drawImage(BLC,0,0);try{b.filter='none'}catch(e){}
   ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=ok?.5:.22;ctx.drawImage(BLC2,0,0,W,H);ctx.restore();
 }
-function drawFps(){
-  ctx.save();ctx.setTransform(RES,0,0,RES,0,0);const t=fpsShow+' FPS  ·  '+RES+'×  ·  '+(PROFS.find(x=>x.id===SET.prof)||PROFS[0]).n+(SET.prof==='auto'&&autoDrop?' (−'+autoDrop+')':'');
-  ctx.font='700 13px '+FONT;ctx.textAlign='center';const w=ctx.measureText(t).width+20;ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(W/2-w/2,2,w,20);ctx.fillStyle=fpsShow>=55?'#9fd18a':fpsShow>=30?'#ffd45a':'#ff7a6a';ctx.fillText(t,W/2,16);ctx.restore();
-}
+
 function resWanted(vw){
   let g='auto';try{g=SET.gfx||'auto'}catch(e){}
   const q=GFX.find(x=>x.id===g)||GFX[0];
@@ -81,7 +153,7 @@ function resWanted(vw){
 }
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.50';   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.51';   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -353,7 +425,7 @@ const ZTYPES = {
 };
 
 // --- État ---
-const SET={gore:true,fete:true,gfx:'auto',shake:true,blood:true,aim:'mouse',vol:.6,music:true,mvol:.5,lang:null,prof:'auto',lights:1,fog:1,refl:1,post:1,bloom:0,parts:2,fps:60,showfps:false};   // aim : 'mouse' (visée à la souris) ou 'dir' (tir droit dans le sens du déplacement)
+const SET={gore:true,fete:true,gfx:'auto',shake:true,blood:true,aim:'mouse',vol:.6,music:true,mvol:.5,lang:null,prof:'auto',lights:1,fog:1,refl:1,post:1,bloom:0,parts:2,fps:0,hz:0,fc:null};   // aim : 'mouse' (visée à la souris) ou 'dir' (tir droit dans le sens du déplacement)
 // Progression conservée entre les parties (menu Améliorations uniquement)
 const SAVE_KEY='zs_save_v5';
 let save={bank:0,xp:0,own:{'Couteau':true,'Glock 17':true},melee:'Couteau',up:{},hpLvl:0,dmgLvl:0,best:0};
@@ -406,9 +478,9 @@ const DEFAULT_KEYS={left:['KeyA','ArrowLeft'],right:['KeyD','ArrowRight'],jump:[
 const KEYS={};
 function loadKeys(){for(const a in DEFAULT_KEYS) KEYS[a]=(save.keys&&Array.isArray(save.keys[a]))?[save.keys[a][0]||'',save.keys[a][1]||'']:DEFAULT_KEYS[a].slice();
   const pk=KEYS.pause.filter(k=>k&&k!=='Escape');KEYS.pause=[pk[0]||'',pk[1]||'']}   // Échap ouvre maintenant le menu pause
-loadKeys();Object.assign(SET,save.opts||{});if(!GFX.some(q=>q.id===SET.gfx)) SET.gfx='auto';if(!PROFS.some(q=>q.id===SET.prof)) SET.prof='auto';SET.parts=Math.max(0,Math.min(3,SET.parts|0));SET.fps=SET.fps===30?30:60;for(const k of['lights','fog','refl','post','bloom']) SET[k]=SET[k]?1:0;fxUpdate();
+loadKeys();Object.assign(SET,save.opts||{});if(!GFX.some(q=>q.id===SET.gfx)) SET.gfx='auto';if(!PROFS.some(q=>q.id===SET.prof)) SET.prof='auto';SET.parts=Math.max(0,Math.min(3,SET.parts|0));SET.hz=(+SET.hz>0)?Math.max(24,Math.min(1000,+SET.hz|0)):0;SET.fps=(+SET.fps>0)?Math.max(15,Math.min(1000,+SET.fps|0)):0;{const ob=(save.opts||{});SET.fc=Object.assign({},FC_DEF,ob.fc||{});if(ob.showfps) SET.fc.on=true;delete SET.showfps}for(const k of['lights','fog','refl','post','bloom']) SET[k]=SET[k]?1:0;fxUpdate();
 function saveKeys(){save.keys=JSON.parse(JSON.stringify(KEYS));persist()}
-function saveOpts(){save.opts={gore:SET.gore,fete:SET.fete,gfx:SET.gfx,shake:SET.shake,blood:SET.blood,aim:SET.aim,vol:SET.vol,music:SET.music,mvol:SET.mvol,lang:SET.lang,prof:SET.prof,lights:SET.lights,fog:SET.fog,refl:SET.refl,post:SET.post,bloom:SET.bloom,parts:SET.parts,fps:SET.fps,showfps:SET.showfps};persist()}
+function saveOpts(){save.opts={gore:SET.gore,fete:SET.fete,gfx:SET.gfx,shake:SET.shake,blood:SET.blood,aim:SET.aim,vol:SET.vol,music:SET.music,mvol:SET.mvol,lang:SET.lang,prof:SET.prof,lights:SET.lights,fog:SET.fog,refl:SET.refl,post:SET.post,bloom:SET.bloom,parts:SET.parts,fps:SET.fps,hz:SET.hz,fc:SET.fc};persist()}
 function resetKeys(){for(const a in DEFAULT_KEYS) KEYS[a]=DEFAULT_KEYS[a].slice();saveKeys()}
 // --- Traductions : 25 langues (le français est la langue source) ---
 const LANGS=[{"c": "fr", "n": "Français", "f": "fr"}, {"c": "en", "n": "English", "f": "gb"}, {"c": "es", "n": "Español", "f": "es"}, {"c": "de", "n": "Deutsch", "f": "de"}, {"c": "it", "n": "Italiano", "f": "it"}, {"c": "pt", "n": "Português", "f": "pt"}, {"c": "nl", "n": "Nederlands", "f": "nl"}, {"c": "pl", "n": "Polski", "f": "pl"}, {"c": "ru", "n": "Русский", "f": "ru"}, {"c": "uk", "n": "Українська", "f": "ua"}, {"c": "tr", "n": "Türkçe", "f": "tr"}, {"c": "ar", "n": "العربية", "f": "sa"}, {"c": "zh", "n": "中文", "f": "cn"}, {"c": "ja", "n": "日本語", "f": "jp"}, {"c": "ko", "n": "한국어", "f": "kr"}, {"c": "hi", "n": "हिन्दी", "f": "in"}, {"c": "id", "n": "Bahasa Indonesia", "f": "id"}, {"c": "vi", "n": "Tiếng Việt", "f": "vn"}, {"c": "th", "n": "ไทย", "f": "th"}, {"c": "sv", "n": "Svenska", "f": "se"}, {"c": "cs", "n": "Čeština", "f": "cz"}, {"c": "ro", "n": "Română", "f": "ro"}, {"c": "el", "n": "Ελληνικά", "f": "gr"}, {"c": "he", "n": "עברית", "f": "il"}, {"c": "hu", "n": "Magyar", "f": "hu"}];
@@ -784,6 +856,8 @@ addEventListener('keydown',e=>{
   else if(state==='weapon' && e.code==='Escape') state='upgrades';
   else if(state==='wheel' && e.code==='Escape'){wheelConf=false;state=wheelFrom==='menu'?'menu':'boosts'}
   else if(state==='boosts' && e.code==='Escape') state='upgrades';
+  else if(state==='fpsopt' && e.code==='Escape'){state='options';optTab=2}
+  else if(state==='maint' && e.code==='Escape') state='menu';
   else if(state==='keys' && e.code==='Escape') state='options';
   else if((state==='maps'||state==='quit'||state==='bye'||state==='shop')&&e.code==='Escape') state='menu';
   else if(state==='saves'&&e.code==='Escape'){saveConfirm=false;state='options'}
@@ -806,7 +880,7 @@ function layoutTouch(){
   Object.assign(TPICK,{x:W-rr-100,y:H-268});Object.assign(TPAUSE,{x:W-rr-56,y:84});Object.assign(STOCK,{x:W-rr-262,y:H-76});
 }
 layoutTouch();
-const MENU_STATES=['menu','shop','quit','bye','maps','saves','options','credits','upgrades','weapon','keys','custom','lang','pause','trainpick','over','boosts','wheel'];
+const MENU_STATES=['menu','shop','quit','bye','maps','saves','options','credits','upgrades','weapon','keys','custom','lang','pause','trainpick','over','boosts','wheel','fpsopt','maint'];
 let autoTarget=null;
 const inR=(p,r)=>p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h;
 function tpos(t){
@@ -2402,7 +2476,7 @@ function drawMinimap(){
 }
 function draw(){
   syncMouse();
-  if(state==='menu'||state==='options'||state==='credits'||state==='upgrades'||state==='weapon'||state==='keys'||state==='custom'||state==='lang'||state==='saves'||state==='maps'||state==='quit'||state==='bye'||state==='shop'||state==='boosts'||state==='wheel'){drawMenu();overlayFx(0);drawCursor();return}
+  if(state==='menu'||state==='options'||state==='credits'||state==='upgrades'||state==='weapon'||state==='keys'||state==='custom'||state==='lang'||state==='saves'||state==='maps'||state==='quit'||state==='bye'||state==='shop'||state==='boosts'||state==='wheel'||state==='fpsopt'||state==='maint'){drawMenu();overlayFx(0);drawCursor();return}
   ctx.save();
   if(shake>.5){ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake*=.88}
   drawBackground();ash();
@@ -2662,7 +2736,7 @@ function embers(){
 }
 // Les menus sont dessinés dans un espace de 960x540 centré en bas de l'écran, le décor et les voiles couvrent tout l'écran.
 let MENU_MODE=false,MOX=0,MOY=0,MRW=960,MRH=540;
-const MENU_SPACE=['menu','shop','quit','bye','maps','saves','options','credits','upgrades','weapon','keys','custom','lang','trainpick','boosts','wheel'];
+const MENU_SPACE=['menu','shop','quit','bye','maps','saves','options','credits','upgrades','weapon','keys','custom','lang','trainpick','boosts','wheel','fpsopt','maint'];
 function syncMouse(){const m=MENU_SPACE.includes(state);mouse.x=mouse.rx-(m?(W-960)/2:0);mouse.y=mouse.ry-(m?(H-540):0)}
 function inMenuSpace(fn){
   const RW=W,RH=H,RG=GROUND,ox=(RW-960)/2,oy=RH-540;
@@ -2725,6 +2799,8 @@ function drawMenuBody(){
   menuRects=[];
   if(state==='upgrades'){drawUpgrades();return}
   if(state==='boosts'){drawBoosts();return}
+  if(state==='fpsopt'){drawFpsPage();return}
+  if(state==='maint'){drawMaint();return}
   if(state==='wheel'){drawWheel();return}
   if(state==='weapon'){drawWeaponDetail();return}
   if(state==='keys'){drawKeys();return}
@@ -2754,8 +2830,8 @@ function drawMenuBody(){
     ctx.textAlign='left';ctx.font='700 14px '+FONT;ctx.fillStyle='#ffd45a';ctx.fillText('★  ÉDITION NOËL APOCALYPTIQUE  ★',70,50);
   }
   if(state==='menu'){
-    {const it=[['JOUER',()=>{mapTrain=false;training=false;state='maps'}],['ARSENAL',openUpgrades],['ENTRAÎNEMENT',()=>{mapTrain=true;state='maps'}],['PERSONNALISATION',()=>state='custom'],['BOUTIQUE',()=>state='shop'],['OPTIONS',()=>{optFrom='menu';state='options'}],['CRÉDITS',()=>state='credits'],['QUITTER',()=>state='quit']];
-     it.forEach(([lab,act],k)=>btn(menuRects,70,238+k*32,300,29,lab,{act,size:19}))}
+    {const it=[['JOUER',()=>{mapTrain=false;training=false;state='maps'}],['MULTIJOUEUR  ·  BIENTÔT',()=>state='maint'],['ARSENAL',openUpgrades],['ENTRAÎNEMENT',()=>{mapTrain=true;state='maps'}],['PERSONNALISATION',()=>state='custom'],['BOUTIQUE',()=>state='shop'],['OPTIONS',()=>{optFrom='menu';state='options'}],['CRÉDITS',()=>state='credits'],['QUITTER',()=>state='quit']];
+     it.forEach(([lab,act],k)=>btn(menuRects,70,232+k*31,300,28,lab,{act,size:18}))}
     {const li=langInfo(),x=W-210,y=H-104,w=170,h=36,hot=mouse.x>=x&&mouse.x<=x+w&&mouse.y>=y&&mouse.y<=y+h;menuRects.push({x,y,w,h,act:()=>state='lang'});
      panel(x,y,w,h,{top:hot?'#4a2018':'#2d2723',bot:hot?'#2a100c':'#17120f',edge:hot?'#e2542e':'#4a3a2e',norivets:true});drawFlag(li.f,x+10,y+6,34,24);
      ctx.fillStyle='#f2efe8';ctx.font='700 15px '+FONT;ctx.textAlign='left';ctx.fillText(li.n,x+54,y+24,w-62)}
@@ -2808,20 +2884,20 @@ function drawMenuBody(){
       const cyc=PROFS.filter(x=>x.id!=='custom');
       B(0,0,'PROFIL : '+pf.n,()=>{const k=cyc.findIndex(x=>x.id===SET.prof);setProfile(cyc[(k+1)%cyc.length].id)});
       B(1,0,'RÉSOLUTION : '+q.n,()=>{const k=GFX.findIndex(x=>x.id===q.id);SET.gfx=GFX[(k+1)%GFX.length].id;SET.prof='custom';saveOpts();fit()});
-      B(2,0,'LIMITE FPS : '+(SET.fps===30?30:60),()=>{SET.fps=SET.fps===30?60:30;SET.prof='custom';saveOpts()});
+      B(2,0,'LIMITE FPS : '+fpsName(SET.fps>0?Math.min(SET.fps,HZ):0),()=>{const o=fpsOptions(),k=o.indexOf(SET.fps>0?Math.min(SET.fps,HZ):0);SET.fps=o[(k+1)%o.length];SET.prof='custom';saveOpts()});
       B(0,1,'LUMIÈRES : '+oo(SET.lights),()=>fxToggle('lights'));
       B(1,1,'BRUME : '+oo(SET.fog),()=>fxToggle('fog'));
       B(2,1,'REFLETS : '+oo(SET.refl),()=>fxToggle('refl'));
       B(0,2,'PARTICULES : '+PARTS[Math.max(0,Math.min(3,SET.parts|0))].n,()=>{SET.parts=((SET.parts|0)+1)%4;SET.prof='custom';saveOpts()});
       B(1,2,'VIGNETTE ET GRAIN : '+oo(SET.post),()=>fxToggle('post'));
       B(2,2,'BLOOM (LUEUR) : '+oo(SET.bloom),()=>fxToggle('bloom'));
-      B(0,3,'COMPTEUR FPS : '+oo(SET.showfps),()=>{SET.showfps=!SET.showfps;saveOpts()});
+      B(0,3,'COMPTEUR FPS  ›',()=>state='fpsopt');
       B(1,3,'GORE : '+oo(SET.gore),()=>{SET.gore=!SET.gore;saveOpts()});
       B(2,3,tr('Plein écran  ({0})',kn('full')).toUpperCase(),toggleFull);
       ctx.fillStyle='#b9b1a6';ctx.font='500 13px '+FONT;
       ctx.fillText('AUTO : la résolution puis les effets baissent seuls si le jeu rame. ÉCO convient aux très vieux PC et téléphones.',290,488,640);
       ctx.fillText('EXTRÊME : 4K + bloom + brume et rayons de lumière renforcés + particules maximales (carte graphique puissante).',290,506,640);
-      ctx.fillText('Résolution interne '+cv.width+'×'+cv.height+'  ·  logique fixée à 60 Hz : même vitesse de jeu sur tous les écrans.',290,524,640);
+      ctx.fillText('Écran détecté : '+HZ+' Hz  ·  résolution interne '+cv.width+'×'+cv.height+'  ·  logique fixée à 60 Hz (même vitesse partout).',290,524,640);
     } else if(optTab===3){                                           // COMMANDES
       btn(menuRects,X1,yo[0],BW,BH,'TOUCHES',{act:()=>{bindListen=null;state='keys'},size:20,sub:'changer les touches du clavier'});
       btn(menuRects,X2,yo[0],BW,BH,tr('Visée').toUpperCase()+' : '+tr(aimDir()?'Direction':'Souris').toUpperCase(),{act:()=>{SET.aim=SET.aim==='dir'?'mouse':'dir';saveOpts()},size:20});
@@ -3840,6 +3916,56 @@ function boostCard(b,x,y,w,h){
     else{ctx.fillStyle=save.bank>=cost?'#ffd45a':'#9a7040';ctx.fillText((own?'AMÉLIORER':'DÉBLOQUER')+'  ·  $'+cost,x+10,y+98)}
   }
 }
+function drawMaint(){
+  ctx.fillStyle='#000000d8';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
+  ctx.fillStyle='#000';ctx.font='400 38px '+TITLE;ctx.fillText('MULTIJOUEUR',43,61);ctx.fillStyle='#e9e1d0';ctx.fillText('MULTIJOUEUR',40,58);
+  ctx.fillStyle='#7a2c1c';ctx.fillRect(40,66,230,3);
+  hazard(140,150,680,16);hazard(140,330,680,16);
+  panel(140,166,680,164,{});
+  ctx.textAlign='center';ctx.fillStyle='#ffd45a';ctx.font='400 54px '+TITLE;ctx.fillText('EN MAINTENANCE',480,238);
+  ctx.fillStyle='#d8d2c8';ctx.font='500 20px '+FONT;ctx.fillText('Le mode multijoueur est en cours de préparation.',480,276);
+  ctx.fillStyle='#8a8178';ctx.font='500 16px '+FONT;ctx.fillText('Reviens bientôt : il arrivera dans une prochaine mise à jour.',480,304);
+  ctx.textAlign='left';
+  btn(menuRects,40,470,200,44,'RETOUR',{act:()=>state='menu'});
+}
+const FC_POS=[['tl','HAUT GAUCHE',0,0],['tr','HAUT DROITE',1,0],['br','BAS DROITE',1,1],['bl','BAS GAUCHE',0,1]];
+function drawFpsPage(){
+  ctx.fillStyle='#000000d8';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
+  ctx.fillStyle='#000';ctx.font='400 38px '+TITLE;ctx.fillText('COMPTEUR FPS',43,61);ctx.fillStyle='#e9e1d0';ctx.fillText('COMPTEUR FPS',40,58);
+  ctx.fillStyle='#7a2c1c';ctx.fillRect(40,66,230,3);
+  const f=SET.fc,X=[40,320],ys=[92,134,176,218,260,302,344,386],oo=v=>v?'OUI':'NON',up=()=>saveOpts();
+  const B=(c,r,lab,act)=>btn(menuRects,X[c],ys[r],270,36,lab,{act,size:16});
+  const SIZES=[.8,1,1.25,1.5,2],OPS=[1,.75,.5,.25],COLS=[['auto','AUTO (VERT/JAUNE/ROUGE)'],['white','BLANC'],['green','VERT'],['yellow','JAUNE']];
+  const cyc=(arr,v,eq)=>{let k=arr.findIndex(x=>eq?eq(x,v):x===v);return arr[(k+1)%arr.length]};
+  const pn=(FC_POS.find(p=>p[0]===f.pos)||['','LIBRE'])[1];
+  B(0,0,'COMPTEUR : '+oo(f.on),()=>{f.on=!f.on;up()});
+  B(1,0,'POSITION : '+pn,()=>{const p=FC_POS[(Math.max(-1,FC_POS.findIndex(q=>q[0]===f.pos))+1)%FC_POS.length];f.pos=p[0];f.fx=p[2];f.fy=p[3];up()});
+  B(0,1,'TAILLE : '+Math.round(f.size*100)+' %',()=>{f.size=cyc(SIZES,f.size);up()});
+  B(1,1,'OPACITÉ : '+Math.round(f.op*100)+' %',()=>{f.op=cyc(OPS,f.op);up()});
+  B(0,2,'COULEUR : '+(COLS.find(c=>c[0]===f.col)||COLS[0])[1],()=>{f.col=cyc(COLS,f.col,(x,v)=>x[0]===v)[0];up()});
+  B(1,2,'FOND SOMBRE : '+oo(f.bg),()=>{f.bg=f.bg?0:1;up()});
+  B(0,3,'FPS : '+oo(f.fps),()=>{f.fps=f.fps?0:1;up()});
+  B(1,3,'TEMPS D\'IMAGE (ms) : '+oo(f.ms),()=>{f.ms=f.ms?0:1;up()});
+  B(0,4,'1 % BAS : '+oo(f.low),()=>{f.low=f.low?0:1;up()});
+  B(1,4,'MOY / MIN / MAX : '+oo(f.avg),()=>{f.avg=f.avg?0:1;up()});
+  B(0,5,'RÉSOLUTION : '+oo(f.res),()=>{f.res=f.res?0:1;up()});
+  B(1,5,'PROFIL GRAPHIQUE : '+oo(f.prof),()=>{f.prof=f.prof?0:1;up()});
+  B(0,6,'GRAPHIQUE DES IMAGES : '+oo(f.graph),()=>{f.graph=f.graph?0:1;up()});
+  B(0,7,'TAUX DE L\'ÉCRAN : '+(SET.hz>0?SET.hz+' Hz (MANUEL)':'AUTO ('+HZm+' Hz)'),()=>{const o=[0,60,75,90,100,120,144,165,180,240,360,480,1000];SET.hz=o[(o.indexOf(SET.hz>0?SET.hz:0)+1)%o.length];fxUpdate();up()});
+  B(1,6,'RÉINITIALISER',()=>{SET.fc=Object.assign({},FC_DEF,{on:f.on});up()});
+  // mini-écran : on glisse le repère pour placer le compteur n'importe où
+  const mx=620,my=92,mw=300,mh=Math.round(300*H/W>200?200:300*9/16);
+  ctx.fillStyle='#8a8178';ctx.font='500 14px '+FONT;ctx.fillText('Glisse le repère pour placer le compteur',mx,my-8);
+  ctx.fillStyle='#0b0908';ctx.fillRect(mx,my,mw,mh);ctx.strokeStyle='#4a3a2e';ctx.lineWidth=2;ctx.strokeRect(mx,my,mw,mh);
+  const bw=56,bh=22,px=mx+4+f.fx*(mw-bw-8),py=my+4+f.fy*(mh-bh-8);
+  menuRects.push({x:mx,y:my,w:mw,h:mh,slider:true,act:()=>{f.fx=Math.max(0,Math.min(1,(mouse.x-mx-bw/2-4)/(mw-bw-8)));f.fy=Math.max(0,Math.min(1,(mouse.y-my-bh/2-4)/(mh-bh-8)));f.pos='free';up()}});
+  ctx.fillStyle=f.on?'rgba(125,255,106,.85)':'rgba(120,110,100,.7)';ctx.fillRect(px,py,bw,bh);ctx.fillStyle='#0b0908';ctx.font='700 13px '+FONT;ctx.textAlign='center';ctx.fillText(f.on?'FPS':'OFF',px+bw/2,py+16);ctx.textAlign='left';
+  ctx.fillStyle='#b9b1a6';ctx.font='500 13px '+FONT;
+  ctx.fillText('Le compteur apparaît en direct à l\'écran, à l\'endroit choisi.',mx,my+mh+22,300);
+  ctx.fillText('Écran détecté : '+HZ+' Hz  ·  limite actuelle : '+fpsName(SET.fps>0?Math.min(SET.fps,HZ):0),mx,my+mh+42,300);
+  ctx.fillText('(limite réglable dans Graphismes)',mx,my+mh+62,300);
+  btn(menuRects,40,470,200,44,'RETOUR',{act:()=>{state='options';optTab=2}});
+}
 function drawBoosts(){
   ctx.fillStyle='#000000d8';ctx.fillRect(0,0,W,H);
   ctx.textAlign='left';barbed(0,W,12,.8);
@@ -3957,23 +4083,29 @@ addEventListener('pointerdown',()=>{if(death&&death.ph==='recap'&&death.t>90) de
 // --- Boucle ---
 let last=performance.now();
 let emaDt=16.7,adaptT=0;
-const STEP=1000/60;let acc=0,lastDrawT=0,fpsFrames=0,fpsT0=0,fpsShow=60;
+const STEP=1000/60;let acc=0,lastDrawT=0,drawDebt=0;
 function loop(t){
-  const dtRaw=Math.max(0,t-last);last=t;
-  acc+=Math.min(100,dtRaw);adaptT+=Math.min(100,dtRaw);
+  const dtRaw=Math.max(0,t-last);last=t;hzSample(dtRaw);
+  const dtc=Math.min(100,dtRaw);acc+=dtc;adaptT+=dtc;drawDebt=Math.min(500,drawDebt+dtc);
   fxUpdate();
-  // la logique tourne à 60 Hz fixes (même vitesse de jeu sur un écran 60, 120 ou 144 Hz) ; on ne dessine que s'il y a eu du nouveau
+  const iv=1000/FXF.fps,interp=FXF.fps>61;
+  if(state!=='play'||paused) prevValid=false;
+  // la logique tourne à 60 Hz fixes (même vitesse de jeu quel que soit l'écran) ; au-dessus de 60 FPS les positions sont interpolées
   let steps=0;
-  while(acc>=STEP-2&&steps<4){acc-=STEP;steps++;tick++;try{update(STEP)}catch(e){console.error(e)}}
+  while(acc>=STEP-2&&steps<4){acc-=STEP;steps++;tick++;if(interp&&state==='play'&&!paused) snapPrev();try{update(STEP)}catch(e){console.error(e)}}
   if(steps>=4) acc=0;else if(acc<-STEP/2) acc=0;
-  if(steps>0&&t-lastDrawT>=1000/FXF.fps-3){
-    emaDt+=((t-lastDrawT)-emaDt)*.05;lastDrawT=t;
-    try{draw();if(SET.showfps) drawFps()}catch(e){console.error(e)}
-    fpsFrames++;if(t-fpsT0>=500){fpsShow=Math.round(fpsFrames*1000/(t-fpsT0));fpsFrames=0;fpsT0=t}
+  if(drawDebt>=iv-1&&(steps>0||interp)){
+    drawDebt=Math.max(0,drawDebt-iv);
+    const d=t-lastDrawT;if(lastDrawT>0&&d<200){ftPush(d);emaDt+=(d-emaDt)*.05}lastDrawT=t;fcUpdate(t);
+    const useI=interp&&prevValid,al=Math.max(0,Math.min(1,acc/STEP));
+    if(useI) interpOn(al);
+    try{draw()}catch(e){console.error(e)}
+    if(useI) interpOff();
+    try{drawFps()}catch(e){console.error(e)}
   }
   if(adaptT>3000&&!document.hidden){
     adaptT=0;
-    if(emaDt>(1000/FXF.fps)*1.55){                                  // le jeu rame : d'abord la résolution, puis les effets (profil AUTO)
+    if(emaDt>(1000/Math.min(FXF.fps,60))*1.55){                    // le jeu rame : d'abord la résolution, puis les effets (profil AUTO)
       if((SET.gfx||'auto')==='auto'&&RES>1){autoCap=Math.max(1,RES-.5);fit()}
       else if(SET.prof==='auto'&&autoDrop<6) autoDrop++;
     }
