@@ -153,7 +153,7 @@ function resWanted(vw){
 }
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.52';   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.50';   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -857,7 +857,7 @@ addEventListener('keydown',e=>{
   else if(state==='wheel' && e.code==='Escape'){wheelConf=false;state=wheelFrom==='menu'?'menu':'boosts'}
   else if(state==='boosts' && e.code==='Escape') state='upgrades';
   else if(state==='fpsopt' && e.code==='Escape'){state='options';optTab=2}
-  else if(state==='maint' && e.code==='Escape') state='menu';
+  else if(state==='maint' && e.code==='Escape'){gameMode='2D';state='menu'}
   else if(state==='keys' && e.code==='Escape') state='options';
   else if((state==='maps'||state==='quit'||state==='bye'||state==='shop')&&e.code==='Escape') state='menu';
   else if(state==='saves'&&e.code==='Escape'){saveConfirm=false;state='options'}
@@ -2847,8 +2847,7 @@ function drawMenuBody(){
      ctx.textAlign='center';ctx.font='700 17px '+FONT;ctx.fillStyle=hot?'#fff':'#f2efe8';ctx.fillText('TIRAGE',cx,cy+r+24);
      if(fr){const pu=1+.12*Math.sin(tick*.15);ctx.fillStyle='#d62d2d';ctx.beginPath();ctx.arc(cx+r-4,cy-r+8,11*pu,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.font='900 15px '+FONT;ctx.fillText('!',cx+r-4,cy-r+13)}
      ctx.textAlign='left'}
-    btn(menuRects,W-110-55,204,110,32,'MODE 3D',{act:()=>{maintTitle='MODE 3D';state='maint'},size:17});
-    btn(menuRects,W-110-55,244,110,32,'MODE VR',{act:()=>{maintTitle='MODE VR';state='maint'},size:17});
+    btn(menuRects,W-110-62,206,124,34,'MODE : 2D',{act:()=>setGameMode('3D'),size:17});
     btn(menuRects,W-220,H-60,180,38,tr('Plein écran  ({0})',kn('full')).toUpperCase(),{act:toggleFull,size:15});
     ctx.fillStyle='#e0a526';ctx.font='700 24px '+FONT;ctx.textAlign='right';
     ctx.fillText(tr('Niveau').toUpperCase()+' '+curLevel()+'   ·   $'+save.bank+'   ·   '+tr('Record : vague {0}',save.best).toUpperCase(),W-40,50);ctx.textAlign='left';
@@ -3918,7 +3917,8 @@ function boostCard(b,x,y,w,h){
     else{ctx.fillStyle=save.bank>=cost?'#ffd45a':'#9a7040';ctx.fillText((own?'AMÉLIORER':'DÉBLOQUER')+'  ·  $'+cost,x+10,y+98)}
   }
 }
-let maintTitle='MULTIJOUEUR';
+let maintTitle='MULTIJOUEUR',gameMode='2D';
+function setGameMode(m){gameMode=m;if(m==='2D'){state='menu';return}maintTitle='MODE '+m;state='maint'}   // 3D et VR : page de maintenance ; revenir au menu remet le mode 2D
 function drawMaint(){
   ctx.fillStyle='#000000d8';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
   ctx.fillStyle='#000';ctx.font='400 38px '+TITLE;ctx.fillText(maintTitle,43,61);ctx.fillStyle='#e9e1d0';ctx.fillText(maintTitle,40,58);
@@ -3929,7 +3929,8 @@ function drawMaint(){
   ctx.fillStyle='#d8d2c8';ctx.font='500 20px '+FONT;ctx.fillText('Le mode '+(maintTitle==='MULTIJOUEUR'?'multijoueur':maintTitle==='MODE 3D'?'3D':'VR')+' est en cours de préparation.',480,276);
   ctx.fillStyle='#8a8178';ctx.font='500 16px '+FONT;ctx.fillText('Reviens bientôt : il arrivera dans une prochaine mise à jour.',480,304);
   ctx.textAlign='left';
-  btn(menuRects,40,470,200,44,'RETOUR',{act:()=>state='menu'});
+  if(gameMode!=='2D') btn(menuRects,700,470,220,44,'MODE : '+gameMode,{act:()=>setGameMode(gameMode==='3D'?'VR':'2D'),size:18});
+  btn(menuRects,40,470,200,44,'RETOUR',{act:()=>{gameMode='2D';state='menu'}});
 }
 const FC_POS=[['tl','HAUT GAUCHE',0,0],['tr','HAUT DROITE',1,0],['br','BAS DROITE',1,1],['bl','BAS GAUCHE',0,1]];
 function drawFpsPage(){
