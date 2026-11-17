@@ -155,7 +155,7 @@ function resWanted(vw){
 }
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.52';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.53';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -4890,7 +4890,7 @@ function mpJoin(code){
       to=setTimeout(()=>fail('Connexion impossible : code incorrect, hôte absent ou réseau trop restrictif'),15000);
       c.on('open',()=>{clearTimeout(to)});
       c.on('data',d=>mpGuestData(d));
-      c.on('close',()=>{clearTimeout(to);if(MP.role==='guest'&&MP.hostConn===c){if(MP.status==='ok'||MP.started) mpLeaveToMenu('Hôte déconnecté');else{MP.status='err';MP.msg='Connexion fermée par l\'hôte'}}});
+      c.on('close',()=>{clearTimeout(to);if(MP.role==='guest'&&MP.hostConn===c){if(MP.status==='ok'||MP.started) mpLeaveToMenu('Hôte déconnecté');else if(MP.status!=='err'){MP.status='err';MP.msg='Connexion fermée par l\'hôte'}}});
       c.on('error',()=>fail('Erreur de connexion'));
     });
     peer.on('error',e=>fail(errText(e)));
