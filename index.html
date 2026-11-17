@@ -2633,7 +2633,7 @@ function drawMinimap(){
 function draw(){
   syncMouse();G3.on=g3Active();G3.skip=false;
   if(state==='padmode'){drawPadScreen();return}
-  if(state==='menu'||state==='options'||state==='credits'||state==='upgrades'||state==='weapon'||state==='keys'||state==='custom'||state==='lang'||state==='saves'||state==='maps'||state==='quit'||state==='bye'||state==='shop'||state==='boosts'||state==='wheel'||state==='fpsopt'||state==='maint'||state==='gamepad'||state==='remote'||state==='padjoin'||state==='mpmenu'||state==='mphost'||state==='mplobby'||state==='mpjoin'||state==='mpjoining'||state==='acpage'||state==='avatars'||state==='rpsetup'||state==='rpjoin'){drawMenu();overlayFx(0);drawCursor();return}
+  if(state==='menu'||state==='options'||state==='credits'||state==='upgrades'||state==='weapon'||state==='keys'||state==='custom'||state==='lang'||state==='saves'||state==='maps'||state==='quit'||state==='bye'||state==='shop'||state==='boosts'||state==='wheel'||state==='fpsopt'||state==='maint'||state==='gamepad'||state==='remote'||state==='padjoin'||state==='mpmenu'||state==='mphost'||state==='mplobby'||state==='mpjoin'||state==='mpjoining'||state==='acpage'||state==='avatars'||state==='rpsetup'||state==='rpjoin'){drawMenu();drawCursor();return}
   ctx.save();
   if(shake>.5){ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake*=.88}
   drawBackground();ash();
@@ -2979,6 +2979,7 @@ function drawMenu(){
   if(fe){snowGround();const per=W+800,cyc=per+2600,m=((tick*2.4)%cyc)-400;if(m<W+400) drawSleigh(m,92+Math.sin(tick*.02)*10,1,false,Math.floor(tick*2.4/cyc)%2===1)}
   ctx.fillStyle=fe?'#0007':'#0009';ctx.fillRect(0,0,W,H);
   embers();
+  overlayFx(0);   // vignette et grain derrière les panneaux du menu
   inMenuSpace(drawMenuBody);
   if(fe){snowfall();garland()}
 }
