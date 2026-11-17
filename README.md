@@ -29,7 +29,11 @@ Ou télécharge le dépôt et ouvre `index.html` dans un navigateur moderne.
 - Mobile : boutons tactiles (déplacement, saut, tir), toucher sur les caisses et les bonus ; la zone de jeu s'adapte au format de l'écran (jusqu'aux bords, sans bandes noires)
 - Manettes : onglet « Manettes connectées » pour activer / désactiver chaque manette (volant, casque, périphérique virtuel…), calibrage automatique au repos
 - C02 Anti-Cheat v1.1 : surveillance aussi en 3D (vitesse, cadence de tir) et contrôle des données des armes et zombies
-- Mode 3D « monde libre » (bouton MODE 2D/3D/VR, V0.61) : FPS en ville ouverte, première ou troisième personne (touche V), déplacement libre avant / arrière / côtés (ZQSD ou WASD, souris pour viser, Espace pour sauter, Maj pour courir), vagues de zombies, 201 armes, caisses, boosts, XP et crédits du compte ; Three.js chargé à la demande (connexion requise) ; tactile et manette gérés ; le multijoueur reste réservé au mode 2D
+- Mode 3D « monde libre » (V0.61 → V0.63) : FPS en ville ouverte (première ou troisième personne, touche V), déplacement libre, immeubles de bordure, mini-carte, barres de vie, animations de coups, **les 25 boosts posent de vrais objets 3D** (barricades, mines, tourelle, drone, chien, hélico…), tactile et manette ; Three.js chargé à la demande (connexion requise)
+- **Multijoueur 3D** : coop (jusqu'à 4, vagues de zombies) et **Battle Royale** (jusqu'à 10 joueurs, chacun pour soi ou par équipes, zone qui rétrécit, butin, classement et récompenses signées par l'hôte)
+- **Mode NIGHTMARE** (2D et 3D, dispo dès le début) : une arme par catégorie changée à la molette (haut = suivante, bas = précédente, configurable), munitions illimitées, vagues infinies de zombies ultra forts ; bonus désactivables (gains ×10 sans, ×9 avec)
+- **Skins** : tous les zombies (et animaux) jouables, skin Sapin de Noël aux guirlandes clignotantes, personnage 2D et 3D plus détaillé
+- **C02 Anti-Cheat v1.2** : coffre chiffré de la sauvegarde (AES-GCM, clé non extractable liée à l'appareil) — un éditeur de sauvegarde peut modifier le fichier mais la modification est annulée au démarrage ; exports signés par l'appareil ; contrôle des données des armes et zombies ; surveillance en 3D
 - Visée souris ou tir dans la direction du déplacement, touches configurables, pause (Échap / P)
 - Cartes (6), difficultés, boss toutes les 5 manches, manche finale du magicien qui débloque la carte suivante
 - Boosts améliorables (24 types : barricade, nounours piégé, mines, drone, molotov…), roulette du jour, Seconde vie
