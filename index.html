@@ -155,7 +155,7 @@ function resWanted(vw){
 }
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.69';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.70';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -6771,7 +6771,8 @@ Object.assign(FW,{net:'',mode:'coop',peers:[],pmap:new Map(),zmap:new Map(),pkma
 const FW_TEAMC=['#ff4a4a','#4aa0ff','#4ad06a','#ffd23a','#c060ff','#ff8a2a','#40e0d0','#ff6ad8','#a0a0a0','#ffffff'];
 function fwmEv(a){if(FW.net==='host'&&FW.evq.length<90) FW.evq.push(a)}
 function fwmPlayers(){                                                    // tous les joueurs (hôte + invités) vus par l'hôte
-  const a=[{id:0,x:FW.x,z:FW.z,y:FW.y,air:FW.air|0,c:FW.crouch>.5?1:0,g:null,p:player,dead:!!(FW.down||player.dead),team:FW.myTeam,name:cleanName(mpName()),k:FW.stat.k,place:FW.place}];
+  const hp0=MP.hostP||player,a=[{id:0,x:FW.x,z:FW.z,y:FW.y,air:FW.air|0,c:FW.crouch>.5?1:0,g:null,p:hp0,dead:!!(FW.down||hp0.dead),   // joueur de l'hôte : toujours SON objet, même quand le code tourne « en tant qu'invité » (runAs)
+    team:FW.myTeam,name:cleanName(mpName()),k:FW.stat.k,place:FW.place}];
   for(const g of MP.guests) if(g.p&&g.f3) a.push({id:g.id,x:g.f3.x,z:g.f3.z,y:g.f3.y||0,air:g.f3.air|0,c:g.f3.c|0,g,p:g.p,dead:!!g.p.dead,team:g.f3.team||0,name:g.name,k:g.f3.k|0,place:g.f3.place|0});
   return a;
 }
