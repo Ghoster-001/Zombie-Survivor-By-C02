@@ -27,10 +27,21 @@
 const cv = document.getElementById('c');
 let ctx = cv.getContext('2d');
 if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){r=Math.min(Array.isArray(r)?(r[0]||0):(r||0),Math.abs(w)/2,Math.abs(h)/2);this.moveTo(x+r,y);this.arcTo(x+w,y,x+w,y+h,r);this.arcTo(x+w,y+h,x,y+h,r);this.arcTo(x,y+h,x,y,r);this.arcTo(x,y,x+w,y,r);this.closePath()}}   // anciens navigateurs mobiles
-let RES=Math.max(1,Math.min(2,window.devicePixelRatio||1));if(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)) RES=Math.min(RES,1.5);   // résolution interne adaptée : plus fluide sur mobile
+const MOBILE=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+// Qualité graphique : résolution interne du canvas (1x = 960 px de large ... 8x = 7680 px, soit 8K). « Auto » suit la résolution réelle de l'écran et se réduit seule si le jeu rame.
+const GFX=[{id:'auto',n:'AUTO'},{id:'std',n:'STANDARD',r:1},{id:'high',n:'HAUTE',r:2},{id:'ultra',n:'ULTRA',r:3},{id:'4k',n:'4K',r:4},{id:'8k',n:'8K',r:8}];
+let autoCap=MOBILE?2:4,RES=1,RESd=0;
+function resWanted(vw){
+  let g='auto';try{g=SET.gfx||'auto'}catch(e){}
+  const q=GFX.find(x=>x.id===g)||GFX[0];
+  let r=q.r||Math.max(1,Math.min(autoCap,Math.max(MOBILE?1.5:2,(vw*(window.devicePixelRatio||1))/W)));   // Auto : au moins 2x (suréchantillonnage), jusqu'à la résolution réelle de l'écran
+  const maxA=MOBILE?16e6:36e6;                                       // limite de surface des navigateurs
+  while(r>1&&W*H*r*r>maxA) r-=.25;
+  return Math.round(r*4)/4;
+}
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.41';   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.42';   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -43,10 +54,12 @@ function fit(){
   if(FORCED){const t=vw;vw=vh;vh=t}
   const asp=vw/vh,a=Math.max(1.2,Math.min(3,asp));
   let nw,nh;if(a>=16/9){nh=540;nw=Math.round(540*a)}else{nw=960;nh=Math.round(960/a)}
-  if(nw!==W||nh!==H){
+  const rw=resWanted(vw);
+  if(nw!==W||nh!==H||rw!==RESd){
+    RES=RESd=rw;
     const dG=(nh-80)-GROUND;
     W=nw;H=nh;GROUND=nh-80;
-    cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);cv.getContext('2d').setTransform(RES,0,0,RES,0,0);
+    cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);cv.getContext('2d').setTransform(RES,0,0,RES,0,0);cv.getContext('2d').imageSmoothingQuality='high';
     if(READY&&dG){try{for(const z of zombies) z.y+=dG;for(const c of crates) c.y+=dG;player.y+=dG}catch(e){}}
   }
   const cw=asp>=1.2&&asp<=3?vw:(asp>3?vh*3:vw),ch=asp>=1.2&&asp<=3?vh:(asp>3?vh:vw/1.2);
@@ -297,7 +310,7 @@ const ZTYPES = {
 };
 
 // --- État ---
-const SET={shake:true,blood:true,aim:'mouse',vol:.6,music:true,mvol:.5,lang:null};   // aim : 'mouse' (visée à la souris) ou 'dir' (tir droit dans le sens du déplacement)
+const SET={gfx:'auto',shake:true,blood:true,aim:'mouse',vol:.6,music:true,mvol:.5,lang:null};   // aim : 'mouse' (visée à la souris) ou 'dir' (tir droit dans le sens du déplacement)
 // Progression conservée entre les parties (menu Améliorations uniquement)
 const SAVE_KEY='zs_save_v5';
 let save={bank:0,xp:0,own:{'Couteau':true,'Glock 17':true},melee:'Couteau',up:{},hpLvl:0,dmgLvl:0,best:0};
@@ -344,9 +357,9 @@ const DEFAULT_KEYS={left:['KeyA','ArrowLeft'],right:['KeyD','ArrowRight'],jump:[
 const KEYS={};
 function loadKeys(){for(const a in DEFAULT_KEYS) KEYS[a]=(save.keys&&Array.isArray(save.keys[a]))?[save.keys[a][0]||'',save.keys[a][1]||'']:DEFAULT_KEYS[a].slice();
   const pk=KEYS.pause.filter(k=>k&&k!=='Escape');KEYS.pause=[pk[0]||'',pk[1]||'']}   // Échap ouvre maintenant le menu pause
-loadKeys();Object.assign(SET,save.opts||{});
+loadKeys();Object.assign(SET,save.opts||{});if(!GFX.some(q=>q.id===SET.gfx)) SET.gfx='auto';
 function saveKeys(){save.keys=JSON.parse(JSON.stringify(KEYS));persist()}
-function saveOpts(){save.opts={shake:SET.shake,blood:SET.blood,aim:SET.aim,vol:SET.vol,music:SET.music,mvol:SET.mvol,lang:SET.lang};persist()}
+function saveOpts(){save.opts={gfx:SET.gfx,shake:SET.shake,blood:SET.blood,aim:SET.aim,vol:SET.vol,music:SET.music,mvol:SET.mvol,lang:SET.lang};persist()}
 function resetKeys(){for(const a in DEFAULT_KEYS) KEYS[a]=DEFAULT_KEYS[a].slice();saveKeys()}
 // --- Traductions : 25 langues (le français est la langue source) ---
 const LANGS=[{"c": "fr", "n": "Français", "f": "fr"}, {"c": "en", "n": "English", "f": "gb"}, {"c": "es", "n": "Español", "f": "es"}, {"c": "de", "n": "Deutsch", "f": "de"}, {"c": "it", "n": "Italiano", "f": "it"}, {"c": "pt", "n": "Português", "f": "pt"}, {"c": "nl", "n": "Nederlands", "f": "nl"}, {"c": "pl", "n": "Polski", "f": "pl"}, {"c": "ru", "n": "Русский", "f": "ru"}, {"c": "uk", "n": "Українська", "f": "ua"}, {"c": "tr", "n": "Türkçe", "f": "tr"}, {"c": "ar", "n": "العربية", "f": "sa"}, {"c": "zh", "n": "中文", "f": "cn"}, {"c": "ja", "n": "日本語", "f": "jp"}, {"c": "ko", "n": "한국어", "f": "kr"}, {"c": "hi", "n": "हिन्दी", "f": "in"}, {"c": "id", "n": "Bahasa Indonesia", "f": "id"}, {"c": "vi", "n": "Tiếng Việt", "f": "vn"}, {"c": "th", "n": "ไทย", "f": "th"}, {"c": "sv", "n": "Svenska", "f": "se"}, {"c": "cs", "n": "Čeština", "f": "cz"}, {"c": "ro", "n": "Română", "f": "ro"}, {"c": "el", "n": "Ελληνικά", "f": "gr"}, {"c": "he", "n": "עברית", "f": "il"}, {"c": "hu", "n": "Magyar", "f": "hu"}];
@@ -552,6 +565,25 @@ function resetSave(){
   try{localStorage.removeItem(SAVE_KEY);localStorage.removeItem(SAVE_KEY+'_bak');localStorage.removeItem(SAVE_KEY+'_t')}catch(e){}
   noPersist=true;location.reload();
 }
+function quitGame(){
+  persist();try{if(document.fullscreenElement||document.webkitFullscreenElement)(document.exitFullscreen||document.webkitExitFullscreen).call(document)}catch(e){}
+  try{if(AMASTER) AMASTER.gain.value=0;if(MUSIC) MUSIC.pause()}catch(e){}
+  state='bye';try{window.close()}catch(e){}                         // un navigateur ne ferme que les onglets ouverts par un script : sinon l'écran d'au revoir s'affiche
+}
+function drawQuit(){
+  ctx.fillStyle='#000000ea';ctx.fillRect(0,0,W,H);ctx.textAlign='center';barbed(0,W,12,.8);
+  if(state==='quit'){
+    ctx.fillStyle='#e9e1d0';ctx.font='400 44px '+TITLE;ctx.fillText('QUITTER LE JEU ?',W/2,200);
+    ctx.fillStyle='#8a8178';ctx.font='500 18px '+FONT;ctx.fillText('Ta progression est enregistrée automatiquement.',W/2,236);
+    btn(menuRects,W/2-210,280,200,54,'OUI, QUITTER',{act:quitGame,size:22});
+    btn(menuRects,W/2+10,280,200,54,'NON',{act:()=>state='menu',size:22});
+  } else {
+    ctx.fillStyle='#e9e1d0';ctx.font='400 54px '+TITLE;ctx.fillText('À BIENTÔT',W/2,210);
+    ctx.fillStyle='#d8d2c8';ctx.font='500 19px '+FONT;ctx.fillText('Ta progression est sauvegardée. Tu peux fermer cet onglet.',W/2,252);
+    btn(menuRects,W/2-110,300,220,50,'REVENIR AU JEU',{act:()=>{state='menu';try{musicApply()}catch(e){}try{if(AMASTER) AMASTER.gain.value=.55*SET.vol}catch(e){}},size:20});
+  }
+  ctx.textAlign='left';
+}
 function drawMaps(){
   ctx.fillStyle='#000000e0';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
   const ttl=mapTrain?'ENTRAÎNEMENT : CHOISIS UNE CARTE':'CHOISIS UNE CARTE';
@@ -699,7 +731,7 @@ addEventListener('keydown',e=>{
   else if(state==='trainpick' && e.code==='Escape') state='pause';
   else if(state==='weapon' && e.code==='Escape') state='upgrades';
   else if(state==='keys' && e.code==='Escape') state='options';
-  else if(state==='maps'&&e.code==='Escape') state='menu';
+  else if((state==='maps'||state==='quit'||state==='bye')&&e.code==='Escape') state='menu';
   else if(state==='saves'&&e.code==='Escape'){saveConfirm=false;state='options'}
   else if((state==='options'||state==='credits'||state==='upgrades'||state==='custom'||state==='lang') && e.code==='Escape') state=(state==='options'&&optFrom==='pause')?'pause':'menu';
 });
@@ -720,7 +752,7 @@ function layoutTouch(){
   Object.assign(TPICK,{x:W-rr-100,y:H-268});Object.assign(TPAUSE,{x:W-rr-56,y:84});Object.assign(STOCK,{x:W-rr-262,y:H-76});
 }
 layoutTouch();
-const MENU_STATES=['menu','maps','saves','options','credits','upgrades','weapon','keys','custom','lang','pause','trainpick','over'];
+const MENU_STATES=['menu','quit','bye','maps','saves','options','credits','upgrades','weapon','keys','custom','lang','pause','trainpick','over'];
 let autoTarget=null;
 const inR=(p,r)=>p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h;
 function tpos(t){
@@ -1799,7 +1831,7 @@ function drawMinimap(){
 }
 function draw(){
   tick++;syncMouse();
-  if(state==='menu'||state==='options'||state==='credits'||state==='upgrades'||state==='weapon'||state==='keys'||state==='custom'||state==='lang'||state==='saves'||state==='maps'){drawMenu();overlayFx(0);drawCursor();return}
+  if(state==='menu'||state==='options'||state==='credits'||state==='upgrades'||state==='weapon'||state==='keys'||state==='custom'||state==='lang'||state==='saves'||state==='maps'||state==='quit'||state==='bye'){drawMenu();overlayFx(0);drawCursor();return}
   ctx.save();
   if(shake>.5){ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake*=.88}
   drawBackground();ash();
@@ -1823,12 +1855,15 @@ function draw(){
   // balles
   for(const b of bullets){
     if(b.fire){const t=1-b.life/(b.l0||16);ctx.fillStyle='rgba(255,'+(160-t*110|0)+',40,'+(.85-t*.6)+')';ctx.beginPath();ctx.arc(b.x,b.y,4+t*10,0,7);ctx.fill()}
-    else{ctx.strokeStyle=b.col;ctx.lineWidth=b.size;ctx.beginPath();ctx.moveTo(b.x,b.y);ctx.lineTo(b.x-b.vx*.6,b.y-b.vy*.6);ctx.stroke()}
+    else{
+      ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=.28;ctx.strokeStyle=b.col;ctx.lineWidth=b.size*4;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(b.x,b.y);ctx.lineTo(b.x-b.vx*.8,b.y-b.vy*.8);ctx.stroke();ctx.restore();   // halo lumineux
+      ctx.strokeStyle=b.col;ctx.lineWidth=b.size;ctx.beginPath();ctx.moveTo(b.x,b.y);ctx.lineTo(b.x-b.vx*.6,b.y-b.vy*.6);ctx.stroke()}
   }
-  for(const f of fx){const t=f.life/18;ctx.fillStyle='rgba(255,'+(120+80*t|0)+',40,'+(.7*t)+')';ctx.beginPath();ctx.arc(f.x,f.y,f.r*(1.2-t*.5),0,7);ctx.fill()}
+  for(const f of fx){const t=f.life/18;{const g=ctx.createRadialGradient(f.x,f.y,2,f.x,f.y,f.r*2.2);g.addColorStop(0,'rgba(255,220,140,'+(.55*t)+')');g.addColorStop(1,'rgba(255,120,40,0)');ctx.save();ctx.globalCompositeOperation='lighter';ctx.fillStyle=g;ctx.fillRect(f.x-f.r*2.2,f.y-f.r*2.2,f.r*4.4,f.r*4.4);ctx.restore()}ctx.fillStyle='rgba(255,'+(120+80*t|0)+',40,'+(.7*t)+')';ctx.beginPath();ctx.arc(f.x,f.y,f.r*(1.2-t*.5),0,7);ctx.fill()}
   for(const q of particles){ctx.fillStyle=q.col;ctx.fillRect(q.x,q.y,3,3)}
   ctx.restore();
   drawEdgeMarks();
+  {const g=ctx.createRadialGradient(W/2,H*.55,Math.min(W,H)*.45,W/2,H*.55,Math.max(W,H)*.78);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(8,4,6,.38)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H)}   // vignettage cinéma
   if(curMap.dark&&state!=='over'){const cx=p.x-camX,cy=p.y-50,g=ctx.createRadialGradient(cx,cy,100,cx,cy,Math.max(W,H)*.72);g.addColorStop(0,'rgba('+curMap.dkc+',0)');g.addColorStop(1,'rgba('+curMap.dkc+','+Math.min(.85,curMap.dark*1.9)+')');ctx.fillStyle=g;ctx.fillRect(0,0,W,H)}
 
   ctx.restore();
@@ -2008,7 +2043,7 @@ function embers(){
 }
 // Les menus sont dessinés dans un espace de 960x540 centré en bas de l'écran, le décor et les voiles couvrent tout l'écran.
 let MENU_MODE=false,MOX=0,MOY=0,MRW=960,MRH=540;
-const MENU_SPACE=['menu','maps','saves','options','credits','upgrades','weapon','keys','custom','lang','trainpick'];
+const MENU_SPACE=['menu','quit','bye','maps','saves','options','credits','upgrades','weapon','keys','custom','lang','trainpick'];
 function syncMouse(){const m=MENU_SPACE.includes(state);mouse.x=mouse.rx-(m?(W-960)/2:0);mouse.y=mouse.ry-(m?(H-540):0)}
 function inMenuSpace(fn){
   const RW=W,RH=H,RG=GROUND,ox=(RW-960)/2,oy=RH-540;
@@ -2030,6 +2065,7 @@ function drawMenuBody(){
   if(state==='lang'){drawLang();return}
   if(state==='saves'){drawSaves();return}
   if(state==='maps'){drawMaps();return}
+  if(state==='quit'||state==='bye'){drawQuit();return}
   if(state==='custom'){drawCustom();return}
   // silhouette du soldat à droite (dessin original)
   player.x=720;player.y=GROUND;player.face=-1;player.aim=Math.PI+.1;player.w=MENU_GUN;player.cd=0;player.swing=0;
@@ -2045,12 +2081,13 @@ function drawMenuBody(){
   for(let k=0;k<5;k++){const x=84+k*92,len=6+((k*31)%16)+Math.sin(tick*.03+k)*3;ctx.fillStyle='#7a1812';ctx.fillRect(x,211,4,len);ctx.beginPath();ctx.arc(x+2,211+len,3.4,0,7);ctx.fill()}
   ctx.fillStyle='rgba(233,225,208,.5)';ctx.font='500 15px '+FONT;if('letterSpacing' in ctx) ctx.letterSpacing='5px';{ctx.save();ctx.font='400 76px '+TITLE;const tcx=70+Math.max(ctx.measureText('INFECTED').width,ctx.measureText('GROUNDS').width)/2;ctx.restore();ctx.textAlign='center';ctx.fillText('ZOMBIES SIEGE',tcx+2.5,232);ctx.textAlign='left'};if('letterSpacing' in ctx) ctx.letterSpacing='0px';
   if(state==='menu'){
-    btn(menuRects,70,238,300,38,'JOUER',{act:()=>{mapTrain=false;training=false;state='maps'},size:22});
-    btn(menuRects,70,280,300,38,'ARSENAL',{act:openUpgrades,size:22});
-    btn(menuRects,70,322,300,38,'ENTRAÎNEMENT',{act:()=>{mapTrain=true;state='maps'},size:22});
-    btn(menuRects,70,364,300,38,'PERSONNALISATION',{act:()=>state='custom',size:22});
-    btn(menuRects,70,406,300,38,'OPTIONS',{act:()=>{optFrom='menu';state='options'},size:22});
-    btn(menuRects,70,448,300,38,'CRÉDITS',{act:()=>state='credits',size:22});
+    btn(menuRects,70,240,300,34,'JOUER',{act:()=>{mapTrain=false;training=false;state='maps'},size:22});
+    btn(menuRects,70,278,300,34,'ARSENAL',{act:openUpgrades,size:22});
+    btn(menuRects,70,316,300,34,'ENTRAÎNEMENT',{act:()=>{mapTrain=true;state='maps'},size:22});
+    btn(menuRects,70,354,300,34,'PERSONNALISATION',{act:()=>state='custom',size:22});
+    btn(menuRects,70,392,300,34,'OPTIONS',{act:()=>{optFrom='menu';state='options'},size:22});
+    btn(menuRects,70,430,300,34,'CRÉDITS',{act:()=>state='credits',size:22});
+    btn(menuRects,70,468,300,34,'QUITTER',{act:()=>state='quit',size:22});
     {const li=langInfo(),x=W-210,y=H-104,w=170,h=36,hot=mouse.x>=x&&mouse.x<=x+w&&mouse.y>=y&&mouse.y<=y+h;menuRects.push({x,y,w,h,act:()=>state='lang'});
      panel(x,y,w,h,{top:hot?'#4a2018':'#2d2723',bot:hot?'#2a100c':'#17120f',edge:hot?'#e2542e':'#4a3a2e',norivets:true});drawFlag(li.f,x+10,y+6,34,24);
      ctx.fillStyle='#f2efe8';ctx.font='700 15px '+FONT;ctx.textAlign='left';ctx.fillText(li.n,x+54,y+24,w-62)}
@@ -2064,6 +2101,8 @@ function drawMenuBody(){
     btn(menuRects,70,376,360,44,tr('Visée').toUpperCase()+' : '+tr(aimDir()?'Direction':'Souris').toUpperCase(),{act:()=>{SET.aim=SET.aim==='dir'?'mouse':'dir';saveOpts()},size:20});
     btn(menuRects,470,276,300,44,'TOUCHES',{act:()=>{bindListen=null;state='keys'},size:20});
     btn(menuRects,470,326,300,44,tr('Effets').toUpperCase()+' : '+(SET.vol>0?Math.round(SET.vol*100)+' %':tr('Non').toUpperCase()),{act:()=>{const L=[1,.6,.3,0];SET.vol=L[(L.indexOf(SET.vol)+1)%4]??1;setVol();saveOpts();audioInit();sfx('click')},size:20});
+    {const q=GFX.find(x=>x.id===SET.gfx)||GFX[0];
+     btn(menuRects,784,326,140,44,'QUALITÉ : '+q.n,{act:()=>{const k=GFX.findIndex(x=>x.id===q.id);SET.gfx=GFX[(k+1)%GFX.length].id;saveOpts();fit()},size:13,sub:cv.width+'×'+cv.height});}
     btn(menuRects,784,276,140,44,'SAUVEGARDE',{act:()=>{saveConfirm=false;state='saves'},size:14});
     btn(menuRects,470,376,300,44,'RETOUR',{act:()=>state=optFrom==='pause'?'pause':'menu',size:20});
     // musique : curseur de volume + bouton activer / désactiver
@@ -2089,7 +2128,7 @@ function drawMenuBody(){
   }
   hazard(0,H-8,W,8);
   ctx.fillStyle='#8a8178';ctx.font='500 15px '+FONT;
-  ctx.fillText('V'+GAME_VERSION,70,H-24);
+  ctx.fillText('V'+GAME_VERSION,70,H-8);
 }
 // ===== Armes réalistes : dessinées une fois sur un canvas hors-écran (1 unité = 2 px), origine = détente sur l'axe du canon =====
 const ICON_W=640,ICON_H=320,OX=260,OY=150,ICONS={};
@@ -2726,8 +2765,11 @@ function drawUpgrades(){
 
 // --- Boucle ---
 let last=performance.now();
+let emaDt=16.7,adaptT=0;
 function loop(t){
   const dt=Math.min(50,t-last);last=t;
+  emaDt+=(dt-emaDt)*.05;adaptT+=dt;
+  if(adaptT>3000&&!document.hidden){adaptT=0;if((SET.gfx||'auto')==='auto'&&emaDt>26&&RES>1){autoCap=Math.max(1,RES-.5);fit()}}   // Auto : si le jeu rame, la résolution baisse toute seule
   try{update(dt);draw()}catch(e){console.error(e)}
   requestAnimationFrame(loop);
 }
