@@ -155,7 +155,7 @@ function resWanted(vw){
 }
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.64';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.65';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -592,9 +592,9 @@ const DEFAULT_KEYS={left:['KeyA','ArrowLeft'],right:['KeyD','ArrowRight'],jump:[
 const KEYS={};
 function loadKeys(){for(const a in DEFAULT_KEYS) KEYS[a]=(save.keys&&Array.isArray(save.keys[a]))?[save.keys[a][0]||'',save.keys[a][1]||'']:DEFAULT_KEYS[a].slice();
   const pk=KEYS.pause.filter(k=>k&&k!=='Escape');KEYS.pause=[pk[0]||'',pk[1]||'']}   // Échap ouvre maintenant le menu pause
-loadKeys();Object.assign(SET,save.opts||{});if(!GFX.some(q=>q.id===SET.gfx)) SET.gfx='auto';if(!PROFS.some(q=>q.id===SET.prof)) SET.prof='auto';SET.parts=Math.max(0,Math.min(3,SET.parts|0));SET.m3=!!SET.m3;SET.gp=Object.assign({dead:.25,sens:1,rumble:true,on:true,cursor:true},SET.gp||{});SET.gp.on=SET.gp.on!==false;SET.gp.off=(SET.gp.off&&typeof SET.gp.off==='object')?SET.gp.off:{};SET.gp.cursor=SET.gp.cursor!==false;SET.gp.dead=clampN(+SET.gp.dead||.25,.1,.5);SET.gp.sens=clampN(+SET.gp.sens||1,.5,2);SET.anim=[0,1,2].includes(+SET.anim)?+SET.anim:2;SET.bright=isFinite(+SET.bright)&&SET.bright!==null?Math.max(0,Math.min(1,+SET.bright)):.5;SET.hz=(+SET.hz>0)?Math.max(24,Math.min(1000,+SET.hz|0)):0;SET.fps=(+SET.fps>0)?Math.max(15,Math.min(1000,+SET.fps|0)):0;{const ob=(save.opts||{});SET.fc=Object.assign({},FC_DEF,ob.fc||{});if(ob.showfps) SET.fc.on=true;delete SET.showfps}for(const k of['lights','fog','refl','post','bloom']) SET[k]=SET[k]?1:0;fxUpdate();
+loadKeys();Object.assign(SET,save.opts||{});if(!GFX.some(q=>q.id===SET.gfx)) SET.gfx='auto';if(!PROFS.some(q=>q.id===SET.prof)) SET.prof='auto';SET.parts=Math.max(0,Math.min(3,SET.parts|0));SET.m3=!!SET.m3;SET.vr=!!SET.vr&&!SET.m3;SET.gp=Object.assign({dead:.25,sens:1,rumble:true,on:true,cursor:true},SET.gp||{});SET.gp.on=SET.gp.on!==false;SET.gp.off=(SET.gp.off&&typeof SET.gp.off==='object')?SET.gp.off:{};SET.gp.cursor=SET.gp.cursor!==false;SET.gp.dead=clampN(+SET.gp.dead||.25,.1,.5);SET.gp.sens=clampN(+SET.gp.sens||1,.5,2);SET.anim=[0,1,2].includes(+SET.anim)?+SET.anim:2;SET.bright=isFinite(+SET.bright)&&SET.bright!==null?Math.max(0,Math.min(1,+SET.bright)):.5;SET.hz=(+SET.hz>0)?Math.max(24,Math.min(1000,+SET.hz|0)):0;SET.fps=(+SET.fps>0)?Math.max(15,Math.min(1000,+SET.fps|0)):0;{const ob=(save.opts||{});SET.fc=Object.assign({},FC_DEF,ob.fc||{});if(ob.showfps) SET.fc.on=true;delete SET.showfps}for(const k of['lights','fog','refl','post','bloom']) SET[k]=SET[k]?1:0;fxUpdate();
 function saveKeys(){save.keys=JSON.parse(JSON.stringify(KEYS));persist()}
-function saveOpts(){save.opts={gore:SET.gore,fete:SET.fete,gfx:SET.gfx,shake:SET.shake,blood:SET.blood,aim:SET.aim,vol:SET.vol,music:SET.music,mvol:SET.mvol,lang:SET.lang,prof:SET.prof,lights:SET.lights,fog:SET.fog,refl:SET.refl,post:SET.post,bloom:SET.bloom,parts:SET.parts,fps:SET.fps,hz:SET.hz,anim:SET.anim,bright:SET.bright,fc:SET.fc,gp:SET.gp,m3:SET.m3,wheelInv:!!SET.wheelInv};persist()}
+function saveOpts(){save.opts={gore:SET.gore,fete:SET.fete,gfx:SET.gfx,shake:SET.shake,blood:SET.blood,aim:SET.aim,vol:SET.vol,music:SET.music,mvol:SET.mvol,lang:SET.lang,prof:SET.prof,lights:SET.lights,fog:SET.fog,refl:SET.refl,post:SET.post,bloom:SET.bloom,parts:SET.parts,fps:SET.fps,hz:SET.hz,anim:SET.anim,bright:SET.bright,fc:SET.fc,gp:SET.gp,m3:SET.m3,vr:SET.vr,wheelInv:!!SET.wheelInv};persist()}
 function resetKeys(){for(const a in DEFAULT_KEYS) KEYS[a]=DEFAULT_KEYS[a].slice();saveKeys()}
 // --- Traductions : 25 langues (le français est la langue source) ---
 const LANGS=[{"c": "fr", "n": "Français", "f": "fr"}, {"c": "en", "n": "English", "f": "gb"}, {"c": "es", "n": "Español", "f": "es"}, {"c": "de", "n": "Deutsch", "f": "de"}, {"c": "it", "n": "Italiano", "f": "it"}, {"c": "pt", "n": "Português", "f": "pt"}, {"c": "nl", "n": "Nederlands", "f": "nl"}, {"c": "pl", "n": "Polski", "f": "pl"}, {"c": "ru", "n": "Русский", "f": "ru"}, {"c": "uk", "n": "Українська", "f": "ua"}, {"c": "tr", "n": "Türkçe", "f": "tr"}, {"c": "ar", "n": "العربية", "f": "sa"}, {"c": "zh", "n": "中文", "f": "cn"}, {"c": "ja", "n": "日本語", "f": "jp"}, {"c": "ko", "n": "한국어", "f": "kr"}, {"c": "hi", "n": "हिन्दी", "f": "in"}, {"c": "id", "n": "Bahasa Indonesia", "f": "id"}, {"c": "vi", "n": "Tiếng Việt", "f": "vn"}, {"c": "th", "n": "ไทย", "f": "th"}, {"c": "sv", "n": "Svenska", "f": "se"}, {"c": "cs", "n": "Čeština", "f": "cz"}, {"c": "ro", "n": "Română", "f": "ro"}, {"c": "el", "n": "Ελληνικά", "f": "gr"}, {"c": "he", "n": "עברית", "f": "il"}, {"c": "hu", "n": "Magyar", "f": "hu"}];
@@ -1061,7 +1061,7 @@ addEventListener('keydown',e=>{
   else if((state==='mphost'||state==='mplobby'||state==='mpjoining') && e.code==='Escape'){mpStop();state='mpmenu'}
   else if(state==='acpage' && e.code==='Escape'){state='options';optTab=4}
   else if((state==='gamepad'||state==='padsel'||state==='nmsetup'||state==='remote') && e.code==='Escape'){state='options';optTab=3}
-  else if(state==='maint' && e.code==='Escape'){gameMode='2D';state='menu'}
+  else if(state==='maint' && e.code==='Escape'){state='menu'}
   else if(state==='keys' && e.code==='Escape') state='options';
   else if((state==='maps'||state==='quit'||state==='bye'||state==='shop')&&e.code==='Escape') state='menu';
   else if(state==='saves'&&e.code==='Escape'){saveConfirm=false;state='options'}
@@ -4323,10 +4323,10 @@ function boostCard(b,x,y,w,h){
 }
 let maintTitle='MULTIJOUEUR',gameMode='2D';
 function setGameMode(m){
-  if(m==='3D'){gameMode='3D';SET.m3=true;saveOpts();g3Request();state='menu';return}
-  if(m==='2D'){gameMode='2D';SET.m3=false;saveOpts();state='menu';return}
-  gameMode=m;maintTitle='MODE '+m;state='maint'
-}   // 3D et VR : page de maintenance ; revenir au menu remet le mode 2D
+  if(m==='3D'){gameMode='3D';SET.m3=true;SET.vr=false;saveOpts();g3Request();state='menu';return}
+  if(m==='2D'){gameMode='2D';SET.m3=false;SET.vr=false;saveOpts();state='menu';return}
+  gameMode=m;SET.vr=(m==='VR');SET.m3=false;saveOpts();maintTitle='MODE '+m;state='maint'
+}   // VR : page de maintenance ; le mode choisi (2D, 3D ou VR) est mémorisé et restauré au prochain lancement
 function drawMaint(){
   ctx.fillStyle='#000000d8';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
   ctx.fillStyle='#000';ctx.font='400 38px '+TITLE;ctx.fillText(maintTitle,43,61);ctx.fillStyle='#e9e1d0';ctx.fillText(maintTitle,40,58);
@@ -4339,7 +4339,7 @@ function drawMaint(){
   if(maintTitle!=='MULTIJOUEUR'){ctx.fillStyle='#e0a526';ctx.font='700 15px '+FONT;ctx.fillText('Le multijoueur ne sera pas disponible en mode '+'VR'+' : il reste réservé au mode 2D.',480,322)}
   ctx.textAlign='left';
   if(gameMode!=='2D') btn(menuRects,700,470,220,44,'MODE : '+gameMode,{act:()=>setGameMode(gameMode==='3D'?'VR':'2D'),size:18});
-  btn(menuRects,40,470,200,44,'RETOUR',{act:()=>{gameMode='2D';state='menu'}});
+  btn(menuRects,40,470,200,44,'RETOUR',{act:()=>{state='menu'}});
 }
 const FC_POS=[['tl','HAUT GAUCHE',0,0],['tr','HAUT DROITE',1,0],['br','BAS DROITE',1,1],['bl','BAS GAUCHE',0,1]];
 function drawFpsPage(){
@@ -6189,7 +6189,7 @@ drawSoldier=function(p){if(G3.skip) return;return _ds3(p)};
 drawFog=function(front){if(front) G3.skip=false;if(G3.on) return;return _fog3.apply(this,arguments)};
 ash=function(){if(G3.on) return;return _ash3()};
 
-if(SET.m3){gameMode='3D';g3Request()}
+if(SET.m3){gameMode='3D';g3Request()}else if(SET.vr) gameMode='VR';          // le dernier mode utilisé (2D, 3D ou VR) est restauré au lancement
 // --- Boucle ---
 for(const ev of['mousemove','mousedown','mouseup','touchstart','touchmove','keydown','wheel']) addEventListener(ev,()=>{uiDirty=true},{passive:true});
 // ===== V0.61 : MONDE LIBRE 3D — première / troisième personne, déplacement libre (avant, arrière, côtés) dans une ville ouverte =====
