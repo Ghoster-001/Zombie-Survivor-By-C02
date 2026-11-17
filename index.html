@@ -155,7 +155,7 @@ function resWanted(vw){
 }
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.54';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.55';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -174,7 +174,10 @@ function fit(){
     const dG=(nh-80)-GROUND;
     W=nw;H=nh;GROUND=nh-80;
     cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);cv.getContext('2d').setTransform(RES,0,0,RES,0,0);cv.getContext('2d').imageSmoothingQuality='high';
-    if(READY&&dG){try{for(const z of zombies) z.y+=dG;for(const c of crates) c.y+=dG;player.y+=dG}catch(e){}}
+    if(READY&&dG){try{                                                 // le sol change de hauteur (plein écran, rotation) : tout ce qui est posé dessus suit
+      for(const arr of[zombies,crates,decals,particles,bonuses,ents,acid,bullets,fx]) for(const o of arr) if(typeof o.y==='number') o.y+=dG;
+      player.y+=dG;for(const g of MP.guests) if(g.p) g.p.y+=dG;for(const o of MP.others.values()) if(typeof o.y==='number') o.y+=dG;
+    }catch(e){}}
   }
   const cw=asp>=1.2&&asp<=3?vw:(asp>3?vh*3:vw),ch=asp>=1.2&&asp<=3?vh:(asp>3?vh:vw/1.2);
   cv.style.width=cw+'px';cv.style.height=ch+'px';CW=cw;CH=ch;cv.style.transform=FORCED?'rotate(90deg)':'';cv.style.flex='none';
