@@ -25,12 +25,52 @@
 <script>
 // ===== Stickman vs Zombies : base de jeu originale =====
 const cv = document.getElementById('c');
-let ctx = cv.getContext('2d');
+let ctx = cv.getContext('2d',{alpha:false});
 if(!CanvasRenderingContext2D.prototype.roundRect){CanvasRenderingContext2D.prototype.roundRect=function(x,y,w,h,r){r=Math.min(Array.isArray(r)?(r[0]||0):(r||0),Math.abs(w)/2,Math.abs(h)/2);this.moveTo(x+r,y);this.arcTo(x+w,y,x+w,y+h,r);this.arcTo(x+w,y+h,x,y+h,r);this.arcTo(x,y+h,x,y,r);this.arcTo(x,y,x+w,y,r);this.closePath()}}   // anciens navigateurs mobiles
 const MOBILE=/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
 // Qualité graphique : résolution interne du canvas (1x = 960 px de large ... 8x = 7680 px, soit 8K). « Auto » suit la résolution réelle de l'écran et se réduit seule si le jeu rame.
 const GFX=[{id:'auto',n:'AUTO'},{id:'std',n:'STANDARD',r:1},{id:'high',n:'HAUTE',r:2},{id:'ultra',n:'ULTRA',r:3},{id:'4k',n:'4K',r:4},{id:'8k',n:'8K',r:8}];
 let autoCap=MOBILE?2:4,RES=1,RESd=0;
+// Profils graphiques : AUTO règle tout seul (la résolution puis les effets baissent si le jeu rame), les autres figent les réglages.
+const PROFS=[{id:'auto',n:'AUTO'},
+ {id:'eco',n:'ÉCO',gfx:'std',fps:30,lights:0,fog:0,refl:0,post:0,bloom:0,parts:0},
+ {id:'low',n:'BAS',gfx:'std',fps:60,lights:0,fog:0,refl:0,post:0,bloom:0,parts:1},
+ {id:'med',n:'MOYEN',gfx:'high',fps:60,lights:1,fog:0,refl:0,post:1,bloom:0,parts:1},
+ {id:'high',n:'ÉLEVÉ',gfx:'high',fps:60,lights:1,fog:1,refl:1,post:1,bloom:0,parts:2},
+ {id:'ultra',n:'ULTRA',gfx:'ultra',fps:60,lights:1,fog:1,refl:1,post:1,bloom:0,parts:2},
+ {id:'extreme',n:'EXTRÊME',gfx:'4k',fps:60,lights:1,fog:1,refl:1,post:1,bloom:1,parts:3},
+ {id:'custom',n:'PERSONNALISÉ'}];
+const PARTS=[{n:'MINIMALES',q:.3,max:110},{n:'RÉDUITES',q:.6,max:240},{n:'NORMALES',q:1,max:520},{n:'MAXIMALES',q:1.7,max:1000}];
+let autoDrop=MOBILE?2:0;                                              // paliers d'économie automatiques (profil AUTO) : 1 bloom · 2 reflets · 3 brume · 4 lumières · 5 vignette/grain · 6 particules
+let FXF={lights:1,fog:1,refl:1,post:1,bloom:0,pq:1,pmax:520,fps:60,xtra:0};
+function fxUpdate(){
+  const s=SET,a=s.prof==='auto'?autoDrop:0;
+  let pi=Math.max(0,Math.min(3,s.parts|0));if(a>=1) pi=Math.min(pi,2);if(a>=5) pi=Math.min(pi,1);if(a>=6) pi=0;
+  FXF.lights=s.lights&&a<4?1:0;FXF.fog=s.fog&&a<3?1:0;FXF.refl=s.refl&&a<2?1:0;FXF.post=s.post&&a<5?1:0;FXF.bloom=s.bloom&&a<1?1:0;
+  FXF.pq=PARTS[pi].q;FXF.pmax=PARTS[pi].max;FXF.fps=s.fps===30?30:60;
+  FXF.xtra=(s.bloom&&s.fog&&s.lights&&pi>=3&&a<1)?1:0;               // qualité supérieure : plus de brume, de rayons de lumière et de particules
+}
+function setProfile(id){
+  const p=PROFS.find(x=>x.id===id)||PROFS[0];SET.prof=p.id;
+  if(p.id==='auto'){Object.assign(SET,{gfx:'auto',lights:1,fog:1,refl:1,post:1,bloom:0,parts:2,fps:60});autoDrop=MOBILE?2:0}
+  else if(p.id!=='custom'){Object.assign(SET,{gfx:p.gfx,fps:p.fps,lights:p.lights,fog:p.fog,refl:p.refl,post:p.post,bloom:p.bloom,parts:p.parts})}
+  saveOpts();fit();
+}
+const fxToggle=k=>{SET[k]=SET[k]?0:1;SET.prof='custom';saveOpts()};
+let BLC=null,BLC2=null;
+function doBloom(){                                                    // lueur : le rendu est réduit, flouté et éclairci puis rajouté en additif
+  const bw=Math.max(64,Math.round(W/4)),bh=Math.max(36,Math.round(H/4));
+  if(!BLC||BLC.width!==bw||BLC.height!==bh){BLC=document.createElement('canvas');BLC.width=bw;BLC.height=bh;BLC2=document.createElement('canvas');BLC2.width=bw;BLC2.height=bh}
+  const a=BLC.getContext('2d'),b=BLC2.getContext('2d');
+  a.globalCompositeOperation='copy';a.drawImage(cv,0,0,cv.width,cv.height,0,0,bw,bh);
+  b.globalCompositeOperation='copy';let ok=false;try{b.filter='blur(3px) brightness(1.2) contrast(1.6)';ok=b.filter!=='none'}catch(e){}
+  b.drawImage(BLC,0,0);try{b.filter='none'}catch(e){}
+  ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=ok?.5:.22;ctx.drawImage(BLC2,0,0,W,H);ctx.restore();
+}
+function drawFps(){
+  ctx.save();ctx.setTransform(RES,0,0,RES,0,0);const t=fpsShow+' FPS  ·  '+RES+'×  ·  '+(PROFS.find(x=>x.id===SET.prof)||PROFS[0]).n+(SET.prof==='auto'&&autoDrop?' (−'+autoDrop+')':'');
+  ctx.font='700 13px '+FONT;ctx.textAlign='center';const w=ctx.measureText(t).width+20;ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(W/2-w/2,2,w,20);ctx.fillStyle=fpsShow>=55?'#9fd18a':fpsShow>=30?'#ffd45a':'#ff7a6a';ctx.fillText(t,W/2,16);ctx.restore();
+}
 function resWanted(vw){
   let g='auto';try{g=SET.gfx||'auto'}catch(e){}
   const q=GFX.find(x=>x.id===g)||GFX[0];
@@ -41,7 +81,7 @@ function resWanted(vw){
 }
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.49';   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.50';   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -313,7 +353,7 @@ const ZTYPES = {
 };
 
 // --- État ---
-const SET={gore:true,fete:true,gfx:'auto',shake:true,blood:true,aim:'mouse',vol:.6,music:true,mvol:.5,lang:null};   // aim : 'mouse' (visée à la souris) ou 'dir' (tir droit dans le sens du déplacement)
+const SET={gore:true,fete:true,gfx:'auto',shake:true,blood:true,aim:'mouse',vol:.6,music:true,mvol:.5,lang:null,prof:'auto',lights:1,fog:1,refl:1,post:1,bloom:0,parts:2,fps:60,showfps:false};   // aim : 'mouse' (visée à la souris) ou 'dir' (tir droit dans le sens du déplacement)
 // Progression conservée entre les parties (menu Améliorations uniquement)
 const SAVE_KEY='zs_save_v5';
 let save={bank:0,xp:0,own:{'Couteau':true,'Glock 17':true},melee:'Couteau',up:{},hpLvl:0,dmgLvl:0,best:0};
@@ -366,9 +406,9 @@ const DEFAULT_KEYS={left:['KeyA','ArrowLeft'],right:['KeyD','ArrowRight'],jump:[
 const KEYS={};
 function loadKeys(){for(const a in DEFAULT_KEYS) KEYS[a]=(save.keys&&Array.isArray(save.keys[a]))?[save.keys[a][0]||'',save.keys[a][1]||'']:DEFAULT_KEYS[a].slice();
   const pk=KEYS.pause.filter(k=>k&&k!=='Escape');KEYS.pause=[pk[0]||'',pk[1]||'']}   // Échap ouvre maintenant le menu pause
-loadKeys();Object.assign(SET,save.opts||{});if(!GFX.some(q=>q.id===SET.gfx)) SET.gfx='auto';
+loadKeys();Object.assign(SET,save.opts||{});if(!GFX.some(q=>q.id===SET.gfx)) SET.gfx='auto';if(!PROFS.some(q=>q.id===SET.prof)) SET.prof='auto';SET.parts=Math.max(0,Math.min(3,SET.parts|0));SET.fps=SET.fps===30?30:60;for(const k of['lights','fog','refl','post','bloom']) SET[k]=SET[k]?1:0;fxUpdate();
 function saveKeys(){save.keys=JSON.parse(JSON.stringify(KEYS));persist()}
-function saveOpts(){save.opts={gore:SET.gore,fete:SET.fete,gfx:SET.gfx,shake:SET.shake,blood:SET.blood,aim:SET.aim,vol:SET.vol,music:SET.music,mvol:SET.mvol,lang:SET.lang};persist()}
+function saveOpts(){save.opts={gore:SET.gore,fete:SET.fete,gfx:SET.gfx,shake:SET.shake,blood:SET.blood,aim:SET.aim,vol:SET.vol,music:SET.music,mvol:SET.mvol,lang:SET.lang,prof:SET.prof,lights:SET.lights,fog:SET.fog,refl:SET.refl,post:SET.post,bloom:SET.bloom,parts:SET.parts,fps:SET.fps,showfps:SET.showfps};persist()}
 function resetKeys(){for(const a in DEFAULT_KEYS) KEYS[a]=DEFAULT_KEYS[a].slice();saveKeys()}
 // --- Traductions : 25 langues (le français est la langue source) ---
 const LANGS=[{"c": "fr", "n": "Français", "f": "fr"}, {"c": "en", "n": "English", "f": "gb"}, {"c": "es", "n": "Español", "f": "es"}, {"c": "de", "n": "Deutsch", "f": "de"}, {"c": "it", "n": "Italiano", "f": "it"}, {"c": "pt", "n": "Português", "f": "pt"}, {"c": "nl", "n": "Nederlands", "f": "nl"}, {"c": "pl", "n": "Polski", "f": "pl"}, {"c": "ru", "n": "Русский", "f": "ru"}, {"c": "uk", "n": "Українська", "f": "ua"}, {"c": "tr", "n": "Türkçe", "f": "tr"}, {"c": "ar", "n": "العربية", "f": "sa"}, {"c": "zh", "n": "中文", "f": "cn"}, {"c": "ja", "n": "日本語", "f": "jp"}, {"c": "ko", "n": "한국어", "f": "kr"}, {"c": "hi", "n": "हिन्दी", "f": "in"}, {"c": "id", "n": "Bahasa Indonesia", "f": "id"}, {"c": "vi", "n": "Tiếng Việt", "f": "vn"}, {"c": "th", "n": "ไทย", "f": "th"}, {"c": "sv", "n": "Svenska", "f": "se"}, {"c": "cs", "n": "Čeština", "f": "cz"}, {"c": "ro", "n": "Română", "f": "ro"}, {"c": "el", "n": "Ελληνικά", "f": "gr"}, {"c": "he", "n": "עברית", "f": "il"}, {"c": "hu", "n": "Magyar", "f": "hu"}];
@@ -1415,16 +1455,17 @@ let decals=[];
 function burst(x,y,col,n=8){                                      // éclaboussures : taille, durée et lueur variables ; le sang laisse des traces au sol
   const blood=/^#(8e1b1b|a22|d33|c9372c)$/.test(col),glow=/^#(ffb040|ffd45a)$/.test(col);
   if(blood&&SET.gore) n=Math.round(n*1.7);
+  n=Math.max(1,Math.round(n*FXF.pq));
   for(let i=0;i<n;i++){const l=26+Math.random()*26;particles.push({x,y,vx:(Math.random()-.5)*(glow?7:5),vy:-Math.random()*(glow?5:4),life:l,ml:l,col,sz:glow?1+Math.random()*2:1.2+Math.random()*2.4,blood,glow})}
 }
 function spawnGibs(z){                                              // morceaux de corps qui volent et laissent des traces de sang
-  if(!SET.gore||particles.length>360) return;
+  if(!SET.gore||particles.length>FXF.pmax*.7) return;
   const n=Math.round(5+z.size*4+(z.boss?14:0)),cx=z.x,cy=z.y-(z.hh?z.hh*.5:36*z.size);
   for(let i=0;i<n;i++){const kind=['chunk','chunk','bone','eye','limb'][Math.floor(Math.random()*5)];
     particles.push({gib:kind,x:cx,y:cy,vx:(Math.random()-.5)*9,vy:-3-Math.random()*6.5,rot:Math.random()*6,vr:(Math.random()-.5)*.45,life:520,ml:520,sz:2.4+Math.random()*3*(kind==='limb'?1.5:1),col:z.skin||z.color||'#6b8f5a'})}
   if(decals.length<230) decals.push({x:z.x,y:GROUND+8,r:7+z.size*5,life:1700});   // flaque
 }
-function smokePuff(x,y,n){for(let i=0;i<n;i++){const l=50+Math.random()*30;particles.push({x:x+(Math.random()-.5)*30,y:y+(Math.random()-.5)*20,vx:(Math.random()-.5)*1.2,vy:-.6-Math.random()*.9,g:-.012,life:l,ml:l,sz:8+Math.random()*8,smoke:true,col:'#2a2522'})}}
+function smokePuff(x,y,n){n=Math.max(1,Math.round(n*FXF.pq));for(let i=0;i<n;i++){const l=50+Math.random()*30;particles.push({x:x+(Math.random()-.5)*30,y:y+(Math.random()-.5)*20,vx:(Math.random()-.5)*1.2,vy:-.6-Math.random()*.9,g:-.012,life:l,ml:l,sz:8+Math.random()*8,smoke:true,col:'#2a2522'})}}
 
 // --- Bonus tombés des zombies : ramassés en marchant dessus (soin, bouclier, dégâts x2, cadence, gel, frappe aérienne, tourelle, butin) ---
 const BON={
@@ -1790,7 +1831,7 @@ function update(dt){
     if(q.gib){q.rot+=q.vr;if(q.y>GROUND+4&&q.vy>0){q.y=GROUND+4;q.vy*=-.32;q.vx*=.65;q.vr*=.5;if(!q.hit){q.hit=1;if(decals.length<230) decals.push({x:q.x,y:GROUND+8+Math.random()*16,r:3+Math.random()*3,life:1300})}if(Math.abs(q.vy)<.8){q.vy=0;q.g=0;q.vx=0;q.vr=0}}}
   }
   for(const d of decals) d.life--;decals=decals.filter(d=>d.life>0);
-  particles=particles.filter(q=>q.life>0);
+  particles=particles.filter(q=>q.life>0);if(particles.length>FXF.pmax) particles.splice(0,particles.length-FXF.pmax);
   for(const f of fx) f.life--; fx=fx.filter(f=>f.life>0);
   if(msgT>0) msgT--;
   comboT-=dt; if(comboT<=0) combo=0;
@@ -1878,9 +1919,9 @@ function drawBackground(){
   const sg=ctx.createRadialGradient(sx,150,6,sx,150,130);sg.addColorStop(0,'rgba(240,170,100,.5)');sg.addColorStop(.4,'rgba(200,90,50,.22)');sg.addColorStop(1,'rgba(200,90,50,0)');
   ctx.fillStyle=sg;ctx.fillRect(sx-200,0,400,330);
   ctx.fillStyle='rgba('+PAL.sun+',.5)';ctx.beginPath();ctx.arc(sx,150,30,0,7);ctx.fill();
-  if(RES>=1.25){                                                       // rayons de lumière à travers la poussière
-    ctx.save();ctx.globalCompositeOperation='lighter';const kk=.07*(1-Math.min(.9,(curMap.dark||0)*2));
-    for(let k=0;k<5;k++){const a0=sx-120-k*150+Math.sin(tick*.004+k)*20,a1=a0-110;const g=ctx.createLinearGradient(sx,150,a0,GROUND);g.addColorStop(0,'rgba('+PAL.sun+','+(kk*1.4)+')');g.addColorStop(1,'rgba('+PAL.sun+',0)');ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(sx-6,150);ctx.lineTo(sx+6,150);ctx.lineTo(a0+60,GROUND);ctx.lineTo(a1,GROUND);ctx.closePath();ctx.fill()}
+  if(FXF.lights){                                                       // rayons de lumière à travers la poussière
+    ctx.save();ctx.globalCompositeOperation='lighter';const kk=.07*(1-Math.min(.9,(curMap.dark||0)*2))*(FXF.xtra?1.4:1);
+    for(let k=0;k<(FXF.xtra?9:5);k++){const a0=sx-120-k*150+Math.sin(tick*.004+k)*20,a1=a0-110;const g=ctx.createLinearGradient(sx,150,a0,GROUND);g.addColorStop(0,'rgba('+PAL.sun+','+(kk*1.4)+')');g.addColorStop(1,'rgba('+PAL.sun+',0)');ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(sx-6,150);ctx.lineTo(sx+6,150);ctx.lineTo(a0+60,GROUND);ctx.lineTo(a1,GROUND);ctx.closePath();ctx.fill()}
     ctx.restore()}
   ctx.fillStyle='rgba(255,255,255,.2)';for(let i=0;i<26;i++) ctx.fillRect((((i*131-camX*.05)%W)+W)%W,(i*47)%140,1.6,1.6);
   for(const far of [true,false]){
@@ -2312,6 +2353,7 @@ function bar(x,y,w,v,max,col){
 }
 function glowAt(x,y,r,col,a){const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,'rgba('+col+','+a+')');g.addColorStop(1,'rgba('+col+',0)');ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2)}
 function drawLights(){                                                // lumières dynamiques (additives)
+  if(!FXF.lights) return;
   ctx.save();ctx.globalCompositeOperation='lighter';
   const p=player,wp=WEAPONS[p.w];
   const fl=(p.muz0>0||p.muz1>0)||(!wp.melee&&p.cd>wp.rate*.7);
@@ -2327,8 +2369,8 @@ function drawLights(){                                                // lumièr
 let FOGS=null;
 function makeFog(){const c=document.createElement('canvas');c.width=512;c.height=128;const x=c.getContext('2d'),g=x.createRadialGradient(256,64,4,256,64,256);g.addColorStop(0,'rgba(255,255,255,.55)');g.addColorStop(.5,'rgba(255,255,255,.2)');g.addColorStop(1,'rgba(255,255,255,0)');x.save();x.translate(0,64);x.scale(1,.28);x.translate(0,-64);x.fillStyle=g;x.fillRect(0,-200,512,520);x.restore();return c}
 function drawFog(front){                                              // brume volumétrique : nappes qui dérivent avec parallaxe
-  if(RES<1.25) return;if(!FOGS) FOGS=makeFog();
-  const k=(PAL.fogK||1)*(front?.55:1),n=front?3:5;
+  if(!FXF.fog) return;if(!FOGS) FOGS=makeFog();
+  const k=(PAL.fogK||1)*(front?.55:1)*(FXF.xtra?1.25:1),n=(front?3:5)+(FXF.xtra?(front?2:3):0);
   ctx.save();ctx.globalCompositeOperation='lighter';
   const tint=PAL.fog.split(',').map(Number);
   for(let i=0;i<n;i++){
@@ -2359,7 +2401,7 @@ function drawMinimap(){
   ctx.fillStyle='#7fe08a';ctx.fillRect(x+player.x*k-2,y+1,4,h-2);ctx.restore();
 }
 function draw(){
-  tick++;syncMouse();
+  syncMouse();
   if(state==='menu'||state==='options'||state==='credits'||state==='upgrades'||state==='weapon'||state==='keys'||state==='custom'||state==='lang'||state==='saves'||state==='maps'||state==='quit'||state==='bye'||state==='shop'||state==='boosts'||state==='wheel'){drawMenu();overlayFx(0);drawCursor();return}
   ctx.save();
   if(shake>.5){ctx.translate((Math.random()-.5)*shake,(Math.random()-.5)*shake);shake*=.88}
@@ -2369,13 +2411,14 @@ function draw(){
   ctx.save();ctx.translate(-camX,0);
   for(const d of decals){ctx.globalAlpha=Math.min(.7,d.life/300);ctx.fillStyle='#4a0a0c';ctx.beginPath();ctx.ellipse(d.x,d.y,d.r*2.5,d.r*.72,0,0,7);ctx.fill();if(d.r>6){ctx.fillStyle='#6a1014';ctx.beginPath();ctx.ellipse(d.x-d.r*.3,d.y-.5,d.r*1.5,d.r*.4,0,0,7);ctx.fill()}}
   ctx.globalAlpha=1;
-  if(RES>=1.5){                                                       // reflets sur le sol mouillé
+  if(FXF.refl){                                                       // reflets sur le sol mouillé (les 6 zombies les plus proches seulement)
     ctx.save();ctx.beginPath();ctx.rect(camX-10,GROUND+9,W+20,H);ctx.clip();ctx.globalAlpha=.13;ctx.translate(0,GROUND*2+18);ctx.scale(1,-1);
-    for(const z of zombies) if(!(z.emerge>0)&&!(z.mag&&z.ph==='under')&&Math.abs(z.x-camX-W/2)<W/2+60) drawZombie(z);
+    let nr=0;for(const z of zombies) if(!(z.emerge>0)&&!(z.mag&&z.ph==='under')&&Math.abs(z.x-camX-W/2)<W/2+60&&nr++<6) drawZombie(z);
     drawSoldier(player);ctx.restore();ctx.globalAlpha=1;
   }
   // zombies
   for(const z of zombies){
+    if(Math.abs(z.x-camX-W/2)>W/2+(z.boss?260:100)) continue;           // hors écran : pas dessiné
     if(z.emerge>0){drawEmerge(z);continue}
     drawZombie(z);
     if(z.type==='digger'){ctx.fillStyle='rgba(255,60,40,.9)';ctx.beginPath();ctx.arc(z.x+z.dir*8*z.size,z.y-72*z.size,2.2,0,7);ctx.fill()}
@@ -2416,10 +2459,11 @@ function draw(){
   drawFog(true);
   bloodFlakes();
   drawEdgeMarks();
-  {const g=ctx.createRadialGradient(W/2,H*.55,Math.min(W,H)*.45,W/2,H*.55,Math.max(W,H)*.78);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(8,4,6,.38)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H)}   // vignettage cinéma
+  if(FXF.post){const g=ctx.createRadialGradient(W/2,H*.55,Math.min(W,H)*.45,W/2,H*.55,Math.max(W,H)*.78);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(8,4,6,.38)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H)}   // vignettage cinéma
   if(curMap.dark&&state!=='over'){const cx=p.x-camX,cy=p.y-50,g=ctx.createRadialGradient(cx,cy,100,cx,cy,Math.max(W,H)*.72);g.addColorStop(0,'rgba('+curMap.dkc+',0)');g.addColorStop(1,'rgba('+curMap.dkc+','+Math.min(.85,curMap.dark*1.9)+')');ctx.fillStyle=g;ctx.fillRect(0,0,W,H)}
 
   ctx.restore();
+  if(FXF.bloom) doBloom();
   if(fxB.freeze>0){ctx.fillStyle='rgba(110,210,235,'+(fxB.freeze<2000?.05:.11)+')';ctx.fillRect(0,0,W,H)}
   const hpR=p.hp/p.maxhp;
   overlayFx(state==='play'&&hpR<.35?(.35-hpR)/.35:0);
@@ -2522,7 +2566,22 @@ function makeTextures(){
   gr.addColorStop(0,'rgba(0,0,0,0)');gr.addColorStop(.7,'rgba(0,0,0,.35)');gr.addColorStop(1,'rgba(0,0,0,.82)');vg.fillStyle=gr;vg.fillRect(0,0,W,H);VIG=v;
 }
 function rivet(x,y){ctx.fillStyle='#120e0b';ctx.beginPath();ctx.arc(x,y,2.7,0,7);ctx.fill();ctx.fillStyle='#74634f';ctx.beginPath();ctx.arc(x-.6,y-.6,1.4,0,7);ctx.fill()}
-function panel(x,y,w,h,o){
+const PCACHE=new Map();let pcPx=0;
+function panel(x,y,w,h,o){                                            // les plaques de métal sont dessinées une fois puis recopiées (cache par taille et couleurs)
+  o=o||{};
+  if(w<4||h<4||w>2000||h>1200){panelRaw(x,y,w,h,o);return}
+  const key=w+'|'+h+'|'+(o.top||'')+'|'+(o.bot||'')+'|'+(o.edge||'')+'|'+(o.grunge===undefined?.9:o.grunge)+'|'+(o.norivets?1:0)+'|'+RES;
+  let c=PCACHE.get(key);
+  if(!c){
+    const cw=Math.max(1,Math.ceil(w*RES)),ch=Math.max(1,Math.ceil(h*RES));
+    if(pcPx+cw*ch>48e6){PCACHE.clear();pcPx=0}
+    c=document.createElement('canvas');c.width=cw;c.height=ch;pcPx+=cw*ch;
+    const mc=ctx;ctx=c.getContext('2d');ctx.scale(cw/w,ch/h);try{panelRaw(0,0,w,h,o)}finally{ctx=mc}
+    PCACHE.set(key,c);
+  }
+  ctx.drawImage(c,x,y,w,h);
+}
+function panelRaw(x,y,w,h,o){
   o=o||{};
   const g=ctx.createLinearGradient(0,y,0,y+h);g.addColorStop(0,o.top||'#2a2522');g.addColorStop(1,o.bot||'#15110f');
   ctx.fillStyle=g;ctx.fillRect(x,y,w,h);
@@ -2562,8 +2621,8 @@ function segBar(x,y,w,h,v,max,col,n){
   }
 }
 function overlayFx(low){
-  ctx.drawImage(VIG,0,0,W,H);
-  ctx.save();ctx.globalAlpha=.07;ctx.translate((tick*7)%128,(tick*13)%128);ctx.fillStyle=GRAIN;ctx.fillRect(-128,-128,W+128,H+128);ctx.restore();
+  if(FXF.post){ctx.drawImage(VIG,0,0,W,H);
+  ctx.save();ctx.globalAlpha=.07;ctx.translate((tick*7)%128,(tick*13)%128);ctx.fillStyle=GRAIN;ctx.fillRect(-128,-128,W+128,H+128);ctx.restore()}
   if(low>0){const a=low*(.35+.2*Math.sin(tick*.15)),gr=ctx.createRadialGradient(W/2,H/2,H*.3,W/2,H/2,H*.85);
     gr.addColorStop(0,'rgba(160,0,0,0)');gr.addColorStop(1,'rgba(160,10,10,'+a+')');ctx.fillStyle=gr;ctx.fillRect(0,0,W,H)}
 }
@@ -2744,12 +2803,25 @@ function drawMenuBody(){
       ctx.fillStyle=hotS?'#fff':'#d8d2c8';ctx.beginPath();ctx.roundRect(tx-6,sy-12,12,24,3);ctx.fill();ctx.strokeStyle='#000';ctx.stroke();
       ctx.fillStyle='#d8d2c8';ctx.font='700 16px '+FONT;ctx.fillText(Math.round(SET.mvol*100)+' %',sx+sw+22,sy+5);
     } else if(optTab===2){                                           // GRAPHISMES
-      const q=GFX.find(x=>x.id===SET.gfx)||GFX[0];
-      btn(menuRects,X1,yo[0],BW,BH,'QUALITÉ : '+q.n,{act:()=>{const k=GFX.findIndex(x=>x.id===q.id);SET.gfx=GFX[(k+1)%GFX.length].id;saveOpts();fit()},size:20,sub:'résolution interne '+cv.width+'×'+cv.height});
-      btn(menuRects,X2,yo[0],BW,BH,tr('Plein écran  ({0})',kn('full')).toUpperCase(),{act:toggleFull,size:20});
-      ctx.fillStyle='#b9b1a6';ctx.font='500 14px '+FONT;
-      ctx.fillText('AUTO : au moins 2×, jusqu\'à la résolution de l\'écran, et baisse seule si le jeu rame. 4K et 8K demandent une carte puissante.',X1,yo[1]+22,800);
-      ctx.fillText('Le tremblement de l\'écran se règle dans GAMEPLAY.',X1,yo[1]+46);
+      const q=GFX.find(x=>x.id===SET.gfx)||GFX[0],pf=PROFS.find(x=>x.id===SET.prof)||PROFS[0],cols=[70,330,590],ys=[306,348,390,432],oo=v=>v?'OUI':'NON';
+      const B=(c,r,lab,act)=>btn(menuRects,cols[c],ys[r],240,36,lab,{act,size:16});
+      const cyc=PROFS.filter(x=>x.id!=='custom');
+      B(0,0,'PROFIL : '+pf.n,()=>{const k=cyc.findIndex(x=>x.id===SET.prof);setProfile(cyc[(k+1)%cyc.length].id)});
+      B(1,0,'RÉSOLUTION : '+q.n,()=>{const k=GFX.findIndex(x=>x.id===q.id);SET.gfx=GFX[(k+1)%GFX.length].id;SET.prof='custom';saveOpts();fit()});
+      B(2,0,'LIMITE FPS : '+(SET.fps===30?30:60),()=>{SET.fps=SET.fps===30?60:30;SET.prof='custom';saveOpts()});
+      B(0,1,'LUMIÈRES : '+oo(SET.lights),()=>fxToggle('lights'));
+      B(1,1,'BRUME : '+oo(SET.fog),()=>fxToggle('fog'));
+      B(2,1,'REFLETS : '+oo(SET.refl),()=>fxToggle('refl'));
+      B(0,2,'PARTICULES : '+PARTS[Math.max(0,Math.min(3,SET.parts|0))].n,()=>{SET.parts=((SET.parts|0)+1)%4;SET.prof='custom';saveOpts()});
+      B(1,2,'VIGNETTE ET GRAIN : '+oo(SET.post),()=>fxToggle('post'));
+      B(2,2,'BLOOM (LUEUR) : '+oo(SET.bloom),()=>fxToggle('bloom'));
+      B(0,3,'COMPTEUR FPS : '+oo(SET.showfps),()=>{SET.showfps=!SET.showfps;saveOpts()});
+      B(1,3,'GORE : '+oo(SET.gore),()=>{SET.gore=!SET.gore;saveOpts()});
+      B(2,3,tr('Plein écran  ({0})',kn('full')).toUpperCase(),toggleFull);
+      ctx.fillStyle='#b9b1a6';ctx.font='500 13px '+FONT;
+      ctx.fillText('AUTO : la résolution puis les effets baissent seuls si le jeu rame. ÉCO convient aux très vieux PC et téléphones.',290,488,640);
+      ctx.fillText('EXTRÊME : 4K + bloom + brume et rayons de lumière renforcés + particules maximales (carte graphique puissante).',290,506,640);
+      ctx.fillText('Résolution interne '+cv.width+'×'+cv.height+'  ·  logique fixée à 60 Hz : même vitesse de jeu sur tous les écrans.',290,524,640);
     } else if(optTab===3){                                           // COMMANDES
       btn(menuRects,X1,yo[0],BW,BH,'TOUCHES',{act:()=>{bindListen=null;state='keys'},size:20,sub:'changer les touches du clavier'});
       btn(menuRects,X2,yo[0],BW,BH,tr('Visée').toUpperCase()+' : '+tr(aimDir()?'Direction':'Souris').toUpperCase(),{act:()=>{SET.aim=SET.aim==='dir'?'mouse':'dir';saveOpts()},size:20});
@@ -3885,11 +3957,27 @@ addEventListener('pointerdown',()=>{if(death&&death.ph==='recap'&&death.t>90) de
 // --- Boucle ---
 let last=performance.now();
 let emaDt=16.7,adaptT=0;
+const STEP=1000/60;let acc=0,lastDrawT=0,fpsFrames=0,fpsT0=0,fpsShow=60;
 function loop(t){
-  const dt=Math.min(50,t-last);last=t;
-  emaDt+=(dt-emaDt)*.05;adaptT+=dt;
-  if(adaptT>3000&&!document.hidden){adaptT=0;if((SET.gfx||'auto')==='auto'&&emaDt>26&&RES>1){autoCap=Math.max(1,RES-.5);fit()}}   // Auto : si le jeu rame, la résolution baisse toute seule
-  try{update(dt);draw()}catch(e){console.error(e)}
+  const dtRaw=Math.max(0,t-last);last=t;
+  acc+=Math.min(100,dtRaw);adaptT+=Math.min(100,dtRaw);
+  fxUpdate();
+  // la logique tourne à 60 Hz fixes (même vitesse de jeu sur un écran 60, 120 ou 144 Hz) ; on ne dessine que s'il y a eu du nouveau
+  let steps=0;
+  while(acc>=STEP-2&&steps<4){acc-=STEP;steps++;tick++;try{update(STEP)}catch(e){console.error(e)}}
+  if(steps>=4) acc=0;else if(acc<-STEP/2) acc=0;
+  if(steps>0&&t-lastDrawT>=1000/FXF.fps-3){
+    emaDt+=((t-lastDrawT)-emaDt)*.05;lastDrawT=t;
+    try{draw();if(SET.showfps) drawFps()}catch(e){console.error(e)}
+    fpsFrames++;if(t-fpsT0>=500){fpsShow=Math.round(fpsFrames*1000/(t-fpsT0));fpsFrames=0;fpsT0=t}
+  }
+  if(adaptT>3000&&!document.hidden){
+    adaptT=0;
+    if(emaDt>(1000/FXF.fps)*1.55){                                  // le jeu rame : d'abord la résolution, puis les effets (profil AUTO)
+      if((SET.gfx||'auto')==='auto'&&RES>1){autoCap=Math.max(1,RES-.5);fit()}
+      else if(SET.prof==='auto'&&autoDrop<6) autoDrop++;
+    }
+  }
   requestAnimationFrame(loop);
 }
 applyMap();reset(true);
