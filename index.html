@@ -155,7 +155,7 @@ function resWanted(vw){
 }
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.53';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.54';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -513,7 +513,7 @@ const ACG=(()=>{
 })();
 
 // --- État ---
-const SET={gore:true,fete:true,gfx:'auto',shake:true,blood:true,aim:'mouse',vol:.6,music:true,mvol:.5,lang:null,prof:'auto',lights:1,fog:1,refl:1,post:1,bloom:0,parts:2,fps:0,hz:0,anim:2,bright:.5,fc:null,gp:{dead:.25,sens:1,rumble:true}};   // aim : 'mouse' (visée à la souris) ou 'dir' (tir droit dans le sens du déplacement)
+const SET={gore:true,fete:true,gfx:'auto',shake:true,blood:true,aim:'mouse',vol:.6,music:true,mvol:.5,lang:null,prof:'auto',lights:1,fog:1,refl:1,post:1,bloom:0,parts:2,fps:0,hz:0,anim:2,bright:.5,fc:null,gp:{dead:.25,sens:1,rumble:true,on:true,cursor:true}};   // aim : 'mouse' (visée à la souris) ou 'dir' (tir droit dans le sens du déplacement)
 // Progression conservée entre les parties (menu Améliorations uniquement)
 const SAVE_KEY='zs_save_v5';
 let save={bank:0,xp:0,own:{'Couteau':true,'Glock 17':true},melee:'Couteau',up:{},hpLvl:0,dmgLvl:0,best:0};
@@ -566,7 +566,7 @@ const DEFAULT_KEYS={left:['KeyA','ArrowLeft'],right:['KeyD','ArrowRight'],jump:[
 const KEYS={};
 function loadKeys(){for(const a in DEFAULT_KEYS) KEYS[a]=(save.keys&&Array.isArray(save.keys[a]))?[save.keys[a][0]||'',save.keys[a][1]||'']:DEFAULT_KEYS[a].slice();
   const pk=KEYS.pause.filter(k=>k&&k!=='Escape');KEYS.pause=[pk[0]||'',pk[1]||'']}   // Échap ouvre maintenant le menu pause
-loadKeys();Object.assign(SET,save.opts||{});if(!GFX.some(q=>q.id===SET.gfx)) SET.gfx='auto';if(!PROFS.some(q=>q.id===SET.prof)) SET.prof='auto';SET.parts=Math.max(0,Math.min(3,SET.parts|0));SET.gp=Object.assign({dead:.25,sens:1,rumble:true},SET.gp||{});SET.gp.dead=clampN(+SET.gp.dead||.25,.1,.5);SET.gp.sens=clampN(+SET.gp.sens||1,.5,2);SET.anim=[0,1,2].includes(+SET.anim)?+SET.anim:2;SET.bright=isFinite(+SET.bright)&&SET.bright!==null?Math.max(0,Math.min(1,+SET.bright)):.5;SET.hz=(+SET.hz>0)?Math.max(24,Math.min(1000,+SET.hz|0)):0;SET.fps=(+SET.fps>0)?Math.max(15,Math.min(1000,+SET.fps|0)):0;{const ob=(save.opts||{});SET.fc=Object.assign({},FC_DEF,ob.fc||{});if(ob.showfps) SET.fc.on=true;delete SET.showfps}for(const k of['lights','fog','refl','post','bloom']) SET[k]=SET[k]?1:0;fxUpdate();
+loadKeys();Object.assign(SET,save.opts||{});if(!GFX.some(q=>q.id===SET.gfx)) SET.gfx='auto';if(!PROFS.some(q=>q.id===SET.prof)) SET.prof='auto';SET.parts=Math.max(0,Math.min(3,SET.parts|0));SET.gp=Object.assign({dead:.25,sens:1,rumble:true,on:true,cursor:true},SET.gp||{});SET.gp.on=SET.gp.on!==false;SET.gp.cursor=SET.gp.cursor!==false;SET.gp.dead=clampN(+SET.gp.dead||.25,.1,.5);SET.gp.sens=clampN(+SET.gp.sens||1,.5,2);SET.anim=[0,1,2].includes(+SET.anim)?+SET.anim:2;SET.bright=isFinite(+SET.bright)&&SET.bright!==null?Math.max(0,Math.min(1,+SET.bright)):.5;SET.hz=(+SET.hz>0)?Math.max(24,Math.min(1000,+SET.hz|0)):0;SET.fps=(+SET.fps>0)?Math.max(15,Math.min(1000,+SET.fps|0)):0;{const ob=(save.opts||{});SET.fc=Object.assign({},FC_DEF,ob.fc||{});if(ob.showfps) SET.fc.on=true;delete SET.showfps}for(const k of['lights','fog','refl','post','bloom']) SET[k]=SET[k]?1:0;fxUpdate();
 function saveKeys(){save.keys=JSON.parse(JSON.stringify(KEYS));persist()}
 function saveOpts(){save.opts={gore:SET.gore,fete:SET.fete,gfx:SET.gfx,shake:SET.shake,blood:SET.blood,aim:SET.aim,vol:SET.vol,music:SET.music,mvol:SET.mvol,lang:SET.lang,prof:SET.prof,lights:SET.lights,fog:SET.fog,refl:SET.refl,post:SET.post,bloom:SET.bloom,parts:SET.parts,fps:SET.fps,hz:SET.hz,anim:SET.anim,bright:SET.bright,fc:SET.fc,gp:SET.gp};persist()}
 function resetKeys(){for(const a in DEFAULT_KEYS) KEYS[a]=DEFAULT_KEYS[a].slice();saveKeys()}
@@ -965,7 +965,7 @@ addEventListener('keyup',e=>keys[e.code]=false);
 let sliderActive=null;
 cv.addEventListener('mousemove',e=>{
   const r=cv.getBoundingClientRect();
-  mouse.rx=(e.clientX-r.left)*W/r.width; mouse.ry=(e.clientY-r.top)*H/r.height;syncMouse();gpAim.on=false;
+  mouse.rx=(e.clientX-r.left)*W/r.width; mouse.ry=(e.clientY-r.top)*H/r.height;syncMouse();gpAim.on=false;GPS.mouseT=performance.now();
   if(ctlEdit) ceMove({x:mouse.rx,y:mouse.ry},'m');
   if(sliderActive) sliderActive.act();
 });
@@ -4117,6 +4117,7 @@ function drawMaint(){
   ctx.textAlign='center';ctx.fillStyle='#ffd45a';ctx.font='400 54px '+TITLE;ctx.fillText('EN MAINTENANCE',480,238);
   ctx.fillStyle='#d8d2c8';ctx.font='500 20px '+FONT;ctx.fillText('Le mode '+(maintTitle==='MULTIJOUEUR'?'multijoueur':maintTitle==='MODE 3D'?'3D':'VR')+' est en cours de préparation.',480,276);
   ctx.fillStyle='#8a8178';ctx.font='500 16px '+FONT;ctx.fillText('Reviens bientôt : il arrivera dans une prochaine mise à jour.',480,304);
+  if(maintTitle!=='MULTIJOUEUR'){ctx.fillStyle='#e0a526';ctx.font='700 15px '+FONT;ctx.fillText('Le multijoueur ne sera pas disponible en mode '+(maintTitle==='MODE VR'?'VR':'3D')+' : il reste réservé au mode 2D.',480,322)}
   ctx.textAlign='left';
   if(gameMode!=='2D') btn(menuRects,700,470,220,44,'MODE : '+gameMode,{act:()=>setGameMode(gameMode==='3D'?'VR':'2D'),size:18});
   btn(menuRects,40,470,200,44,'RETOUR',{act:()=>{gameMode='2D';state='menu'}});
@@ -4337,13 +4338,19 @@ function drawCtlEdit(){
   ctx.restore();
 }
 // --- manettes (Gamepad API : Xbox, PlayStation, Switch Pro, génériques) ---
-const GPS={pads:[],prev:{},hp:null};
+const GPS={pads:[],prev:{},hp:null,base:{},stuck:{},act:0,mouseT:0};
+// Les manettes « fantômes » (volants, casques, périphériques virtuels) envoient des valeurs parasites : on calibre le repos de chaque axe,
+// on ignore les boutons bloqués, et le curseur / la visée ne bougent que si une vraie action récente vient de la manette.
 function gpState(){
-  let list=[];try{list=Array.from(navigator.getGamepads?navigator.getGamepads():[]).filter(p=>p&&p.connected)}catch(e){}
-  GPS.pads=list;
-  const o={left:false,right:false,jump:false,fire:false,ax:0,ay:0,aim:false,mx:0,my:0,a:false,b:false,x:false,y:false,start:false,back:false},dz=Math.max(.12,SET.gp.dead);
+  const o={left:false,right:false,jump:false,fire:false,ax:0,ay:0,aim:false,mx:0,my:0,a:false,b:false,x:false,y:false,start:false,back:false},dz=Math.max(.15,SET.gp.dead);
+  let list=[];if(SET.gp.on){try{list=Array.from(navigator.getGamepads?navigator.getGamepads():[]).filter(p=>p&&p.connected&&p.axes&&p.axes.length>=2&&p.buttons&&p.buttons.length>=4)}catch(e){}}
+  GPS.pads=list;let act=false;
   for(const p of list){
-    const B=i=>!!(p.buttons[i]&&(p.buttons[i].pressed||p.buttons[i].value>.45)),lx=p.axes[0]||0,ly=p.axes[1]||0,rx=p.axes[2]||0,ry=p.axes[3]||0;
+    const key=p.index+'|'+p.id,bs=GPS.base[key]||(GPS.base[key]=p.axes.map(v=>v||0)),st=GPS.stuck[key]||(GPS.stuck[key]=p.buttons.map(b=>!!(b&&(b.pressed||b.value>.45))));
+    const B=i=>{const on=!!(p.buttons[i]&&(p.buttons[i].pressed||p.buttons[i].value>.45));if(!on){st[i]=false;return false}return !st[i]};
+    const AX=i=>clampN((p.axes[i]||0)-(bs[i]||0),-1,1),lx=AX(0),ly=AX(1),rx=p.axes.length>=4?AX(2):0,ry=p.axes.length>=4?AX(3):0;
+    for(let i=0;i<Math.min(17,p.buttons.length);i++) if(B(i)) act=true;
+    if(Math.hypot(lx,ly)>.55||Math.hypot(rx,ry)>.55) act=true;
     if(lx<-.45||B(14)) o.left=true;if(lx>.45||B(15)) o.right=true;
     if(B(0)||B(4)||B(12)) o.jump=true;
     if(B(7)||B(5)) o.fire=true;
@@ -4351,6 +4358,7 @@ function gpState(){
     if(Math.abs(lx)>dz) o.mx+=lx;if(Math.abs(ly)>dz) o.my+=ly;if(B(14)) o.mx-=1;if(B(15)) o.mx+=1;if(B(12)) o.my-=1;if(B(13)) o.my+=1;
     o.a=o.a||B(0);o.b=o.b||B(1);o.x=o.x||B(2);o.y=o.y||B(3);o.start=o.start||B(9);o.back=o.back||B(8);
   }
+  if(act) GPS.act=performance.now();
   return o;
 }
 function rumble(ms,mag){
@@ -4363,7 +4371,7 @@ function inputFrame(dtc){
   gctl.left=g.left||rin.left;gctl.right=g.right||rin.right;gctl.jump=g.jump||rin.jump;gctl.fire=g.fire||rin.fire;
   const aimOn=g.aim||rin.aim,ax=g.aim?g.ax:rin.ax,ay=g.aim?g.ay:rin.ay;
   if(state==='play'&&!paused&&!death){
-    if(aimOn){gpAim.on=true;mouse.rx=(player.x-camX)+ax*240;mouse.ry=(player.y-48)+ay*240;syncMouse()}
+    if(aimOn&&(rin.aim||performance.now()-GPS.mouseT>600)){gpAim.on=true;mouse.rx=(player.x-camX)+ax*240;mouse.ry=(player.y-48)+ay*240;syncMouse()}
     if(rise('x')) tryPickup();
     if(rise('y')) useBonus();
     if(GPS.hp!==null&&player.hp<GPS.hp-.5&&!ctlEdit) rumble(140,Math.min(1,.4+(GPS.hp-player.hp)/30));
@@ -4371,7 +4379,7 @@ function inputFrame(dtc){
   } else GPS.hp=null;
   if(rise('start')) keyPress(state==='menu'||state==='over'?'Enter':'Escape');
   if(MENU_STATES.includes(state)&&GPS.pads.length){
-    if(g.mx||g.my){mouse.rx=clampN(mouse.rx+g.mx*11*SET.gp.sens*dtc,0,W);mouse.ry=clampN(mouse.ry+g.my*11*SET.gp.sens*dtc,0,H);syncMouse();uiDirty=true}
+    if((g.mx||g.my)&&SET.gp.cursor&&performance.now()-GPS.act<6000&&performance.now()-GPS.mouseT>1200){mouse.rx=clampN(mouse.rx+g.mx*11*SET.gp.sens*dtc,0,W);mouse.ry=clampN(mouse.ry+g.my*11*SET.gp.sens*dtc,0,H);syncMouse();uiDirty=true}
     if(rise('a')){mouse.down=true;menuPress()}
     if(g.a&&sliderActive) sliderActive.act();
     if(!g.a&&pv.a){sliderActive=null;mouse.down=false}
@@ -4602,6 +4610,10 @@ function drawGamepadPage(){
   uiSlider(40,352,300,'ZONE MORTE DES STICKS  '+Math.round(SET.gp.dead*100)+' %',(SET.gp.dead-.1)/.4,v=>{SET.gp.dead=+(.1+v*.4).toFixed(2);saveOpts()});
   uiSlider(350,352,300,'VITESSE DU CURSEUR  '+SET.gp.sens.toFixed(1)+'×',(SET.gp.sens-.5)/1.5,v=>{SET.gp.sens=+(.5+v*1.5).toFixed(1);saveOpts()});
   btn(menuRects,660,352,260,38,'VIBRATIONS : '+(SET.gp.rumble?'OUI':'NON'),{act:()=>{SET.gp.rumble=!SET.gp.rumble;saveOpts();if(SET.gp.rumble) rumble(200,.6)},size:15});
+  btn(menuRects,40,398,300,38,'MANETTES : '+(SET.gp.on?'ACTIVÉES':'DÉSACTIVÉES'),{act:()=>{SET.gp.on=!SET.gp.on;saveOpts()},size:15});
+  btn(menuRects,350,398,300,38,'CURSEUR DES MENUS : '+(SET.gp.cursor?'OUI':'NON'),{act:()=>{SET.gp.cursor=!SET.gp.cursor;saveOpts()},size:15});
+  btn(menuRects,660,398,260,38,'RECALIBRER',{act:()=>{GPS.base={};GPS.stuck={};flash('Manette recalibrée : laisse les sticks au repos')},size:15});
+  ctx.fillStyle='#8a8178';ctx.font='500 13px '+FONT;ctx.fillText('Le curseur part tout seul ? Appuie sur RECALIBRER (sticks au repos) ou désactive le curseur / les manettes.',40,452,880);
   btn(menuRects,40,470,200,44,'RETOUR',{act:()=>{state='options';optTab=3}});
 }
 function drawRemotePage(){
@@ -4709,6 +4721,7 @@ function mpLeaveToMenu(msg){
 }
 // --- HÔTE ---
 function mpStartHost(){
+  if(gameMode!=='2D'){MP.msg='Multijoueur indisponible en mode '+gameMode;return}
   if(!ACG.ok()){MP.msg=ACG.why();return}
   mpStop();MP.role='host';MP.status='load';MP.msg='Chargement…';MP.sel.map=curMap.id;MP.sel.diff='normal';
   loadPeerJS(()=>{
@@ -4879,6 +4892,7 @@ function mpBackToLobby(){
 }
 // --- INVITÉ ---
 function mpJoin(code){
+  if(gameMode!=='2D'){MP.status='err';MP.msg='Multijoueur indisponible en mode '+gameMode;state='mpmenu';return}
   if(!ACG.ok()){MP.msg=ACG.why();MP.status='err';state='mpmenu';return}
   mpStop();MP.role='guest';MP.status='load';MP.msg='Chargement…';MP.code=code;
   loadPeerJS(()=>{
@@ -5103,7 +5117,7 @@ function drawMpMenu(){
   ctx.fillStyle='#000000d8';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
   ctx.fillStyle='#000';ctx.font='400 38px '+TITLE;ctx.fillText('MULTIJOUEUR',43,61);ctx.fillStyle='#e9e1d0';ctx.fillText('MULTIJOUEUR',40,58);ctx.fillStyle='#7a2c1c';ctx.fillRect(40,66,230,3);
   ctx.fillStyle='#d8d2c8';ctx.font='500 16px '+FONT;ctx.fillText('Coopération de 2 à 4 joueurs : survivez ensemble. Chacun garde sa progression et ses gains.',40,98);
-  const ok=ACG.ok();
+  const ok=ACG.ok()&&gameMode==='2D';
   btn(menuRects,40,124,420,96,'HÔTE',{act:mpStartHost,size:28,sub:'créer une partie et obtenir un code',dim:!ok});
   btn(menuRects,500,124,420,96,'REJOINDRE',{act:()=>{joinCode='';state='mpjoin'},size:28,sub:'entrer le code d\'un ami',dim:!ok});
   btn(menuRects,40,236,420,44,'PSEUDO : '+cleanName(mpName()),{act:()=>{const n=prompt('Ton pseudo (14 caractères max)',mpName());if(n!==null){save.mpname=cleanName(n);persist()}},size:18});

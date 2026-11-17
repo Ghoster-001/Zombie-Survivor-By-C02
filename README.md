@@ -28,5 +28,11 @@ Ou télécharge le dépôt et ouvre `index.html` dans un navigateur moderne.
 - 25 langues (détection automatique de la langue de l'appareil, changement depuis le menu principal avec les drapeaux)
 - Mobile : boutons tactiles (déplacement, saut, tir), toucher sur les caisses et les bonus ; la zone de jeu s'adapte au format de l'écran (jusqu'aux bords, sans bandes noires)
 - Visée souris ou tir dans la direction du déplacement, touches configurables, pause (Échap / P)
+- Cartes (6), difficultés, boss toutes les 5 manches, manche finale du magicien qui débloque la carte suivante
+- Boosts améliorables (24 types : barricade, nounours piégé, mines, drone, molotov…), roulette du jour, Seconde vie
+- Graphismes : profils AUTO / ÉCO à EXTRÊME, limite de FPS jusqu'au taux de l'écran, compteur FPS déplaçable, animations réductibles, luminosité
+- Commandes : boutons tactiles personnalisables (mode immortel), manettes (Xbox, PlayStation, Switch Pro), téléphone utilisable comme manette
+- **Multijoueur coopératif (2 à 4 joueurs)** : un hôte crée un salon (code), les invités le rejoignent et se mettent « prêt » ; l'hôte choisit la carte et la difficulté ; chacun garde sa progression ; caisses au premier arrivé, cadeaux de Noël partagés
+- **C02 Anti-Cheat** : signature de la sauvegarde, détection des valeurs impossibles et des modifications en partie, horloge surveillée, profil et gains signés en multijoueur (page dédiée dans Options → Données)
 
 Jeu et graphismes originaux, inspirés par le genre des shooters de survie.
