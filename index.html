@@ -155,7 +155,7 @@ function resWanted(vw){
 }
 let W=960,H=540,GROUND=460;const GRAV=0.7;   // coordonnées logiques : s'adaptent au format de l'écran (voir fit) ; le canvas fait 2x ces valeurs
 cv.width=Math.round(W*RES);cv.height=Math.round(H*RES);ctx=cv.getContext('2d');ctx.scale(RES,RES);
-const GAME_VERSION='0.74';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
+const GAME_VERSION='0.75';const clampN=(v,a,b)=>Math.max(a,Math.min(b,v));   // +0.01 à chaque mise à jour
 var READY=false,FORCED=false,CW=1,CH=1;
 // Le jeu s'adapte au format de l'écran (de 6:5 à 3:1) : la zone de jeu s'élargit (ou s'agrandit en hauteur) pour remplir tout l'écran, sans bandes noires.
 const SAFE={l:0,r:0};
@@ -6283,7 +6283,7 @@ function fwTex(key,w,h,draw,rx,ry){const t=g3Tex(key,w,h,draw,true);if(rx){const
 // ===== V0.74 : GRANDS IMMEUBLES — 560 x 560, 140 de hauteur d'étage, pièces cloisonnées et meublées, escalier monumental, toit à rebord =====
 // Coque : texture à découpes (portes / fenêtres) ; intérieur : murs papier peint percés des mêmes ouvertures ; structure (planchers, marches, rebord) fusionnée ;
 // pièces et meubles chargés seulement près du joueur. Collisions analytiques (murs avec portes et fenêtres, planchers à trappe, marches, toit).
-const FW_FH=140,FW_TH=10,FW_DOORW=70,FW_DOORH=110,FW_NS=14,FW_WX0=36,FW_WX1=92,FW_WY0=10,FW_WY1=110;
+const FW_FH=140,FW_TH=28,FW_DOORW=70,FW_DOORH=110,FW_NS=14,FW_WX0=36,FW_WX1=92,FW_WY0=10,FW_WY1=110;
 function fwGeoNew(){return{p:[],n:[],c:[],u:[],i:[]}}
 function fwGeoBox(G,x,y,z,sx,sy,sz,col){
   if(sx<=0||sy<=0||sz<=0) return;
@@ -6326,7 +6326,7 @@ function fwBldPush(B,o,r,yy,hgt){
   const roof=feet>=B.h-1;
   for(const [x0,z0,x1,z1,ax] of slabs){
     let a0=x0,b0=z0,a1=x1,b1=z1;
-    if(roof){const pe=12;if(ax===0){if(z0<cz) b1=z0+pe;else b0=z1-pe}else{if(x0<cx) a1=x0+pe;else a0=x1-pe}}
+    if(roof){const pe=FW_PE;if(ax===0){if(z0<cz) b1=z0+pe;else b0=z1-pe}else{if(x0<cx) a1=x0+pe;else a0=x1-pe}}
     const qx=Math.max(a0,Math.min(a1,o.px)),qz=Math.max(b0,Math.min(b1,o.pz)),dx=o.px-qx,dz=o.pz-qz,d2=dx*dx+dz*dz;
     if(d2>=r*r) continue;
     if(!roof){const u=ax===0?o.px-cx:o.pz-cz;if(fwWallOpen(B,u,feet,hh)) continue}
@@ -6350,7 +6350,7 @@ function fwSupportY(x,z,y){
     if(f<B.fl){if(!inner) continue}
     const r=fwStairRect(B,f-1);
     if(dx>r[0]&&dx<r[1]&&dz>r[2]&&dz<r[3]) continue;
-    if(f===B.fl&&(ax>half-12||az>half-12)) continue;
+    if(f===B.fl&&(ax>half-FW_PE||az>half-FW_PE)) continue;
     best=top;
   }
   if(!inner){
@@ -6373,7 +6373,7 @@ function fwSupportY(x,z,y){
 function fwBldSolid(B,x,z,y){
   const dx=x-B.x,dz=z-B.z,ax=Math.abs(dx),az=Math.abs(dz),half=B.half,I=B.I;
   if(ax>half||az>half||y<0) return false;
-  if(y>=B.h){return y<B.h+40&&(ax>half-12||az>half-12)}
+  if(y>=B.h){return y<B.h+40&&(ax>half-FW_PE||az>half-FW_PE)}
   if(ax<I&&az<I){
     const f=Math.ceil(y/FW_FH);if(f<1||f>B.fl) return false;
     if(y<f*FW_FH-6) return false;
@@ -6434,8 +6434,8 @@ function fwFloorTex(){
 }
 function fwTower(sc,rnd,cx,cz,bw,fl,v){
   const T=THREE,h=fl*FW_FH,half=bw/2,TH=FW_TH,I=half-TH,B={x:cx,z:cz,bw,half,I,fl,h};
-  const shell=new T.Mesh(G3.geo.box,fwShellMats(v,fl));shell.scale.set(bw,h,bw);shell.position.set(cx,h/2,cz);sc.add(shell);
-  const lit=rnd()<.45,inner=new T.Mesh(G3.geo.box,fwWallMat(v,fl,lit));inner.scale.set(2*(I+1),h-2,2*(I+1));inner.position.set(cx,h/2,cz);sc.add(inner);
+  const shell=new T.Mesh(G3.geo.box,fwShellMats(v,fl));shell.castShadow=true;shell.receiveShadow=true;shell.material.shadowSide=T.FrontSide;shell.scale.set(bw,h,bw);shell.position.set(cx,h/2,cz);sc.add(shell);
+  const lit=rnd()<.45,inner=new T.Mesh(G3.geo.box,fwWallMat(v,fl,lit));inner.receiveShadow=true;inner.scale.set(2*(I+1),h-2,2*(I+1));inner.position.set(cx,h/2,cz);sc.add(inner);
   const G=fwGeoNew();G.k=.85;const floorC=0x4a3a2c,slabC=0x56524c,stepC=0x6a6258,roofC=0x34343a;
   fwGeoBox(G,cx,2,cz,2*I,4,2*I,floorC);
   for(let f=1;f<=fl;f++){
@@ -6451,11 +6451,13 @@ function fwTower(sc,rnd,cx,cz,bw,fl,v){
       if(g>0||true){fwGeoBox(G,cx+u0+L/(2*FW_NS),top+16,cz+r[2]+1.5,L/FW_NS,2,3,0x2a2a30)}      // main courante (fine barre)
     }
   }
-  const pe=12,ph=40,y=h+1+ph/2;
+  const pe=FW_PE,ph=40,y=h+1+ph/2;
   fwGeoBox(G,cx,y,cz-half+pe/2,bw,ph,pe,roofC);fwGeoBox(G,cx,y,cz+half-pe/2,bw,ph,pe,roofC);
   fwGeoBox(G,cx-half+pe/2,y,cz,pe,ph,bw-2*pe,roofC);fwGeoBox(G,cx+half-pe/2,y,cz,pe,ph,bw-2*pe,roofC);
   for(let k=0;k<4;k++){const px=cx+(rnd()-.5)*(bw-160),pz=cz+(rnd()-.5)*(bw-160);fwGeoBox(G,px,h+1+16,pz,40+rnd()*30,32,34+rnd()*20,0x3a3c42)}   // blocs techniques sur le toit
-  sc.add(fwGeoMesh(G,FW.vcMat||(FW.vcMat=new T.MeshLambertMaterial({vertexColors:true,map:fwFloorTex()}))));
+  const Gb=fwGeoNew();fwTowerDetail(G,Gb,sc,rnd,B,v);
+  const sm=fwGeoMesh(G,FW.vcMat||(FW.vcMat=new T.MeshLambertMaterial({vertexColors:true,map:fwFloorTex()})));sm.castShadow=true;sm.receiveShadow=true;sc.add(sm);
+  if(Gb.p.length){const gm=fwGeoMesh(Gb,FW.vcBasic||(FW.vcBasic=new T.MeshBasicMaterial({vertexColors:true,toneMapped:false})));sc.add(gm)}
   for(const k of fwBCells(B)) FW.bmap.set(k,B);
   FW.maxH=Math.max(FW.maxH,h+41);
   return B;
@@ -6575,17 +6577,132 @@ function fwFurnTick(px,pz){
   }
   for(const B of FW.furnList.slice()) if(Math.hypot(B.x-px,B.z-pz)>1250) fwUnfurnish(B);
 }
+// ===== V0.75 : REMASTER GRAPHIQUE — ciel de crépuscule, soleil rasant et ombres, reflets, bloom, étalonnage, enseignes néon, murs épais =====
+const FW_SUN={az:-2.2,el:.3},FW_PE=22;
+function fwSunVec(){const c=Math.cos(FW_SUN.el);return[Math.cos(FW_SUN.az)*c,Math.sin(FW_SUN.el),Math.sin(FW_SUN.az)*c]}
+function fwSkyTex(){
+  return g3Tex('fwsky3',2048,1024,(g,w,h)=>{
+    const gr=g.createLinearGradient(0,0,0,h);
+    [[0,'#060a24'],[.2,'#16225a'],[.33,'#4a3f86'],[.41,'#b8627a'],[.46,'#f0885a'],[.495,'#ffc47c'],[.505,'#4a3440'],[.6,'#241e2c'],[1,'#14121a']].forEach(([o,c])=>gr.addColorStop(o,c));
+    g.fillStyle=gr;g.fillRect(0,0,w,h);
+    let s=777;const rnd=()=>(s=(s*16807)%2147483647)/2147483647;
+    for(let i=0;i<900;i++){const y=rnd()*h*.34,a=.2+rnd()*.6*(1-y/(h*.34));g.fillStyle='rgba(255,255,255,'+a+')';const r=rnd()<.06?1.8:.9;g.fillRect(rnd()*w,y,r,r)}
+    const su=(((Math.PI-FW_SUN.az)/(2*Math.PI))%1+1)%1,sx=su*w,sy=(.5-FW_SUN.el/Math.PI)*h;
+    for(let i=0;i<260;i++){
+      const x=rnd()*w,y=h*(.25+rnd()*.21),rw=70+rnd()*220,rh=7+rnd()*17;
+      let dx=Math.abs(x-sx);dx=Math.min(dx,w-dx);const lit=Math.max(0,1-dx/(w*.26))*(1-Math.abs(y/h-.45)*2.2);
+      const R=Math.round(86+lit*170),G=Math.round(66+lit*84),B=Math.round(118-lit*50);
+      g.fillStyle='rgba('+R+','+G+','+B+','+(.09+rnd()*.14)+')';g.beginPath();g.ellipse(x,y,rw,rh,0,0,7);g.fill();
+    }
+    for(const ox of[-w,0,w]){
+      for(const [r,c] of[[640,'rgba(255,130,60,.20)'],[300,'rgba(255,165,80,.32)'],[120,'rgba(255,215,140,.65)']]){const rg=g.createRadialGradient(sx+ox,sy,0,sx+ox,sy,r);rg.addColorStop(0,c);rg.addColorStop(1,'rgba(255,140,60,0)');g.fillStyle=rg;g.fillRect(sx+ox-r,sy-r,2*r,2*r)}
+      g.fillStyle='#fff4d0';g.beginPath();g.arc(sx+ox,sy,22,0,7);g.fill();
+    }
+    const mx=(sx+w/2)%w,my=h*.16;g.fillStyle='rgba(225,232,255,.92)';g.beginPath();g.arc(mx,my,15,0,7);g.fill();const rg=g.createRadialGradient(mx,my,8,mx,my,90);rg.addColorStop(0,'rgba(160,180,255,.32)');rg.addColorStop(1,'rgba(160,180,255,0)');g.fillStyle=rg;g.fillRect(mx-90,my-90,180,180);
+  },false);
+}
+function fwAtmos(sc){
+  const T=THREE,tex=fwSkyTex();
+  const dome=new T.Mesh(new T.SphereGeometry(3500,48,24),new T.MeshBasicMaterial({map:tex,side:T.BackSide,fog:false,depthWrite:false,toneMapped:false}));dome.renderOrder=-10;dome.frustumCulled=false;sc.add(dome);FW.sky=dome;
+  sc.background=new T.Color(0x14101c);sc.fog=new T.FogExp2(0x74586a,.00040);
+  const [sx,sy,sz]=fwSunVec();
+  sc.add(new T.HemisphereLight(0x8c9cdc,0x503a3e,.6));
+  const sun=new T.DirectionalLight(0xffa862,1.5);FW.sunV=[sx,sy,sz];sun.position.set(sx*1800,sy*1800,sz*1800);sc.add(sun);sc.add(sun.target);FW.sun=sun;
+  const sh=sun.shadow;sh.mapSize.set(2048,2048);const c=sh.camera;c.left=-800;c.right=800;c.top=800;c.bottom=-800;c.near=50;c.far=4600;sh.bias=-.0005;sh.normalBias=1.4;
+  const fill=new T.DirectionalLight(0x5a6cc8,.32);fill.position.set(-sx*900,700,-sz*900);sc.add(fill);
+  if(FXF.refl) try{const es=new T.Scene();es.add(new T.Mesh(new T.SphereGeometry(100,32,16),new T.MeshBasicMaterial({map:tex,side:T.BackSide})));const pm=new T.PMREMGenerator(G3.r);FW.env=pm.fromScene(es,.04).texture;sc.environment=FW.env;pm.dispose()}catch(e){FW.env=null}
+  // poussière et braises dans l'air
+  const N=260,pos=new Float32Array(N*3),seed=[];for(let i=0;i<N;i++){seed.push([Math.random()*1000,Math.random()*320,Math.random()*1000,.2+Math.random()*.8,Math.random()*6.28])}
+  const gg=new T.BufferGeometry();gg.setAttribute('position',new T.BufferAttribute(pos,3));
+  const dust=new T.Points(gg,new T.PointsMaterial({color:0xffd8a8,size:2.6,transparent:true,opacity:.5,depthWrite:false,fog:false}));dust.frustumCulled=false;sc.add(dust);FW.dust=dust;FW.dustS=seed;
+}
+function fwDustTick(SX,SY,SZ){
+  const d=FW.dust;if(!d) return;const p=d.geometry.attributes.position.array,S=FW.dustS,t=tick*.012;
+  for(let i=0;i<S.length;i++){const s=S[i];p[i*3]=((s[0]+t*14*s[3]+Math.sin(t*s[3]+s[4])*20)%1000+1000)%1000-500;p[i*3+1]=((s[1]+t*6*s[3])%320+320)%320;p[i*3+2]=((s[2]+t*9*s[3])%1000+1000)%1000-500}
+  d.geometry.attributes.position.needsUpdate=true;d.position.set(SX,Math.max(0,SY-80),SZ);d.visible=!!FXF.fog&&SY<400;
+}
+// ----- post-traitement : bloom (copie réduite, seuil, flou) + étalonnage cinéma + vignette -----
+const FW_FILT=typeof CanvasRenderingContext2D!=='undefined'&&'filter' in CanvasRenderingContext2D.prototype;
+function fwPost(){
+  if(!FXF.post) return;
+  const w=W,h=H;
+  if(FW_FILT&&FXF.bloom!==undefined){
+    const bw=Math.max(80,w>>2),bh=Math.max(45,h>>2);
+    if(!FW.bc){FW.bc=document.createElement('canvas');FW.bx=FW.bc.getContext('2d')}
+    if(FW.bc.width!==bw||FW.bc.height!==bh){FW.bc.width=bw;FW.bc.height=bh}
+    const x=FW.bx;x.globalCompositeOperation='source-over';x.clearRect(0,0,bw,bh);x.filter='brightness(.62) contrast(2.6) blur(4px)';x.drawImage(G3.cv,0,0,bw,bh);x.filter='none';
+    ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=FXF.bloom?.55:.34;ctx.imageSmoothingEnabled=true;ctx.drawImage(FW.bc,0,0,w,h);ctx.restore();
+  }
+  ctx.save();
+  ctx.globalCompositeOperation='soft-light';const lg=ctx.createLinearGradient(0,0,0,h);lg.addColorStop(0,'rgba(60,110,200,.38)');lg.addColorStop(.55,'rgba(255,255,255,0)');lg.addColorStop(1,'rgba(255,140,60,.34)');ctx.fillStyle=lg;ctx.fillRect(0,0,w,h);
+  ctx.globalCompositeOperation='multiply';const vg=ctx.createRadialGradient(w/2,h/2,h*.45,w/2,h/2,h*.95);vg.addColorStop(0,'rgba(255,255,255,1)');vg.addColorStop(1,'rgba(60,40,70,1)');ctx.fillStyle=vg;ctx.fillRect(0,0,w,h);
+  ctx.restore();
+}
+// ----- enseignes néon -----
+const FW_SIGNS=[['HOTEL','#ff4aa8'],['BAR','#42e0ff'],['PHARMA','#5dff8a'],['CINÉ','#ffcf3a'],['24/7','#ff7a3a'],['BANK','#7ab0ff'],['PIZZA','#ff5a5a'],['MOTEL','#c07aff'],['CLUB','#ff3ae0'],['DINER','#ffe05a']];
+function fwSignMat(i){
+  const [txt,col]=FW_SIGNS[i%FW_SIGNS.length],key='sign_'+txt;let m=FW.matC[key];if(m) return m;
+  const t=g3Tex('fwsn'+txt,512,160,(g,w,h)=>{
+    g.fillStyle='rgba(8,8,16,.92)';g.fillRect(0,0,w,h);g.strokeStyle=col;g.lineWidth=7;g.shadowColor=col;g.shadowBlur=16;g.strokeRect(12,12,w-24,h-24);
+    g.fillStyle='#fff';g.font='900 92px "Arial Black",Impact,sans-serif';g.textAlign='center';g.textBaseline='middle';g.shadowBlur=26;g.fillStyle=col;g.fillText(txt,w/2,h/2+4);g.shadowBlur=6;g.fillStyle='#fff';g.fillText(txt,w/2,h/2+4)},false);
+  m=new THREE.MeshBasicMaterial({map:t,side:THREE.DoubleSide,toneMapped:false});FW.matC[key]=m;return m;
+}
+// ----- détails de façade : ébrasements (murs épais), appuis, pilastres, corniches, toit équipé, enseignes -----
+function fwTowerDetail(G,Gb,sc,rnd,B,v){
+  const {x:cx,z:cz,bw,half,fl,h}=B,TH=FW_TH,stone=[0x8c8374,0x7e8088,0x70788a,0x948a78][v%4],dark=0x4a443c,sill=0xa89f8e;
+  const wb=(s,u,y,d,su,sy,sd,col)=>{const o=half-d;if(s[1]) fwGeoBox(G,cx+u,y,cz+s[1]*o,su,sy,sd,col);else fwGeoBox(G,cx+s[0]*o,y,cz+u,sd,sy,su,col)};
+  const U=x=>x/512*bw-half,dep=1+(TH-2)/2;
+  for(const s of[[0,-1],[0,1],[-1,0],[1,0]]){
+    for(let f=0;f<fl;f++){
+      const y0=f*FW_FH+FW_WY0,y1=f*FW_FH+FW_WY1,gr=f%4===0,ym=(y0+y1)/2;
+      for(let c=0;c<4;c++){
+        if(gr&&(c===1||c===2)) continue;
+        const ua=U(c*128+FW_WX0),ub=U(c*128+FW_WX1),uc=(ua+ub)/2,wu=ub-ua;
+        wb(s,ua-3,ym,dep,6,y1-y0+10,TH-2,stone);wb(s,ub+3,ym,dep,6,y1-y0+10,TH-2,stone);
+        wb(s,uc,y1+3,dep,wu+12,6,TH-2,stone);wb(s,uc,y0-3,dep,wu+12,6,TH-2,sill);
+        wb(s,uc,y0-2,-4,wu+16,4,12,sill);                                              // rebord extérieur
+        wb(s,uc,y1+8,-2,wu+14,6,8,stone);                                              // linteau saillant
+      }
+      if(gr){const ua=U(224),ub=U(288),uc=(ua+ub)/2,y=f*FW_FH;
+        wb(s,ua-4,y+(FW_DOORH+6)/2,dep,8,FW_DOORH+6,TH-2,stone);wb(s,ub+4,y+(FW_DOORH+6)/2,dep,8,FW_DOORH+6,TH-2,stone);wb(s,uc,y+FW_DOORH+3,dep,ub-ua+16,6,TH-2,stone);
+        wb(s,uc,y+2,dep,ub-ua,4,TH-2,0x6a645a);                                         // seuil
+        if(f===0){wb(s,uc,y+FW_DOORH+14,-14,ub-ua+40,6,36,0xa02a20);wb(s,uc,y+FW_DOORH+9,-14,ub-ua+40,6,4,0x6a1810);for(const d of[-1,1]) wb(s,uc+d*(ub-ua+34)/2,y+FW_DOORH/2+4,-30,3,FW_DOORH,3,0x2a2a30)}   // auvent
+      }
+    }
+  }
+  // pilastres d'angle + corniches
+  for(const sx of[-1,1]) for(const sz of[-1,1]) fwGeoBox(G,cx+sx*(half-8),(h+40)/2,cz+sz*(half-8),24,h+40,24,stone);
+  for(let f=1;f<fl;f++){const y=f*FW_FH,L=bw+12;fwGeoBox(G,cx,y,cz-half-2.5,L,7,5,stone);fwGeoBox(G,cx,y,cz+half+2.5,L,7,5,stone);fwGeoBox(G,cx-half-2.5,y,cz,5,7,L,stone);fwGeoBox(G,cx+half+2.5,y,cz,5,7,L,stone)}
+  {const y=h+40+4,L=bw+22;fwGeoBox(G,cx,y,cz-half-5,L,9,10,stone);fwGeoBox(G,cx,y,cz+half+5,L,9,10,stone);fwGeoBox(G,cx-half-5,y,cz,10,9,L,stone);fwGeoBox(G,cx+half+5,y,cz,10,9,L,stone)}
+  // toit : climatiseurs, ventilateurs, antennes avec balise rouge, enseigne néon
+  const R=half-70;
+  for(let k=0;k<5;k++){const px=cx+(rnd()-.5)*2*R,pz=cz+(rnd()-.5)*2*R,w=44+rnd()*30,d=34+rnd()*20;fwGeoBox(G,px,h+1+13,pz,w,26,d,0x6e7278);fwGeoBox(G,px,h+1+27,pz,w-10,2,d-10,0x2a2c30);fwGeoBox(G,px,h+1+4,pz,w+6,8,d+6,0x3a3c42)}
+  for(let k=0;k<2;k++){const px=cx+(rnd()-.5)*2*R,pz=cz+(rnd()-.5)*2*R,ah=90+rnd()*70;fwGeoBox(G,px,h+1+ah/2,pz,4,ah,4,0x2a2c30);fwGeoBox(G,px,h+1+ah*.7,pz,34,3,3,0x2a2c30);fwGeoBox(Gb,px,h+1+ah+4,pz,7,7,7,0xff2a2a)}
+  if(rnd()<.62){
+    const i=Math.floor(rnd()*FW_SIGNS.length),s=[[0,-1],[0,1],[-1,0],[1,0]][Math.floor(rnd()*4)],m=fwSignMat(i),sw=250,sh=78,y=h+40+sh/2+18;
+    const o=half-FW_PE-4;
+    const pl=new THREE.Mesh(G3.geo.pl,m);pl.scale.set(sw,sh,1);
+    if(s[1]){pl.position.set(cx+(rnd()-.5)*120,y,cz+s[1]*o);if(s[1]<0) pl.rotation.y=Math.PI}else{pl.position.set(cx+s[0]*o,y,cz+(rnd()-.5)*120);pl.rotation.y=s[0]>0?Math.PI/2:-Math.PI/2}
+    sc.add(pl);
+    for(const d of[-1,1]){const lx=pl.position.x+(s[1]?d*sw*.4:0),lz=pl.position.z+(s[1]?0:d*sw*.4);fwGeoBox(G,lx,h+40+9,lz,6,18,6,0x2a2c30)}
+  }
+  // enseigne en drapeau au rez-de-chaussée
+  if(rnd()<.8){
+    const i=Math.floor(rnd()*FW_SIGNS.length),m=fwSignMat(i+3),s=[[0,-1],[0,1],[-1,0],[1,0]][Math.floor(rnd()*4)],u=U(128)*0+(-140),y=78;
+    const pl=new THREE.Mesh(G3.geo.pl,m);pl.scale.set(66,21,1);
+    if(s[1]){pl.position.set(cx+u,y,cz+s[1]*(half+22));pl.rotation.y=s[1]>0?Math.PI/2:-Math.PI/2}else{pl.position.set(cx+s[0]*(half+22),y,cz+u);pl.rotation.y=s[0]>0?0:Math.PI}
+    sc.add(pl);
+    if(s[1]) fwGeoBox(G,cx+u,y,cz+s[1]*(half+11),3,3,22,0x2a2c30);else fwGeoBox(G,cx+s[0]*(half+11),y,cz+u,22,3,3,0x2a2c30);
+  }
+}
 function fwBuild(n,seed){
   n=n||7;seed=seed|0||1;
   if(FW.built&&FW.bN===n&&FW.bSeed===seed) return;
   FW.built=true;FW.bN=n;FW.bSeed=seed;FW_N=n;FW_LIM=(n-1)/2*FW_P+550;
   FW.grid=new Map();FW.bmap=new Map();FW.furnList=[];FW.inMats=[];FW.maxH=0;FW.lamps=[];FW.fires=[];FW.bl=[];FW.bld=[];FW.tr=[];FW.pt=[];FW.ex=[];FW.pl=[];FW.zoneM=null;FW.planeM=null;FW.model=null;FW.hand=null;
   const T=THREE,sc=FW.scene=new T.Scene(),rnd=fwRng(seed);
-  const sky=g3Tex('fwsky',16,256,(g,w,h)=>{const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,'#04060f');gr.addColorStop(.55,'#0e1428');gr.addColorStop(.85,'#2a2438');gr.addColorStop(1,'#4a3040');g.fillStyle=gr;g.fillRect(0,0,w,h)},false);
-  sc.background=sky;sc.fog=new T.FogExp2(0x1a1626,.00062);
+  fwAtmos(sc);G3.r.toneMapping=T.ACESFilmicToneMapping;G3.r.toneMappingExposure=1.3;G3.r.shadowMap.enabled=true;G3.r.shadowMap.type=T.PCFSoftShadowMap;
   FW.cam=new T.PerspectiveCamera(75,16/9,3,n>8?7200:4200);FW.cam.rotation.order='YXZ';sc.add(FW.cam);
-  sc.add(new T.HemisphereLight(0x8090c0,0x2a2630,.7));
-  const moon=new T.DirectionalLight(0x9fb0e8,.55);moon.position.set(-600,1200,400);sc.add(moon);
   for(let i=0;i<5;i++){const l=new T.PointLight(0xffd29a,0,760,2);sc.add(l);FW.pl.push(l)}
   const fl0=new T.SpotLight(0xfff0d0,1.7,1700,.46,.5,1.4);fl0.position.set(6,-4,0);FW.cam.add(fl0);const tg=new T.Object3D();tg.position.set(0,0,-120);FW.cam.add(tg);fl0.target=tg;FW.fl=fl0;
   // ----- textures : asphalte fissuré et taché, trottoir carrelé, passages piétons -----
@@ -6597,7 +6714,11 @@ function fwBuild(n,seed){
     g.strokeStyle='rgba(0,0,0,.6)';g.lineWidth=1.4;for(let i=0;i<9;i++){let x=rnd()*w,y=rnd()*h;g.beginPath();g.moveTo(x,y);for(let k=0;k<9;k++){x+=(rnd()-.5)*40;y+=(rnd()-.3)*34;g.lineTo(x,y)}g.stroke()}   // fissures
     g.fillStyle='rgba(20,22,26,.9)';g.beginPath();g.arc(120,340,16,0,7);g.fill();g.strokeStyle='#3a3c42';g.lineWidth=2;g.stroke();                           // plaque d'égout
   },16,16);
-  const gr=new T.Mesh(new T.PlaneGeometry(14000,14000),new T.MeshLambertMaterial({map:road}));gr.rotation.x=-Math.PI/2;sc.add(gr);
+  const roadR=fwTex('fwroadR',256,256,(g,w,h)=>{
+    g.fillStyle='#8c8c8c';g.fillRect(0,0,w,h);for(let i=0;i<900;i++){const v=110+rnd()*70;g.fillStyle='rgba('+v+','+v+','+v+',.5)';g.fillRect(rnd()*w,rnd()*h,2,2)}
+    for(let i=0;i<9;i++){const x=rnd()*w,y=rnd()*h,r=14+rnd()*34,rg=g.createRadialGradient(x,y,0,x,y,r);rg.addColorStop(0,'rgba(10,10,10,.95)');rg.addColorStop(.7,'rgba(10,10,10,.8)');rg.addColorStop(1,'rgba(10,10,10,0)');g.fillStyle=rg;g.beginPath();g.ellipse(x,y,r*1.6,r,rnd()*3,0,7);g.fill()}
+  },16,16);
+  const gr=new T.Mesh(new T.PlaneGeometry(14000,14000),new T.MeshStandardMaterial({map:road,roughnessMap:roadR,roughness:1,metalness:.08,envMapIntensity:.8}));gr.receiveShadow=true;gr.rotation.x=-Math.PI/2;sc.add(gr);
   const walk=fwTex('fwwalk',256,256,(g,w,h)=>{g.fillStyle='#55524d';g.fillRect(0,0,w,h);g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=2;for(let i=0;i<=w;i+=64){g.beginPath();g.moveTo(i,0);g.lineTo(i,h);g.stroke();g.beginPath();g.moveTo(0,i);g.lineTo(w,i);g.stroke()}
     for(let i=0;i<500;i++){g.fillStyle='rgba('+(rnd()<.5?'255,255,255':'0,0,0')+','+(.03+rnd()*.05)+')';g.fillRect(rnd()*w,rnd()*h,2,2)}},6,6);
   const dash=g3Tex('fwdash',64,16,(g,w,h)=>{g.clearRect(0,0,w,h);g.fillStyle='#dcc65a';g.fillRect(0,5,34,6)},true);
@@ -6618,7 +6739,7 @@ function fwBuild(n,seed){
   const lotsEmpty=[],bl=FW.bl=[];
   for(let i=0;i<FW_N;i++) for(let j=0;j<FW_N;j++){
     const cx=(i-(FW_N-1)/2)*FW_P,cz=(j-(FW_N-1)/2)*FW_P;
-    const s=new T.Mesh(bg,sw);s.scale.set(FW_BLK,8,FW_BLK);s.position.set(cx,4,cz);sc.add(s);
+    const s=new T.Mesh(bg,sw);s.receiveShadow=true;s.scale.set(FW_BLK,8,FW_BLK);s.position.set(cx,4,cz);sc.add(s);
     const mid=(i===(FW_N-1)/2&&j===(FW_N-1)/2);
     if(rnd()<.2||mid){for(const [ox,oz] of[[-150,-150],[150,-150],[-150,150],[150,150]]) lotsEmpty.push([cx+ox,cz+oz]);bl.push([cx-290,cz-290,cx+290,cz+290,0]);continue}
     const fl=[4,4,8,8,8,12][Math.floor(rnd()*6)],h=fl*FW_FH,v=Math.floor(rnd()*4),bw=560;
@@ -6657,8 +6778,8 @@ function fwBuild(n,seed){
     const mm=((t+half)%FW_P+FW_P)%FW_P;if(mm<FW_RD/2+120||mm>FW_P-FW_RD/2-120) continue;
     const x=vert?c+off:t,z=vert?t:c+off,L=210,Wd=88,sx=vert?Wd:L,sz=vert?L:Wd;
     const g=new T.Group(),col=cm[Math.floor(rnd()*cm.length)],wreck=rnd()<.5;
-    const body=new T.Mesh(bg,new T.MeshLambertMaterial({color:col}));body.scale.set(L,34,Wd);body.position.y=26;g.add(body);
-    const cab=new T.Mesh(bg,new T.MeshLambertMaterial({color:0x10151c}));cab.scale.set(L*.5,30,Wd-8);cab.position.set(-10,58,0);g.add(cab);
+    const body=new T.Mesh(bg,new T.MeshStandardMaterial({color:col,roughness:.28,metalness:.6,envMapIntensity:1.3}));body.castShadow=true;body.scale.set(L,34,Wd);body.position.y=26;g.add(body);
+    const cab=new T.Mesh(bg,new T.MeshStandardMaterial({color:0x0c1118,roughness:.06,metalness:.85,envMapIntensity:1.6}));cab.castShadow=true;cab.scale.set(L*.5,30,Wd-8);cab.position.set(-10,58,0);g.add(cab);
     for(const [wx,wz] of[[-66,Wd/2],[66,Wd/2],[-66,-Wd/2],[66,-Wd/2]]){const w=new T.Mesh(new T.CylinderGeometry(15,15,10,12),new T.MeshLambertMaterial({color:0x0c0c0c}));w.rotation.x=Math.PI/2;w.position.set(wx,15,wz);g.add(w)}
     for(const hx of[1,-1]){const hl=new T.Mesh(bg,new T.MeshBasicMaterial({color:wreck?0x332211:0xffe8b0}));hl.scale.set(3,8,16);hl.position.set(L/2,30,hx*(Wd/2-14));g.add(hl)}
     if(wreck) body.rotation.z=(rnd()-.5)*.12;
@@ -7558,9 +7679,9 @@ function fwUpdate(dt,pz){
 function fwSwap(){const P=player;if(P.gun&&P.w===P.melee) P.w=P.gun.w;else P.w=P.melee;P.cd=Math.max(P.cd,150)}
 // ---------- rendu ----------
 function fwRender(){
-  const T=THREE,r=G3.r,cam=FW.cam,P=player,rr=Math.min(RES,FXF.lights?1.5:1),w=Math.round(W*rr),h=Math.round(H*rr);
+  const T=THREE,r=G3.r,t0r=performance.now(),cam=FW.cam,P=player,rr=Math.min(RES,FXF.lights?1.5:1),w=Math.round(W*rr),h=Math.round(H*rr);
   if(FW.rw!==w||FW.rh!==h){FW.rw=w;FW.rh=h;r.setSize(w,h,false)}
-  r.shadowMap.enabled=false;cam.aspect=W/H;
+  cam.aspect=W/H;
   if(Math.abs(FW.y-FW.yv)>45) FW.yv=FW.y;else FW.yv+=(FW.y-FW.yv)*.3;
   if(FW.scene.fog) FW.scene.fog.density=.00062-.00046*Math.min(1,(FW.y||0)/1800);
   const spc=fwmSpec(),SX=spc?spc.x:FW.x,SZ=spc?spc.z:FW.z,SYW=spc?spc.yaw:FW.yaw,SY=spc?(spc.y||0):FW.yv,SPT=spc?-.12:FW.pitch,TPV=spc?true:FW.tp;
@@ -7599,12 +7720,16 @@ function fwRender(){
   }
   // lumières proches
   FW.plT--;if(FW.plT<=0){FW.plT=12;const ls=FW.lamps.map(l=>({l,d:(l.x-SX)**2+(l.z-SZ)**2+((l.y||230)-(SY+50))**2})).sort((a,b)=>a.d-b.d);
-    for(let i=0;i<FW.pl.length;i++){const q=ls[i];const L=FW.pl[i];if(q&&q.d<900*900){L.position.set(q.l.x,q.l.fire?50:(q.l.y||230),q.l.z);L.color.set(q.l.fire?0xff8a3a:0xffd29a);L.intensity=q.l.fire?1.4:(q.l.int?.7:1.6)}else L.intensity=0}}
+    for(let i=0;i<FW.pl.length;i++){const q=ls[i];const L=FW.pl[i];if(q&&q.d<900*900){L.position.set(q.l.x,q.l.fire?50:(q.l.y||230),q.l.z);L.color.set(q.l.fire?0xff8a3a:0xffd29a);L.intensity=q.l.fire?1.4:(q.l.int?.95:1.6)}else L.intensity=0}}
   FW.grp.position.set(SX,0,SZ);
+  if(FW.sky) FW.sky.position.copy(cam.position);
+  if(FW.sun){const q=FW.sunV,tx=Math.round(SX/8)*8,tz=Math.round(SZ/8)*8;FW.sun.castShadow=!!FXF.lights&&SY<500;FW.sun.target.position.set(tx,0,tz);FW.sun.position.set(tx+q[0]*1800,q[1]*1800,tz+q[2]*1800);FW.sun.target.updateMatrixWorld()}
+  fwDustTick(SX,SY,SZ);
   // muzzle flash éphémère
   const mf=FW.recoil>.6;FW.fl.intensity=FW.flOn?(mf?3:1.7):0;
   r.render(FW.scene,cam);
-  G3.W=0;ctx.drawImage(G3.cv,0,0,W,H);
+  G3.W=0;ctx.drawImage(G3.cv,0,0,W,H);fwPost();
+  if(performance.now()-t0r>1200) MP.lastSnapAt=performance.now();          // image très longue à calculer (compilation des shaders…) : ce n'est pas le réseau qui a lâché
 }
 function fwHud(){
   const brHud=FW.net&&FW.mode!=='coop';
