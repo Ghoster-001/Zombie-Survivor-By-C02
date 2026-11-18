@@ -6,7 +6,10 @@ function g3Fail(){gameMode='2D';SET.m3=false;saveOpts();flash('3D indisponible :
 function g3Request(){
   if(G3.status==='ready'||G3.status==='load') return;
   G3.status='load';G3.err='';
-  const done=()=>{try{g3Setup();G3.status='ready'}catch(e){G3.status='err';G3.err='WebGL non disponible';g3Fail()}};
+  const done0=()=>{try{g3Setup();G3.status='ready'}catch(e){G3.status='err';G3.err='WebGL non disponible';g3Fail()}};
+  const done=()=>{                                                           // chargeur de modèles glTF (facultatif : sans lui le décor d'origine reste affiché)
+    if(THREE.GLTFLoader){done0();return}
+    const s2=document.createElement('script');s2.src='js/vendor/GLTFLoader.js?v='+GAME_VERSION;s2.onload=done0;s2.onerror=done0;document.head.appendChild(s2)};
   if(window.THREE){done();return}
   const s=document.createElement('script');s.src=THREE_URL;s.integrity='sha384-CI3ELBVUz9XQO+97x6nwMDPosPR5XvsxW2ua7N1Xeygeh1IxtgqtCkGfQY9WWdHu';s.crossOrigin='anonymous';
   s.onload=()=>{if(window.THREE) done();else{G3.status='err';G3.err='module 3D introuvable';g3Fail()}};

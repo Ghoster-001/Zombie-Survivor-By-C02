@@ -24,8 +24,9 @@ Ou télécharge le dépôt et ouvre `index.html` dans un navigateur moderne (le 
 | `events`, `items-shop`, `audio`, `gameplay`, `update`, `render2d` | événements, boutique, sons, combat, boucle de jeu, rendu 2D |
 | `ui-theme`, `xmas-theme`, `weapon-art`, `boosts`, `controls`, `nightmare`, `playhub` | interface, armes dessinées, boosts, commandes tactiles/manettes, Nightmare, page Jouer |
 | `multiplayer`, `remote-play`, `profile`, `updater` | multijoueur 2D, écran partagé, profil, mises à jour |
-| `three-base`, `fw-core`, `fw-pbr`, `fw-buildings`, `fw-furniture`, `fw-world`, `fw-mp`, `fw-game` | mode 3D : moteur, immeubles, intérieurs, monde et rendu, multijoueur 3D / Battle Royale, boucle de jeu |
+| `three-base`, `fw-core`, `fw-pbr`, `models-city`, `fw-models`, `fw-buildings`, `fw-furniture`, `fw-world`, `fw-mp`, `fw-game` | mode 3D : moteur, immeubles, intérieurs, monde et rendu, multijoueur 3D / Battle Royale, boucle de jeu |
 | `main` | optimisations et démarrage |
+| `vendor/GLTFLoader.js` | chargeur glTF de Three.js r128 (licence MIT) |
 
 Changer de version : `python3 tools/bump-version.py 0.78` (met à jour `GAME_VERSION` et le `?v=` des scripts pour éviter les fichiers périmés en cache).
 
@@ -48,6 +49,7 @@ Changer de version : `python3 tools/bump-version.py 0.78` (met à jour `GAME_VER
 - Mode 3D « monde libre » (V0.61 → V0.63) : FPS en ville ouverte (première ou troisième personne, touche V), déplacement libre, immeubles de bordure, mini-carte, barres de vie, animations de coups, **les 25 boosts posent de vrais objets 3D** (barricades, mines, tourelle, drone, chien, hélico…), tactile et manette ; Three.js chargé à la demande (connexion requise)
 - **Remaster graphique 3D (V0.75)** : ciel de crépuscule avec soleil, lune et étoiles, soleil rasant avec ombres portées, asphalte mouillé et carrosseries qui reflètent le ciel, tone mapping cinéma, bloom, étalonnage et vignette, poussière dans l'air, murs épais avec ébrasements de fenêtres, corniches, pilastres, auvents, enseignes néon et toits équipés (climatiseurs, antennes à balise rouge)
 - **Matériaux réalistes (V0.78, profils ÉLEVÉ et plus)** : relief des briques, du béton, de l'asphalte et des trottoirs (cartes de relief générées par code), rugosité, pools et cônes de lumière sous les lampadaires, éblouissement du soleil quand il est visible
+- **Vrais modèles 3D (V0.80)** : voitures, bouches d'incendie, feux tricolores, bancs, poubelles, bennes, buissons et cartons dans les rues (modèles CC0 intégrés au jeu, posés en instances, avec collisions ; le décor d'origine reste en secours si les modèles ne se chargent pas)
 - **Multijoueur 3D** : coop (jusqu'à 4, vagues de zombies) et **Battle Royale** (jusqu'à 10 joueurs, carte géante, saut d'avion ou de dirigeable puis chute libre et parachute, zone qui se déplace en rétrécissant avec minuteur, barre de vie, spectateur à la mort, armes au niveau de base, classement et récompenses signées par l'hôte) ; visée au clic droit, lunette avec zoom à la molette, accroupi sur Ctrl, de grands immeubles (560 × 560, étages de 140) visitables à tous les étages : pièces cloisonnées et meublées (salon, cuisine, chambre, bureau, salle de bain, boutique…), escalier monumental jusqu’au toit, fenêtres praticables dans les deux sens, toits avec rebords, dégâts de chute
 - Menu principal simplifié (Jouer, Personnalisation, Boutique, Options, Quitter) : la page **JOUER** propose Solo, Multijoueur, Nightmare solo, Nightmare multi (coop), Entraînement et Arsenal selon le mode 2D / 3D
 - **Mode NIGHTMARE** (2D et 3D, dispo dès le début) : une arme par catégorie changée à la molette (haut = suivante, bas = précédente, configurable), munitions illimitées, vagues infinies de zombies ultra forts ; bonus désactivables (gains ×10 sans, ×9 avec)
@@ -65,3 +67,8 @@ Changer de version : `python3 tools/bump-version.py 0.78` (met à jour `GAME_VER
 - **C02 Anti-Cheat** : signature de la sauvegarde, détection des valeurs impossibles et des modifications en partie, horloge surveillée, profil et gains signés en multijoueur (page dédiée dans Options → Données)
 
 Jeu et graphismes originaux, inspirés par le genre des shooters de survie.
+
+## Crédits
+
+- Modèles 3D de la ville : **KayKit — City Builder Bits** © Kay Lousberg ([kaylousberg.com](https://www.kaylousberg.com)), licence CC0 (voir `assets/models/LICENSE-KayKit-CC0.txt`). Régénérer `js/models-city.js` : `python3 tools/pack-models.py`.
+- Chargeur glTF : Three.js r128 (MIT).

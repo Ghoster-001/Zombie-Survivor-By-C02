@@ -195,6 +195,7 @@ function fwBuild(n,seed){
     fwAddCol(x-6,z-6,x+6,z+6,300,'p');
   }
   // ----- épaves, tonneaux, bennes, arbres morts, bancs (à l'échelle du personnage) -----
+  FW.spots=[];FW.spotsDone=false;const rcar=fwRng((seed|0)^0x51ed270b);
   const cm=[0x7a2a2a,0x2a4a7a,0x555a60,0x7a6a2a,0x2a6a3a,0x8a8a8a,0x2a2a30];
   for(let i=0;i<80;i++){
     const k=Math.floor(rnd()*(FW_N+1)),vert=rnd()<.5,c=k*FW_P-half,t=(rnd()-.5)*(FW_N*FW_P),off=(rnd()<.5?-1:1)*(40+rnd()*42);
@@ -206,7 +207,7 @@ function fwBuild(n,seed){
     for(const [wx,wz] of[[-66,Wd/2],[66,Wd/2],[-66,-Wd/2],[66,-Wd/2]]){const w=new T.Mesh(new T.CylinderGeometry(15,15,10,12),new T.MeshLambertMaterial({color:0x0c0c0c}));w.rotation.x=Math.PI/2;w.position.set(wx,15,wz);g.add(w)}
     for(const hx of[1,-1]){const hl=new T.Mesh(bg,new T.MeshBasicMaterial({color:wreck?0x332211:0xffe8b0}));hl.scale.set(3,8,16);hl.position.set(L/2,30,hx*(Wd/2-14));g.add(hl)}
     if(wreck) body.rotation.z=(rnd()-.5)*.12;
-    g.position.set(x,0,z);g.rotation.y=vert?Math.PI/2:0;if(rnd()<.5) g.rotation.y+=Math.PI;sc.add(g);fwAddCol(x-sx/2,z-sz/2,x+sx/2,z+sz/2,78,'c');bl.push([x-sx/2,z-sz/2,x+sx/2,z+sz/2,-1]);
+    g.position.set(x,0,z);g.rotation.y=vert?Math.PI/2:0;if(rnd()<.5) g.rotation.y+=Math.PI;sc.add(g);fwAddCol(x-sx/2,z-sz/2,x+sx/2,z+sz/2,78,'c');bl.push([x-sx/2,z-sz/2,x+sx/2,z+sz/2,-1]);FW.spots.push({n:FW_CARS[Math.floor(rcar()*FW_CARS.length)],x,z,ry:g.rotation.y+Math.PI/2,s:FWM.S,g});
   }
   for(let i=0;i<110;i++){
     const x=(rnd()-.5)*FW_LIM*1.9,z=(rnd()-.5)*FW_LIM*1.9;if(fwSolid(x,z,10)) continue;
@@ -224,7 +225,9 @@ function fwBuild(n,seed){
       for(let k=0;k<4;k++){const br=new T.Mesh(new T.CylinderGeometry(2,4,70,5),tr);br.position.set(px+Math.cos(k*1.6)*16,130+k*8,pz+Math.sin(k*1.6)*16);br.rotation.z=Math.cos(k*1.6)*.9;br.rotation.x=-Math.sin(k*1.6)*.9;sc.add(br)}
       fwAddCol(px-9,pz-9,px+9,pz+9,150,'p')}}
   }
+  fwPropsLayout(sc,seed);
   for(const o of sc.children.slice()) if(!o.isCamera&&!o.isLight&&!o.isSprite&&o!==FW.sky&&o!==FW.dust){o.updateMatrix();o.matrixAutoUpdate=false}
+  fwModelsApply(sc);
   // ----- ciel : lune et étoiles (suivent le joueur) -----
   const grp=FW.grp=new T.Group();sc.add(grp);
   const mo=new T.Mesh(new T.SphereGeometry(140,20,14),new T.MeshBasicMaterial({color:0xefe9d6,fog:false}));mo.position.set(-1800,2400,-2600);grp.add(mo);
