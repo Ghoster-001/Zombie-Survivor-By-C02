@@ -6,12 +6,28 @@
 
 <p align="center"><a href="https://ghoster-001.github.io/Zombie-Survivor-By-C02/"><b>▶ JOUER AU JEU</b></a></p>
 
-Shooter de survie zombie en vue de côté, jouable dans le navigateur (HTML5 canvas, JavaScript pur, un seul fichier).
+Shooter de survie zombie en vue de côté, jouable dans le navigateur (HTML5 canvas, JavaScript pur, découpé en modules dans `js/`).
 
 ## Lancer le jeu
 Joue en ligne : https://ghoster-001.github.io/Zombie-Survivor-By-C02/
 
-Ou télécharge le dépôt et ouvre `index.html` dans un navigateur moderne.
+Ou télécharge le dépôt et ouvre `index.html` dans un navigateur moderne (le dossier `js/` doit rester à côté).
+
+## Structure du projet
+
+`index.html` contient la page, le style et la liste des scripts ; le code est dans `js/` (scripts classiques chargés dans l'ordre, ils partagent la même portée globale, donc aucun serveur ni bundler n'est nécessaire).
+
+| Fichier | Contenu |
+|---|---|
+| `core`, `weapons-data`, `maps` | base du jeu, armes, cartes et difficultés |
+| `anticheat`, `vault` | C02 Anti-Cheat et coffre chiffré de la sauvegarde |
+| `events`, `items-shop`, `audio`, `gameplay`, `update`, `render2d` | événements, boutique, sons, combat, boucle de jeu, rendu 2D |
+| `ui-theme`, `xmas-theme`, `weapon-art`, `boosts`, `controls`, `nightmare`, `playhub` | interface, armes dessinées, boosts, commandes tactiles/manettes, Nightmare, page Jouer |
+| `multiplayer`, `remote-play`, `profile`, `updater` | multijoueur 2D, écran partagé, profil, mises à jour |
+| `three-base`, `fw-core`, `fw-buildings`, `fw-furniture`, `fw-world`, `fw-mp`, `fw-game` | mode 3D : moteur, immeubles, intérieurs, monde et rendu, multijoueur 3D / Battle Royale, boucle de jeu |
+| `main` | optimisations et démarrage |
+
+Changer de version : `python3 tools/bump-version.py 0.78` (met à jour `GAME_VERSION` et le `?v=` des scripts pour éviter les fichiers périmés en cache).
 
 ## Contenu
 - Couteau en arme principale, armes à feu trouvées dans des caisses larguées du ciel (munitions ou durée limitée)
