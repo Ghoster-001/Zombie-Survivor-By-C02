@@ -512,7 +512,7 @@ function fwRender(){
     for(let i=0;i<FW.pl.length;i++){const q=ls[i];const L=FW.pl[i];if(q&&q.d<900*900){L.position.set(q.l.x,q.l.fire?50:(q.l.y||230),q.l.z);L.color.set(q.l.fire?0xff8a3a:0xffd29a);L.intensity=q.l.fire?1.4:(q.l.int?.95:1.6)}else L.intensity=0}}
   FW.grp.position.set(SX,0,SZ);
   if(FW.sky) FW.sky.position.copy(cam.position);
-  if(FW.sun){const q=FW.sunV,tx=Math.round(SX/8)*8,tz=Math.round(SZ/8)*8;FW.sun.castShadow=!!FXF.lights&&SY<500;FW.sun.target.position.set(tx,0,tz);FW.sun.position.set(tx+q[0]*1800,q[1]*1800,tz+q[2]*1800);FW.sun.target.updateMatrixWorld()}
+  if(FW.sun){const q=FW.sunV,tx=Math.round(SX/8)*8,tz=Math.round(SZ/8)*8;FW.sun.castShadow=!!FXF.lights;FW.sun.target.position.set(tx,0,tz);FW.sun.position.set(tx+q[0]*1800,q[1]*1800,tz+q[2]*1800);FW.sun.target.updateMatrixWorld()}
   fwDustTick(SX,SY,SZ);
   // muzzle flash éphémère
   const mf=FW.recoil>.6;FW.fl.intensity=FW.flOn?(mf?3:1.7):0;
