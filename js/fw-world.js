@@ -49,10 +49,11 @@ function fwPost(){
   const w=W,h=H;
   if(FW_FILT&&FXF.bloom!==undefined){
     const bw=Math.max(80,w>>2),bh=Math.max(45,h>>2);
-    if(!FW.bc){FW.bc=document.createElement('canvas');FW.bx=FW.bc.getContext('2d')}
+    if(!FW.bc){FW.bc=document.createElement('canvas');FW.bx=FW.bc.getContext('2d',{willReadFrequently:true})}
     if(FW.bc.width!==bw||FW.bc.height!==bh){FW.bc.width=bw;FW.bc.height=bh}
     const x=FW.bx;x.globalCompositeOperation='source-over';x.clearRect(0,0,bw,bh);x.filter='brightness(.62) contrast(2.6) blur(4px)';x.drawImage(G3.cv,0,0,bw,bh);x.filter='none';
     ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=FXF.bloom?.55:.34;ctx.imageSmoothingEnabled=true;ctx.drawImage(FW.bc,0,0,w,h);ctx.restore();
+    fwSunFlare(bw,bh);
   }
   ctx.save();
   ctx.globalCompositeOperation='soft-light';const lg=ctx.createLinearGradient(0,0,0,h);lg.addColorStop(0,'rgba(60,110,200,.38)');lg.addColorStop(.55,'rgba(255,255,255,0)');lg.addColorStop(1,'rgba(255,140,60,.34)');ctx.fillStyle=lg;ctx.fillRect(0,0,w,h);
@@ -140,7 +141,7 @@ function fwBuild(n,seed){
     g.fillStyle='#8c8c8c';g.fillRect(0,0,w,h);for(let i=0;i<900;i++){const v=110+rnd()*70;g.fillStyle='rgba('+v+','+v+','+v+',.5)';g.fillRect(rnd()*w,rnd()*h,2,2)}
     for(let i=0;i<9;i++){const x=rnd()*w,y=rnd()*h,r=14+rnd()*34,rg=g.createRadialGradient(x,y,0,x,y,r);rg.addColorStop(0,'rgba(10,10,10,.95)');rg.addColorStop(.7,'rgba(10,10,10,.8)');rg.addColorStop(1,'rgba(10,10,10,0)');g.fillStyle=rg;g.beginPath();g.ellipse(x,y,r*1.6,r,rnd()*3,0,7);g.fill()}
   },16,16);
-  const gr=new T.Mesh(new T.PlaneGeometry(14000,14000),new T.MeshStandardMaterial({map:road,roughnessMap:roadR,roughness:1,metalness:.08,envMapIntensity:.8}));gr.receiveShadow=true;gr.rotation.x=-Math.PI/2;sc.add(gr);
+  const gr=new T.Mesh(new T.PlaneGeometry(14000,14000),new T.MeshStandardMaterial(Object.assign({map:road,roughnessMap:roadR,roughness:1,metalness:.08,envMapIntensity:.8},fwPbr()?{normalMap:fwAsphaltNormal(),normalScale:new T.Vector2(.5,.5)}:{})));gr.receiveShadow=true;gr.rotation.x=-Math.PI/2;sc.add(gr);
   const walk=fwTex('fwwalk',256,256,(g,w,h)=>{g.fillStyle='#55524d';g.fillRect(0,0,w,h);g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=2;for(let i=0;i<=w;i+=64){g.beginPath();g.moveTo(i,0);g.lineTo(i,h);g.stroke();g.beginPath();g.moveTo(0,i);g.lineTo(w,i);g.stroke()}
     for(let i=0;i<500;i++){g.fillStyle='rgba('+(rnd()<.5?'255,255,255':'0,0,0')+','+(.03+rnd()*.05)+')';g.fillRect(rnd()*w,rnd()*h,2,2)}},6,6);
   const dash=g3Tex('fwdash',64,16,(g,w,h)=>{g.clearRect(0,0,w,h);g.fillStyle='#dcc65a';g.fillRect(0,5,34,6)},true);
@@ -157,7 +158,7 @@ function fwBuild(n,seed){
     for(const [dx,dz,rot] of[[0,-FW_RD/2-30,0],[0,FW_RD/2+30,0],[-FW_RD/2-30,0,1],[FW_RD/2+30,0,1]]){const m=new T.Mesh(new T.PlaneGeometry(FW_RD*.7,56),zm);m.rotation.x=-Math.PI/2;m.rotation.z=rot?Math.PI/2:0;m.position.set(x+dx,.7,z+dz);sc.add(m)}
   }
   // ----- blocs et immeubles -----
-  const sw=new T.MeshLambertMaterial({map:walk}),roof=new T.MeshLambertMaterial({color:0x24242a}),bg=new T.BoxGeometry(1,1,1),FH=FW_FH;
+  const sw=fwPbr()?new T.MeshStandardMaterial({map:walk,normalMap:fwWalkNormal(),roughness:.9,metalness:0,envMapIntensity:.3}):new T.MeshLambertMaterial({map:walk}),roof=new T.MeshLambertMaterial({color:0x24242a}),bg=new T.BoxGeometry(1,1,1),FH=FW_FH;
   const lotsEmpty=[],bl=FW.bl=[];
   for(let i=0;i<FW_N;i++) for(let j=0;j<FW_N;j++){
     const cx=(i-(FW_N-1)/2)*FW_P,cz=(j-(FW_N-1)/2)*FW_P;
@@ -190,7 +191,7 @@ function fwBuild(n,seed){
     const p=new T.Mesh(new T.CylinderGeometry(4,6,300,8),pm);p.position.set(x,158,z);sc.add(p);
     const arm=new T.Mesh(bg,pm);arm.scale.set(46,5,5);arm.position.set(x-20,306,z);sc.add(arm);
     const b=new T.Mesh(new T.SphereGeometry(10,10,8),bm);b.position.set(x-42,302,z);sc.add(b);
-    const sp=new T.Sprite(gm);sp.scale.set(120,120,1);sp.position.set(x-42,302,z);sc.add(sp);FW.lamps.push({x:x-42,z});
+    const sp=new T.Sprite(gm);sp.scale.set(120,120,1);sp.position.set(x-42,302,z);sc.add(sp);FW.lamps.push({x:x-42,z});if(FXF.lights) fwLampGlow(sc,x-42,z,300);
     fwAddCol(x-6,z-6,x+6,z+6,300,'p');
   }
   // ----- épaves, tonneaux, bennes, arbres morts, bancs (à l'échelle du personnage) -----

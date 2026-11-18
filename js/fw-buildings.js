@@ -127,7 +127,7 @@ function fwAlphaTex(){
       if(bottom){const dh=FW_DOORH*128/FW_FH;g.fillRect(224,r*128+128-dh,64,dh)}}},true);
 }
 function fwShellMats(v,fl){
-  const key='sh'+v+'_'+fl;let m=FW.matC[key];if(m) return m;
+  const key='sh'+v+'_'+fl+(fwPbr()?'p':'');let m=FW.matC[key];if(m) return m;
   const t=g3Tex('fwsh'+v,512,512,(g,w,h)=>{
     let s=v*977+31;const rnd=()=>(s=(s*16807)%2147483647)/2147483647;
     const base=['#6a3c32','#55585f','#2e4258','#5a5040'][v%4],dk=['#4a2820','#3a3d44','#182636','#3e382c'][v%4];
@@ -142,7 +142,8 @@ function fwShellMats(v,fl){
     g.fillStyle='rgba(0,0,0,.12)';for(let i=0;i<14;i++){g.fillRect(rnd()*w,rnd()*h,3+rnd()*3,30+rnd()*70)}
   },true);const c=t.clone();c.needsUpdate=true;c.repeat.set(1,fl/4);
   const a=fwAlphaTex().clone();a.needsUpdate=true;a.repeat.set(1,fl/4);
-  m=new THREE.MeshLambertMaterial({map:c,alphaMap:a,alphaTest:.5,side:THREE.FrontSide});FW.matC[key]=m;return m;
+  m=fwPbr()?new THREE.MeshStandardMaterial({map:c,normalMap:fwShellNormal(v,fl),normalScale:new THREE.Vector2(1,1),roughness:.86,metalness:.02,envMapIntensity:.45,alphaMap:a,alphaTest:.5,side:THREE.FrontSide})
+    :new THREE.MeshLambertMaterial({map:c,alphaMap:a,alphaTest:.5,side:THREE.FrontSide});FW.matC[key]=m;return m;
 }
 const FW_WP=[['#cdbd9c','#b8a684'],['#a9bfcc','#8aa3b4'],['#d2adad','#b58f8f'],['#b2c6a6','#93ab88'],['#dcd5c4','#c2baa8']];
 function fwWallMat(v,fl,lit){
@@ -189,7 +190,7 @@ function fwTower(sc,rnd,cx,cz,bw,fl,v){
   fwGeoBox(G,cx-half+pe/2,y,cz,pe,ph,bw-2*pe,roofC);fwGeoBox(G,cx+half-pe/2,y,cz,pe,ph,bw-2*pe,roofC);
   for(let k=0;k<4;k++){const px=cx+(rnd()-.5)*(bw-160),pz=cz+(rnd()-.5)*(bw-160);fwGeoBox(G,px,h+1+16,pz,40+rnd()*30,32,34+rnd()*20,0x3a3c42)}   // blocs techniques sur le toit
   const Gb=fwGeoNew();fwTowerDetail(G,Gb,sc,rnd,B,v);
-  const sm=fwGeoMesh(G,FW.vcMat||(FW.vcMat=new T.MeshLambertMaterial({vertexColors:true,map:fwFloorTex()})));sm.castShadow=true;sm.receiveShadow=true;sc.add(sm);
+  const sm=fwGeoMesh(G,FW.vcMat||(FW.vcMat=fwPbr()?new T.MeshStandardMaterial({vertexColors:true,map:fwFloorTex(),normalMap:fwFloorNormal(),roughness:.8,metalness:.02,envMapIntensity:.35}):new T.MeshLambertMaterial({vertexColors:true,map:fwFloorTex()})));sm.castShadow=true;sm.receiveShadow=true;sc.add(sm);
   if(Gb.p.length){const gm=fwGeoMesh(Gb,FW.vcBasic||(FW.vcBasic=new T.MeshBasicMaterial({vertexColors:true,toneMapped:false})));sc.add(gm)}
   for(const k of fwBCells(B)) FW.bmap.set(k,B);
   FW.maxH=Math.max(FW.maxH,h+41);
