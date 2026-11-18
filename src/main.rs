@@ -2,6 +2,7 @@
 mod city;
 mod mesh;
 mod player;
+mod steam;
 mod tex;
 
 use bevy::{
@@ -54,6 +55,7 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins(steam::SteamPlugin)
         .add_systems(Startup, (setup_sky, city::build_city, player::spawn_player, setup_camera).chain())
         .add_systems(Update, (player::grab_cursor, player::look, player::move_player, player::toggle_flashlight, city::cull_interior_lights, screenshot_and_exit).chain())
         .run();
