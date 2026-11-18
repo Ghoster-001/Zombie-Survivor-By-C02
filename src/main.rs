@@ -1,9 +1,14 @@
 //! The Infected Grounds — version native (Bevy) : ville 3D réaliste, rendu physique (atmosphère, ombres, SSAO, reflets, brume volumétrique, bloom).
 mod city;
+mod enemy;
+mod fx;
+mod game;
+mod hud;
 mod mesh;
 mod player;
 mod steam;
 mod tex;
+mod weapons;
 
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
@@ -46,6 +51,8 @@ fn main() {
         .insert_resource(GlobalAmbientLight { brightness: 40.0, ..default() })
         .insert_resource(shot)
         .init_resource::<city::Colliders>()
+        .init_resource::<game::Game>()
+        .init_resource::<weapons::Loadout>()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "The Infected Grounds".into(),
@@ -56,8 +63,8 @@ fn main() {
             ..default()
         }))
         .add_plugins(steam::SteamPlugin)
-        .add_systems(Startup, (setup_sky, city::build_city, player::spawn_player, setup_camera).chain())
-        .add_systems(Update, (player::grab_cursor, player::look, player::move_player, player::toggle_flashlight, city::cull_interior_lights, screenshot_and_exit).chain())
+        .add_systems(Startup, (setup_sky, city::build_city, player::spawn_player, setup_camera, fx::setup_fx, weapons::setup_weapons, enemy::setup_enemies, hud::setup_hud).chain())
+        .add_systems(Update, (game::tick_game, player::grab_cursor, player::look, player::move_player, player::toggle_flashlight, weapons::weapon_system, enemy::wave_director, enemy::enemy_ai, enemy::enemy_anim, enemy::restart, fx::update_fx, hud::update_hud, city::cull_interior_lights, screenshot_and_exit).chain())
         .run();
 }
 
