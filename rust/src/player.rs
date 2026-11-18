@@ -52,15 +52,15 @@ pub fn grab_cursor(mut cursor: Single<&mut CursorOptions>, mouse: Res<ButtonInpu
     }
 }
 
-pub fn look(motion: Res<AccumulatedMouseMotion>, cursor: Single<&CursorOptions>, mut q: Query<(&mut Transform, &mut Player)>, mut cam: Query<&mut Transform, (With<PlayerCam>, Without<Player>)>) {
+pub fn look(motion: Res<AccumulatedMouseMotion>, lo: Res<crate::weapons::Loadout>, game: Res<crate::game::Game>, cursor: Single<&CursorOptions>, mut q: Query<(&mut Transform, &mut Player)>, mut cam: Query<&mut Transform, (With<PlayerCam>, Without<Player>)>) {
     let Ok((mut t, mut p)) = q.single_mut() else { return };
-    if cursor.grab_mode == CursorGrabMode::Locked {
+    if cursor.grab_mode == CursorGrabMode::Locked && !game.dead {
         p.yaw -= motion.delta.x * 0.0022;
         p.pitch = (p.pitch - motion.delta.y * 0.0022).clamp(-1.5, 1.5);
     }
     t.rotation = Quat::from_rotation_y(p.yaw);
     if let Ok(mut c) = cam.single_mut() {
-        c.rotation = Quat::from_rotation_x(p.pitch);
+        c.rotation = Quat::from_rotation_x(p.pitch + lo.kick * 0.012);
         c.translation.y = EYE - 0.55 * p.crouch;
     }
 }
@@ -80,20 +80,71 @@ fn overlap_circle(a: &crate::mesh::Aabb, x: f32, z: f32) -> (f32, f32, f32) {
     (dx, dz, dx * dx + dz * dz)
 }
 
-pub fn move_player(time: Res<Time>, keys: Res<ButtonInput<KeyCode>>, col: Res<Colliders>, mut q: Query<(&mut Transform, &mut Player)>) {
+/// Pousse un cylindre (rayon r, hauteur h) hors des obstacles, avec montée de marche ; renvoie vrai s'il a été repoussé par un mur.
+pub fn push_out(col: &Colliders, pos: &mut Vec3, vy: &mut f32, r: f32, h: f32) -> bool {
+    let mut blocked = false;
+    for _ in 0..3 {
+        let mut pp = *pos;
+        let mut v = *vy;
+        col.near(pos.x, pos.z, r + 0.2, |a| {
+            if pp.y + h <= a.min.y + 0.01 || pp.y >= a.max.y - 0.001 {
+                return;
+            }
+            let (dx, dz, d2) = overlap_circle(a, pp.x, pp.z);
+            if d2 >= r * r {
+                return;
+            }
+            if a.max.y - pp.y <= STEP {
+                pp.y = a.max.y;
+                v = v.max(0.0);
+                return;
+            }
+            blocked = true;
+            if d2 > 1e-8 {
+                let d = d2.sqrt();
+                let m = (r - d) / d;
+                pp.x += dx * m;
+                pp.z += dz * m;
+            } else {
+                let (l, rr, n, f) = (pp.x - a.min.x, a.max.x - pp.x, pp.z - a.min.z, a.max.z - pp.z);
+                let m = l.min(rr).min(n).min(f);
+                if m == l { pp.x = a.min.x - r } else if m == rr { pp.x = a.max.x + r } else if m == n { pp.z = a.min.z - r } else { pp.z = a.max.z + r }
+            }
+        });
+        *pos = pp;
+        *vy = v;
+    }
+    blocked
+}
+
+/// Hauteur du sol sous un cylindre (dessus des obstacles qu'il peut atteindre depuis la hauteur `prev`)
+pub fn ground_at(col: &Colliders, x: f32, z: f32, r: f32, prev: f32) -> f32 {
+    let mut ground = 0.0f32;
+    col.near(x, z, r + 0.1, |a| {
+        let (_, _, d2) = overlap_circle(a, x, z);
+        if d2 < r * r && a.max.y <= prev + STEP + 0.001 && a.max.y > ground {
+            ground = a.max.y;
+        }
+    });
+    ground
+}
+
+pub fn move_player(time: Res<Time>, keys: Res<ButtonInput<KeyCode>>, col: Res<Colliders>, game: Res<crate::game::Game>, mut q: Query<(&mut Transform, &mut Player)>) {
     let Ok((mut t, mut p)) = q.single_mut() else { return };
     let dt = time.delta_secs().min(0.05);
+    let keys_ok = !game.dead;
     let (mut fwd, mut side) = (0.0f32, 0.0f32);
-    if keys.pressed(KeyCode::KeyW) || keys.pressed(KeyCode::ArrowUp) {
+    if !keys_ok {
+    } else if keys.pressed(KeyCode::KeyW) || keys.pressed(KeyCode::ArrowUp) {
         fwd += 1.0;
     }
-    if keys.pressed(KeyCode::KeyS) || keys.pressed(KeyCode::ArrowDown) {
+    if keys_ok && (keys.pressed(KeyCode::KeyS) || keys.pressed(KeyCode::ArrowDown)) {
         fwd -= 1.0;
     }
-    if keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight) {
+    if keys_ok && (keys.pressed(KeyCode::KeyD) || keys.pressed(KeyCode::ArrowRight)) {
         side += 1.0;
     }
-    if keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft) {
+    if keys_ok && (keys.pressed(KeyCode::KeyA) || keys.pressed(KeyCode::ArrowLeft)) {
         side -= 1.0;
     }
     let crouch = keys.pressed(KeyCode::ControlLeft);
@@ -109,50 +160,17 @@ pub fn move_player(time: Res<Time>, keys: Res<ButtonInput<KeyCode>>, col: Res<Co
     // horizontal : déplacement puis résolution (3 passes), avec montée de marche
     pos.x += p.vel.x * dt;
     pos.z += p.vel.z * dt;
-    for _ in 0..3 {
-        let mut vy = p.vel.y;
-        let mut pp = pos;
-        col.near(pos.x, pos.z, R + 0.2, |a| {
-            if pp.y + hh <= a.min.y + 0.01 || pp.y >= a.max.y - 0.001 {
-                return;
-            }
-            let (dx, dz, d2) = overlap_circle(a, pp.x, pp.z);
-            if d2 >= R * R {
-                return;
-            }
-            if a.max.y - pp.y <= STEP {
-                pp.y = a.max.y;
-                vy = vy.max(0.0);
-                return;
-            }
-            if d2 > 1e-8 {
-                let d = d2.sqrt();
-                let m = (R - d) / d;
-                pp.x += dx * m;
-                pp.z += dz * m;
-            } else {
-                let (l, r, n, f) = (pp.x - a.min.x, a.max.x - pp.x, pp.z - a.min.z, a.max.z - pp.z);
-                let m = l.min(r).min(n).min(f);
-                if m == l { pp.x = a.min.x - R } else if m == r { pp.x = a.max.x + R } else if m == n { pp.z = a.min.z - R } else { pp.z = a.max.z + R }
-            }
-        });
-        pos = pp;
-        p.vel.y = vy;
-    }
+    let mut vy = p.vel.y;
+    push_out(&col, &mut pos, &mut vy, R, hh);
+    p.vel.y = vy;
     // vertical
     let prev = pos.y;
-    if keys.just_pressed(KeyCode::Space) && p.grounded {
+    if keys_ok && keys.just_pressed(KeyCode::Space) && p.grounded {
         p.vel.y = 6.6;
     }
     p.vel.y -= 21.0 * dt;
     pos.y += p.vel.y * dt;
-    let mut ground = 0.0f32;
-    col.near(pos.x, pos.z, R + 0.1, |a| {
-        let (_, _, d2) = overlap_circle(a, pos.x, pos.z);
-        if d2 < R * R && a.max.y <= prev + STEP + 0.001 && a.max.y > ground {
-            ground = a.max.y;
-        }
-    });
+    let ground = ground_at(&col, pos.x, pos.z, R, prev);
     p.grounded = false;
     if p.vel.y <= 0.0 && pos.y <= ground + 0.001 {
         pos.y = ground;
