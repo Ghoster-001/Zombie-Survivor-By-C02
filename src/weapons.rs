@@ -217,7 +217,7 @@ pub fn weapon_system(
 ) {
     let lo = &mut *lo;
     let dt = time.delta_secs();
-    let locked = cursor.grab_mode == CursorGrabMode::Locked || std::env::var("IG_SIM").is_ok();
+    let locked = cursor.grab_mode == CursorGrabMode::Locked || std::env::var("IG_BOT").is_ok();
     // changement d'arme : touches 1-8, molette
     let mut want = None;
     for (i, k) in [KeyCode::Digit1, KeyCode::Digit2, KeyCode::Digit3, KeyCode::Digit4, KeyCode::Digit5, KeyCode::Digit6, KeyCode::Digit7, KeyCode::Digit8].iter().enumerate() {
@@ -327,6 +327,9 @@ pub fn weapon_system(
                     if let Ok((_, mut e, t)) = enemies.get_mut(*en) {
                         let head = *hr > 0.78;
                         e.damage(w.dmg * if head { 2.2 } else if *hr < 0.35 { 0.7 } else { 1.0 }, head);
+                        if head && e.is_dead() && !e.counted {
+                            game.headshots += 1;
+                        }
                         e.stagger = 0.25;
                         let p = origin + d * *tt;
                         fx::burst(&mut commands, &fxa, p, -d, if head { 14 } else { 8 }, fx::Kind::Bone, &mut lo.seed);

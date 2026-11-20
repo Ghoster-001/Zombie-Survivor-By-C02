@@ -45,7 +45,11 @@ fn main() {
         shot.frames = n;
     }
     let headless_shot = shot.path.is_some();
-    App::new()
+    let mut app = App::new();
+    if headless_shot {
+        app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(std::time::Duration::from_millis(50)));
+    }
+    app
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(GlobalAmbientLight { brightness: 40.0, ..default() })
@@ -64,7 +68,7 @@ fn main() {
         }))
         .add_plugins(steam::SteamPlugin)
         .add_systems(Startup, (setup_sky, city::build_city, player::spawn_player, setup_camera, fx::setup_fx, weapons::setup_weapons, enemy::setup_enemies, hud::setup_hud).chain())
-        .add_systems(Update, (game::tick_game, player::grab_cursor, player::look, player::move_player, player::toggle_flashlight, weapons::weapon_system, enemy::wave_director, enemy::enemy_ai, enemy::enemy_anim, enemy::restart, fx::update_fx, hud::update_hud, city::cull_interior_lights, screenshot_and_exit).chain())
+        .add_systems(Update, (game::tick_game, player::grab_cursor, player::look, player::move_player, player::toggle_flashlight, bot, weapons::weapon_system, enemy::wave_director, enemy::enemy_ai, enemy::enemy_anim, enemy::restart, fx::update_fx, hud::update_hud, city::cull_interior_lights, screenshot_and_exit).chain())
         .run();
 }
 
@@ -95,6 +99,40 @@ fn setup_camera(mut commands: Commands, cam: Query<Entity, With<player::PlayerCa
         ScreenSpaceReflections::default(),
         Projection::Perspective(PerspectiveProjection { fov: 75f32.to_radians(), near: 0.05, ..default() }),
     ));
+}
+
+/// Robot de test (IG_BOT=1) : vise l'ennemi vivant le plus proche et tire ; journalise l'état de la partie
+fn bot(
+    mut mouse: ResMut<ButtonInput<MouseButton>>,
+    mut lo: ResMut<weapons::Loadout>,
+    game: Res<game::Game>,
+    mut frame: Local<u32>,
+    mut pl: Query<(&Transform, &mut player::Player)>,
+    enemies: Query<(&enemy::Enemy, &Transform), Without<player::Player>>,
+) {
+    if std::env::var("IG_BOT").is_err() {
+        return;
+    }
+    *frame += 1;
+    let Ok((pt, mut p)) = pl.single_mut() else { return };
+    let eye = pt.translation + Vec3::Y * 1.65;
+    let target = enemies.iter().filter(|(e, _)| !e.is_dead() && !e.is_spawning()).min_by(|a, b| a.1.translation.distance(eye).partial_cmp(&b.1.translation.distance(eye)).unwrap());
+    mouse.release(MouseButton::Left);
+    if let Some((e, t)) = target {
+        let aim = t.translation + Vec3::Y * e.height() * 0.6 - eye;
+        p.yaw = (-aim.x).atan2(-aim.z);
+        p.pitch = (aim.y / vec2(aim.x, aim.z).length()).atan();
+        if lo.cur != 4 {
+            lo.cur = 4;
+        }
+        if *frame % 3 != 0 {
+            mouse.press(MouseButton::Left);
+        }
+    }
+    if *frame % 40 == 0 {
+        let alive = enemies.iter().filter(|(e, _)| !e.is_dead()).count();
+        info!("BOT frame {} vague {} morts {} vivants {} vie {:.0} munitions {}/{}", *frame, game.wave, game.kills, alive, game.hp, lo.ammo[lo.cur], lo.reserve[lo.cur]);
+    }
 }
 
 fn screenshot_and_exit(mut commands: Commands, shot: Res<ShotCfg>, mut frame: Local<u32>, mut exit: MessageWriter<AppExit>) {
