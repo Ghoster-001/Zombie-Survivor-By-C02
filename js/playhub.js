@@ -2,10 +2,7 @@
 function drawPlayHub(){
   ctx.fillStyle='#000000d8';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
   ctx.fillStyle='#000';ctx.font='400 38px '+TITLE;ctx.fillText('JOUER',43,61);ctx.fillStyle='#e9e1d0';ctx.fillText('JOUER',40,58);ctx.fillStyle='#7a2c1c';ctx.fillRect(40,66,120,3);
-  const vr=gameMode==='3D'&&!!SET.vr,lab=vr?'VR':gameMode,nxt=gameMode==='2D'?'3D':vr?'2D':'VR';
-  btn(menuRects,700,36,220,36,'MODE : '+lab+'  ›',{act:()=>{setGameMode(nxt);state='playhub'},size:16});
-  if(vr) drawVrHub();
-  else{
+  {
     const m3=gameMode==='3D';
     const cards=[
       ['SOLO','cartes et difficultés · progression sauvegardée',()=>{mapTrain=false;training=false;NM.on=false;state='maps'}],

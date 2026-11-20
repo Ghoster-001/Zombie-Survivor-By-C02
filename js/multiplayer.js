@@ -103,7 +103,7 @@ function mpHostData(g,d){
       if(d.k==='pick') guestPick(g);else if(d.k==='bonus') runAs(g,useBonus);break;
     case 'pg':if(typeof d.n==='number'){const r=Math.max(1,Math.round(now-d.n));g.rtts.push(r);if(g.rtts.length>6) g.rtts.shift();g.ping=Math.round(g.rtts.reduce((a,b)=>a+b,0)/g.rtts.length);g.q=qOf(g.ping)}break;
     case 'leave':mpGuestLeft(g);break;
-    case 'p3':case 'sh3':case 'ml3':case 'pk3':case 'bn3':fwmHostMsg(g,d);break;
+    case 'p3':case 'sh3':case 'ml3':case 'pk3':case 'bn3':break;   // messages 3D : ignorés (version web 2D)
   }
 }
 const lobEntry=(id,n,lvl,ping,q,r,av)=>({id,n,lvl,ping,q,r,av:av|0});

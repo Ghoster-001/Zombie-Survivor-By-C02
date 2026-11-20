@@ -126,7 +126,7 @@ function drawMenuBody(){
   }
   if(state==='menu'){
     drawProfileCard();
-    {const it=[['JOUER',()=>{mapTrain=false;training=false;NM.on=false;state='playhub'},SET.vr&&gameMode==='3D'?'réalité virtuelle · solo · multijoueur':'solo · multijoueur · nightmare · entraînement · arsenal'],
+    {const it=[['JOUER',()=>{mapTrain=false;training=false;NM.on=false;state='playhub'},'solo · multijoueur · nightmare · entraînement · arsenal'],
       ['PERSONNALISATION',()=>state='custom','skins · zombies jouables · sapin'],
       ['BOUTIQUE',()=>state='shop','tenues et packs de fêtes'],
       ['OPTIONS',()=>{optFrom='menu';state='options'},'jeu · son · graphismes · touches · crédits'],
@@ -147,8 +147,6 @@ function drawMenuBody(){
      ctx.textAlign='center';ctx.font='700 17px '+FONT;ctx.fillStyle=hot?'#fff':'#f2efe8';ctx.fillText('TIRAGE',cx,cy+r+24);
      if(fr){const pu=1+.12*Math.sin(tick*.15);ctx.fillStyle='#d62d2d';ctx.beginPath();ctx.arc(cx+r-4,cy-r+8,11*pu,0,7);ctx.fill();ctx.fillStyle='#fff';ctx.font='900 15px '+FONT;ctx.fillText('!',cx+r-4,cy-r+13)}
      ctx.textAlign='left'}
-    btn(menuRects,W-110-62,206,124,34,'MODE : '+gameMode,{act:()=>setGameMode(gameMode==='2D'?'3D':gameMode==='3D'?'VR':'2D'),size:17});
-    if(gameMode==='3D'){ctx.textAlign='center';ctx.fillStyle=G3.status==='ready'?'#9fd18a':G3.status==='load'?'#ffd45a':'#e2542e';ctx.font='500 12px '+FONT;ctx.fillText(G3.status==='ready'?'3D prête':G3.status==='load'?'chargement 3D…':'3D indisponible',W-110,252);ctx.textAlign='left'}
     {const u=UPD,lab=u.status==='avail'?'INSTALLER V'+u.latest:u.status==='check'?'RECHERCHE…':'MISE À JOUR',
        sub=u.status==='avail'?'nouvelle version !':u.status==='ok'?'à jour ✔ V'+GAME_VERSION:u.status==='err'?(u.msg||'impossible'):u.status==='check'?'patiente…':'rechercher';
      btn(menuRects,W-220,H-158,180,46,lab,{act:()=>u.status==='avail'?updApply():updCheck(true),size:16,sub,dim:u.status==='check'});
