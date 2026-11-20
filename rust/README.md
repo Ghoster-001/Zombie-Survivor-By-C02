@@ -8,7 +8,13 @@ Version 3D native du jeu, pensée pour Steam. La version web (JavaScript, dossie
 - Ville générée : immeubles de 4 à 12 étages, **fenêtres réellement ouvertes**, briques et béton en relief (textures PBR générées par code), escaliers jusqu'au toit, pièces cloisonnées et meublées, rues avec marquages, lampadaires, voitures et mobilier urbain (modèles glTF CC0).
 - Joueur à la première personne : souris, ZQSD/WASD, course (Maj), accroupi (Ctrl), saut (Espace), lampe torche (F), collisions complètes (marches, rebords, planchers, plafonds).
 
-À porter depuis la version web : zombies et vagues, armes, Battle Royale, multijoueur (via Steam), anti-triche, sauvegardes, menus, succès Steam.
+- Ennemis morts-vivants animés (modèle KayKit CC0 : sortie de terre, marche, course, attaques, coups, mort) : marcheurs, coureurs (vague 2+), brutes (vague 4+), boss toutes les 5 vagues ; ils contournent les murs et montent les marches.
+- 8 armes : couteau, Glock 17, M1911, MP5, AK-47, M4A1, Remington 870 (9 plombs), Barrett M82 (lunette ×4, perforation) — recul, visée au clic droit, rechargement (R), tirs à la tête ×2,2, traînées de balles, éclair de bouche, éclats et étincelles.
+- Interface : vie, munitions, vague, morts, tirs à la tête, marqueur de touche, flash de dégâts, écran de mort (R pour recommencer).
+
+Commandes : 1-8 ou molette pour changer d'arme, clic gauche tirer, clic droit viser, R recharger, F lampe.
+
+À porter depuis la version web : Battle Royale, multijoueur (via Steam), anti-triche, sauvegardes, menus, boutique et tenues, succès Steam, sons.
 
 ## Lancer
 

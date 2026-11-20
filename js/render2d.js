@@ -104,7 +104,16 @@ const OUTFITS=[
  {n:'ZOMBIE FOUETTARD',s:'Z. FOUETTARD',id:'z_fouet',pack:2,zk:'normal',top:'#1d1620',pants:'#120d16',hat:'#1d1620',shoes:'#0c0a0e',hair:'#8a8a94',head:'fouet',body:'fouet',skin:'#6a8a5a'},
  {n:'CHIEN ZOMBIE',id:'z_dog',pack:2,an:'dog',col:'#7a6a58',top:'#7a6a58',pants:'#4a4038',hat:'#4a4038',shoes:'#222',hair:'#4a4038',head:'none',body:'none'},
  {n:'CERF ZOMBIE',id:'z_deer',pack:2,an:'deer',col:'#8a5a30',top:'#8a5a30',pants:'#5a3a1e',hat:'#5a3a1e',shoes:'#222',hair:'#5a3a1e',head:'none',body:'none'},
- {n:'PINGOUIN ZOMBIE',s:'PINGOUIN Z.',id:'z_peng',pack:2,an:'peng',col:'#2a2f3a',top:'#2a2f3a',pants:'#1a1d24',hat:'#1a1d24',shoes:'#222',hair:'#1a1d24',head:'none',body:'none'}
+ {n:'PINGOUIN ZOMBIE',s:'PINGOUIN Z.',id:'z_peng',pack:2,an:'peng',col:'#2a2f3a',top:'#2a2f3a',pants:'#1a1d24',hat:'#1a1d24',shoes:'#222',hair:'#1a1d24',head:'none',body:'none'},
+ // ===== V0.81 : nouvelles tenues classiques (gratuites) =====
+ {n:'MÉDECIN',nf:'MÉDECIN',top:'#eef2f4',pants:'#3a6aa0',hat:'#3a6aa0',shoes:'#e8e8e8',hair:'#5a3a24',head:'glasses',body:'coat'},
+ {n:'POMPIER',top:'#b3241c',pants:'#2a2a30',hat:'#e0b030',shoes:'#141414',hair:'#3a2a20',head:'helmet',body:'jacket'},
+ {n:'POLICIER',nf:'POLICIÈRE',top:'#1f2f55',pants:'#18223a',hat:'#1a2440',shoes:'#0f0f12',hair:'#2a1c14',head:'cap',body:'vest'},
+ {n:'AGENT',top:'#141418',pants:'#141418',hat:'#141418',shoes:'#0a0a0a',hair:'#1a1a1a',head:'shades',body:'coat'},
+ {n:'BÛCHERON',nf:'BÛCHERONNE',top:'#8a1f1f',pants:'#3a4660',hat:'#2a2a2a',shoes:'#4a3020',hair:'#7a4a24',head:'hat',body:'flannel'},
+ {n:'PILOTE',top:'#5a6a3a',pants:'#4a5530',hat:'#4a3a28',shoes:'#2a2018',hair:'#5a3a24',head:'cap',body:'jacket'},
+ {n:'PUNK',top:'#202024',pants:'#3a1f4a',hat:'#d6247a',shoes:'#141414',hair:'#d6247a',head:'bandana',body:'tank'},
+ {n:'CAMOUFLAGE NEIGE',s:'CAMO NEIGE',top:'#e4e8ee',pants:'#c8ced8',hat:'#dfe4ea',shoes:'#3a3a40',hair:'#4a3020',head:'helmet',body:'vest'}
 ];
 const outOwned=i=>{const o=OUTFITS[i];return !!o&&(!o.cost||!!save.skinsOwned[o.id])};
 function lookCols(){const L=save.look,O=(outOwned(L.outfit)||L.outfit===prevO)&&OUTFITS[L.outfit]||OUTFITS[0];

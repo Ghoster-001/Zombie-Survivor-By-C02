@@ -21,6 +21,7 @@ let last=performance.now();
 let emaDt=16.7,adaptT=0;
 const STEP=1000/60;let acc=0,lastDrawT=0,drawDebt=0,acT=0;
 function loop(t){
+  if(typeof FW!=='undefined'&&FW.vr){requestAnimationFrame(loop);return}   // en VR, c'est la boucle du casque qui fait tourner le jeu
   const dtRaw=Math.max(0,t-last);last=t;hzSample(dtRaw);
   const dtc=Math.min(100,dtRaw);acc+=dtc;adaptT+=dtc;drawDebt=Math.min(500,drawDebt+dtc);
   fxUpdate();ATK=FXF.anim===0?0:tick;

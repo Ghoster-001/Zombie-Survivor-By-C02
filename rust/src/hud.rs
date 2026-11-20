@@ -21,11 +21,13 @@ pub struct Crosshair;
 #[derive(Component)]
 pub struct DeathText;
 
-fn txt(size: f32, color: Color) -> (TextFont, TextColor) {
-    (TextFont { font_size: FontSize::Px(size), ..default() }, TextColor(color))
+fn txt(font: &Handle<Font>, size: f32, color: Color) -> (TextFont, TextColor) {
+    (TextFont { font: font.clone().into(), font_size: FontSize::Px(size), ..default() }, TextColor(color))
 }
 
-pub fn setup_hud(mut commands: Commands) {
+pub fn setup_hud(mut commands: Commands, assets: Res<AssetServer>) {
+    // police libre (SIL OFL) avec les accents et la ponctuation française
+    let f: Handle<Font> = assets.load("fonts/Oswald-Bold.ttf");
     // flash de dégâts plein écran
     commands.spawn((Hurt, Node { position_type: PositionType::Absolute, width: percent(100), height: percent(100), ..default() }, BackgroundColor(Color::srgba(0.6, 0.0, 0.0, 0.0))));
     // viseur
@@ -34,17 +36,17 @@ pub fn setup_hud(mut commands: Commands) {
     }
     commands.spawn((Marker, Node { position_type: PositionType::Absolute, left: percent(50), top: percent(50), width: px(26), height: px(26), margin: UiRect { left: px(-13), top: px(-13), ..default() }, border: UiRect::all(px(2)), ..default() }, BorderColor::all(Color::srgba(1.0, 0.3, 0.2, 0.0))));
     // vague / score
-    commands.spawn((WaveText, Text::new(""), txt(24.0, Color::srgb(0.95, 0.9, 0.8)), Node { position_type: PositionType::Absolute, left: px(24), top: px(18), ..default() }));
+    commands.spawn((WaveText, Text::new(""), txt(&f, 24.0, Color::srgb(0.95, 0.9, 0.8)), Node { position_type: PositionType::Absolute, left: px(24), top: px(18), ..default() }));
     // vie
     commands.spawn((Node { position_type: PositionType::Absolute, left: px(24), bottom: px(24), width: px(300), height: px(26), border: UiRect::all(px(2)), ..default() }, BorderColor::all(Color::srgb(0.1, 0.1, 0.1)), BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.55)))).with_children(|p| {
         p.spawn((HpBar, Node { width: percent(100), height: percent(100), ..default() }, BackgroundColor(Color::srgb(0.25, 0.7, 0.3))));
     });
-    commands.spawn((HpText, Text::new("100"), txt(20.0, Color::WHITE), Node { position_type: PositionType::Absolute, left: px(332), bottom: px(24), ..default() }));
+    commands.spawn((HpText, Text::new("100"), txt(&f, 20.0, Color::WHITE), Node { position_type: PositionType::Absolute, left: px(332), bottom: px(24), ..default() }));
     // munitions
-    commands.spawn((AmmoText, Text::new(""), txt(30.0, Color::srgb(1.0, 0.92, 0.7)), TextLayout::justify(Justify::Right), Node { position_type: PositionType::Absolute, right: px(28), bottom: px(24), ..default() }));
+    commands.spawn((AmmoText, Text::new(""), txt(&f, 30.0, Color::srgb(1.0, 0.92, 0.7)), TextLayout::justify(Justify::Right), Node { position_type: PositionType::Absolute, right: px(28), bottom: px(24), ..default() }));
     // bannière de vague et écran de mort
-    commands.spawn((Banner, Text::new(""), txt(64.0, Color::srgba(1.0, 0.85, 0.5, 0.0)), TextLayout::justify(Justify::Center), Node { position_type: PositionType::Absolute, left: percent(50), top: percent(22), margin: UiRect { left: px(-330), ..default() }, width: px(660), ..default() }));
-    commands.spawn((DeathText, Text::new(""), txt(54.0, Color::srgba(1.0, 0.3, 0.25, 0.0)), TextLayout::justify(Justify::Center), Node { position_type: PositionType::Absolute, left: percent(50), top: percent(38), margin: UiRect { left: px(-400) , ..default() }, width: px(800), ..default() }));
+    commands.spawn((Banner, Text::new(""), txt(&f, 64.0, Color::srgba(1.0, 0.85, 0.5, 0.0)), TextLayout::justify(Justify::Center), Node { position_type: PositionType::Absolute, left: percent(50), top: percent(22), margin: UiRect { left: px(-330), ..default() }, width: px(660), ..default() }));
+    commands.spawn((DeathText, Text::new(""), txt(&f, 54.0, Color::srgba(1.0, 0.3, 0.25, 0.0)), TextLayout::justify(Justify::Center), Node { position_type: PositionType::Absolute, left: percent(50), top: percent(38), margin: UiRect { left: px(-400) , ..default() }, width: px(800), ..default() }));
 }
 
 #[allow(clippy::type_complexity)]

@@ -353,8 +353,8 @@ function fwGp(){                                                          // man
 }
 function fwUpdate(dt,pz){
   const P=player,T=THREE,touch=touchOn(),gp=fwGp(),NET=FW.net,G=NET==='guest';
-  if(!NET&&!FW.lock&&!touch&&!gp){return}
-  const idle=!!pz||FW.down||!(FW.lock||touch||gp);
+  if(!NET&&!FW.lock&&!touch&&!gp&&!FW.vr){return}
+  const idle=!!pz||FW.down||!(FW.lock||touch||gp||FW.vr);
   if(NET&&FW.mode!=='coop'&&!FW.over) FW.tDrop+=dt;
   const crT=!!(keys.ControlLeft||keys.ControlRight)&&!FW.air&&!idle;FW.crouch+=((crT?1:0)-FW.crouch)*.25*(dt/16.7);
   // regard
@@ -376,6 +376,7 @@ function fwUpdate(dt,pz){
   }
   if(!touch&&!gp||FW.lock) fireH=fireH||(FW.lmb&&performance.now()-FW.lockT>250)||kd('fire');
   FW.pitch=Math.max(-1.45,Math.min(1.45,FW.pitch));
+  if(FW.vr&&FW.vrIn){mvx+=FW.vrIn.mx;mvz+=FW.vrIn.mz;if(FW.vrIn.fire) fireH=true;if(FW.vrIn.jump) jump=true}
   if(idle){mvx=0;mvz=0;jump=false;fireH=false}
   const adsOn=(FW.adsM||(gp&&gp.lt))&&!idle&&!FW.air&&!WEAPONS[P.w].melee;FW.ads=!!adsOn;FW.adsK+=((adsOn?1:0)-FW.adsK)*.22*(dt/16.7);
   FW.scopeK=fwScoped(WEAPONS[P.w])?Math.max(0,(FW.adsK-.5)*2):0;
@@ -469,7 +470,7 @@ function fwSwap(){const P=player;if(P.gun&&P.w===P.melee) P.w=P.gun.w;else P.w=P
 // ---------- rendu ----------
 function fwRender(){
   const T=THREE,r=G3.r,t0r=performance.now(),cam=FW.cam,P=player,rr=Math.min(RES,FXF.lights?1.5:1),w=Math.round(W*rr),h=Math.round(H*rr);
-  if(FW.rw!==w||FW.rh!==h){FW.rw=w;FW.rh=h;r.setSize(w,h,false)}
+  if(!FW.vr&&(FW.rw!==w||FW.rh!==h)){FW.rw=w;FW.rh=h;r.setSize(w,h,false)}
   cam.aspect=W/H;
   if(Math.abs(FW.y-FW.yv)>45) FW.yv=FW.y;else FW.yv+=(FW.y-FW.yv)*.3;
   if(FW.scene.fog) FW.scene.fog.density=.00062-.00046*Math.min(1,(FW.y||0)/1800);
@@ -481,7 +482,7 @@ function fwRender(){
   else{const bx=SX-fx_*165+rx*34,bz=SZ-fz_*165+rz*34;cam.position.set(bx,ey+34-SPT*60+sh,bz)}
   cam.rotation.set(SPT,SYW,sh*.01,'YXZ');
   // arme en main
-  const vm=FW.vm,vg=vm.userData.g;vm.visible=!TPV&&FW.scopeK<.85&&!FW.air;
+  const vm=FW.vm,vg=vm.userData.g;vm.visible=!TPV&&FW.scopeK<.85&&!FW.air&&!FW.vr;
   if(vg.userData.w!==P.w){g3Gun({gun:vg},P.w);vg.add(FW.hand);const sc2=fwSkinCol(P.w);if(sc2&&vg.children[0]&&vg.children[0]!==FW.hand) vg.children[0].material=g3Mat(sc2)}
   {let px=11,py=-10,pz=-24,rx_=0,ry_=0,rz_=0;
     const mv=Math.hypot(FW.x-(FW.vx0||FW.x),FW.z-(FW.vz0||FW.z))>.3;FW.vx0=FW.x;FW.vz0=FW.z;
@@ -516,12 +517,14 @@ function fwRender(){
   fwDustTick(SX,SY,SZ);
   // muzzle flash éphémère
   const mf=FW.recoil>.6;FW.fl.intensity=FW.flOn?(mf?3:1.7):0;
+  if(FW.vr&&FWVR.cam){r.render(FW.scene,FWVR.cam);return}
   r.render(FW.scene,cam);
   G3.W=0;ctx.drawImage(G3.cv,0,0,W,H);fwPost();
   if(performance.now()-t0r>1200) MP.lastSnapAt=performance.now();          // image très longue à calculer (compilation des shaders…) : ce n'est pas le réseau qui a lâché
 }
 function fwHud(){
   const brHud=FW.net&&FW.mode!=='coop';
+  try{fwVrBtn()}catch(e){}
   const P=player,touch=touchOn(),cx=W/2,cy=H/2;
   // flash dégâts / mort proche
   if(FW.hurtFl>0){const g=ctx.createRadialGradient(cx,cy,H*.25,cx,cy,H*.8);g.addColorStop(0,'rgba(160,0,0,0)');g.addColorStop(1,'rgba(180,10,10,'+(.3*FW.hurtFl)+')');ctx.fillStyle=g;ctx.fillRect(0,0,W,H)}
