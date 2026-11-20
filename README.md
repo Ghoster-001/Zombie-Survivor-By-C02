@@ -12,7 +12,9 @@ Version 3D native du jeu, pensée pour Steam. La version web (JavaScript, dossie
 - 8 armes : couteau, Glock 17, M1911, MP5, AK-47, M4A1, Remington 870 (9 plombs), Barrett M82 (lunette ×4, perforation) — recul, visée au clic droit, rechargement (R), tirs à la tête ×2,2, traînées de balles, éclair de bouche, éclats et étincelles.
 - Interface : vie, munitions, vague, morts, tirs à la tête, marqueur de touche, flash de dégâts, écran de mort (R pour recommencer).
 
-Commandes : 1-8 ou molette pour changer d'arme, clic gauche tirer, clic droit viser, R recharger, F lampe.
+Commandes : 1-8 ou molette pour changer d'arme, clic gauche tirer, clic droit viser, R recharger, F lampe, **F2 qualité graphique**.
+
+Qualité graphique (`IG_QUALITY=0..3` au lancement, F2 en jeu) : **0 basse** (petites machines : FXAA, sans ombres ni bloom ni SSAO ni brume volumétrique ni reflets) · **1 moyenne** (ombres + bloom) · **2 haute** (+ TAA, SSAO, brume volumétrique, par défaut) · **3 ultra** (+ reflets d'écran).
 
 À porter depuis la version web : Battle Royale, multijoueur (via Steam), anti-triche, sauvegardes, menus, boutique et tenues, succès Steam, sons.
 

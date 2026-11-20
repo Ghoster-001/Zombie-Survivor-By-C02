@@ -55,6 +55,7 @@ fn main() {
         .insert_resource(GlobalAmbientLight { brightness: 40.0, ..default() })
         .insert_resource(shot)
         .init_resource::<city::Colliders>()
+        .insert_resource(Quality { level: std::env::var("IG_QUALITY").ok().and_then(|v| v.parse().ok()).unwrap_or(2).min(3), applied: None })
         .init_resource::<game::Game>()
         .init_resource::<weapons::Loadout>()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -68,7 +69,7 @@ fn main() {
         }))
         .add_plugins(steam::SteamPlugin)
         .add_systems(Startup, (setup_sky, city::build_city, player::spawn_player, setup_camera, fx::setup_fx, weapons::setup_weapons, enemy::setup_enemies, hud::setup_hud).chain())
-        .add_systems(Update, (game::tick_game, player::grab_cursor, player::look, player::move_player, player::toggle_flashlight, bot, weapons::weapon_system, enemy::wave_director, enemy::enemy_ai, enemy::enemy_anim, enemy::restart, fx::update_fx, hud::update_hud, city::cull_interior_lights, screenshot_and_exit).chain())
+        .add_systems(Update, (apply_quality, game::tick_game, player::grab_cursor, player::look, player::move_player, player::toggle_flashlight, bot, weapons::weapon_system, enemy::wave_director, enemy::enemy_ai, enemy::enemy_anim, enemy::restart, fx::update_fx, hud::update_hud, city::cull_interior_lights, screenshot_and_exit).chain())
         .run();
 }
 
@@ -94,11 +95,55 @@ fn setup_camera(mut commands: Commands, cam: Query<Entity, With<player::PlayerCa
         Msaa::Off,
         Exposure { ev100: 12.0 },
         Tonemapping::AcesFitted,
-        (Bloom::NATURAL, TemporalAntiAliasing::default(), ScreenSpaceAmbientOcclusion::default()),
-        (AtmosphereSettings::default(), AtmosphereEnvironmentMapLight::default(), VolumetricFog { ambient_intensity: 0.0, ..default() }),
-        ScreenSpaceReflections::default(),
+        // rendu différé : ces passes doivent toujours être présentes (sinon rien d'opaque n'est dessiné en qualité basse)
+        (bevy::core_pipeline::prepass::DepthPrepass, bevy::core_pipeline::prepass::DeferredPrepass),
+        (AtmosphereSettings::default(), AtmosphereEnvironmentMapLight::default()),
         Projection::Perspective(PerspectiveProjection { fov: 75f32.to_radians(), near: 0.05, ..default() }),
     ));
+}
+
+/// Qualité graphique : 0 basse (petites machines), 1 moyenne, 2 haute, 3 ultra. IG_QUALITY=0..3 au lancement, F2 pour changer en jeu.
+#[derive(Resource)]
+pub struct Quality {
+    pub level: u8,
+    applied: Option<u8>,
+}
+
+fn apply_quality(
+    mut commands: Commands,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut q: ResMut<Quality>,
+    cam: Query<Entity, With<player::PlayerCam>>,
+    mut sun: Query<&mut DirectionalLight>,
+    mut fog: Query<&mut Visibility, With<FogVolume>>,
+) {
+    if keys.just_pressed(KeyCode::F2) {
+        q.level = (q.level + 1) % 4;
+        info!("qualité graphique : {}", ["basse", "moyenne", "haute", "ultra"][q.level as usize]);
+    }
+    if q.applied == Some(q.level) {
+        return;
+    }
+    let Ok(e) = cam.single() else { return };
+    let l = q.level;
+    let mut c = commands.entity(e);
+    // anti-crénelage : FXAA (léger) en basse/moyenne, TAA (temporel) en haute/ultra
+    if l >= 2 {
+        c.remove::<bevy::anti_alias::fxaa::Fxaa>().insert(TemporalAntiAliasing::default());
+    } else {
+        c.remove::<TemporalAntiAliasing>().insert(bevy::anti_alias::fxaa::Fxaa::default());
+    }
+    if l >= 1 { c.insert(Bloom::NATURAL); } else { c.remove::<Bloom>(); }
+    if l >= 2 { c.insert(ScreenSpaceAmbientOcclusion::default()); } else { c.remove::<ScreenSpaceAmbientOcclusion>(); }
+    if l >= 2 { c.insert(VolumetricFog { ambient_intensity: 0.0, ..default() }); } else { c.remove::<VolumetricFog>(); }
+    if l >= 3 { c.insert(ScreenSpaceReflections::default()); } else { c.remove::<ScreenSpaceReflections>(); }
+    for mut s in &mut sun {
+        s.shadow_maps_enabled = l >= 1;
+    }
+    for mut v in &mut fog {
+        *v = if l >= 2 { Visibility::Visible } else { Visibility::Hidden };
+    }
+    q.applied = Some(l);
 }
 
 /// Robot de test (IG_BOT=1) : vise l'ennemi vivant le plus proche et tire ; journalise l'état de la partie
