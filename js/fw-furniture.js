@@ -109,7 +109,7 @@ function fwFurnTick(px,pz){
   const seen=new Set();
   for(let dx=-2;dx<=2;dx++) for(let dz=-2;dz<=2;dz++){
     const B=FW.bmap.get(fwCellKey(Math.floor(px/300)+dx,Math.floor(pz/300)+dz));if(!B||B.furn||seen.has(B)) continue;seen.add(B);
-    if(budget>0&&Math.hypot(B.x-px,B.z-pz)<760){fwFurnish(B);budget--}
+    if(budget>0&&Math.hypot(B.x-px,B.z-pz)<(FW.furR||760)){fwFurnish(B);budget--}
   }
-  for(const B of FW.furnList.slice()) if(Math.hypot(B.x-px,B.z-pz)>1250) fwUnfurnish(B);
+  for(const B of FW.furnList.slice()) if(Math.hypot(B.x-px,B.z-pz)>(FW.unfR||1250)) fwUnfurnish(B);
 }

@@ -214,7 +214,7 @@ function fwmApply(s){
   const seen=new Set();
   for(const e of s.z){
     const id=e[0];seen.add(id);let z=FW.zmap.get(id);
-    if(!z){const boss=!!e[6],mesh=g3MakeZombie(boss?{type:'tank',boss:true}:{type:e[1]});fwZScale(mesh,e[5]/10);const B=boss?BOSSES[0]:null;z={id,type:e[1],px:e[2],pz:e[3],tx:e[2],tz:e[3],size:e[5]/10,hp:e[4],maxhp:100,boss,B,mesh,step:0,dead:false,at:0};FW.scene.add(mesh);FW.zmap.set(id,z);FW.zs.push(z)}
+    if(!z){const boss=!!e[6],mesh=fwMergeRig(g3MakeZombie(boss?{type:'tank',boss:true}:{type:e[1]}));fwZScale(mesh,e[5]/10);const B=boss?BOSSES[0]:null;z={id,type:e[1],px:e[2],pz:e[3],tx:e[2],tz:e[3],size:e[5]/10,hp:e[4],maxhp:100,boss,B,mesh,step:0,dead:false,at:0};FW.scene.add(mesh);FW.zmap.set(id,z);FW.zs.push(z)}
     z.tx=e[2];z.tz=e[3];z.hp=e[4];
   }
   for(const [id,z] of FW.zmap) if(!seen.has(id)){FW.scene.remove(z.mesh);FW.zmap.delete(id);z.dead=true;FW.dying.push({m:z.mesh,t:0,y:0});FW.scene.add(z.mesh)}
@@ -469,11 +469,12 @@ function fwUpdate(dt,pz){
 function fwSwap(){const P=player;if(P.gun&&P.w===P.melee) P.w=P.gun.w;else P.w=P.melee;P.cd=Math.max(P.cd,150)}
 // ---------- rendu ----------
 function fwRender(){
-  const T=THREE,r=G3.r,t0r=performance.now(),cam=FW.cam,P=player,rr=Math.min(RES,FXF.lights?1.5:1),w=Math.round(W*rr),h=Math.round(H*rr);
+  const T=THREE,r=G3.r,t0r=performance.now(),cam=FW.cam,P=player,rr=Math.min(RES,FXF.lights?1.5:1)*(FXF.lights?1:(FXF.fps<=30?.7:.85)),w=Math.round(W*rr),h=Math.round(H*rr);
   if(!FW.vr&&(FW.rw!==w||FW.rh!==h)){FW.rw=w;FW.rh=h;r.setSize(w,h,false)}
   cam.aspect=W/H;
   if(Math.abs(FW.y-FW.yv)>45) FW.yv=FW.y;else FW.yv+=(FW.y-FW.yv)*.3;
   if(FW.scene.fog) FW.scene.fog.density=.00062-.00046*Math.min(1,(FW.y||0)/1800);
+  fwPerfTick(cam);
   const spc=fwmSpec(),SX=spc?spc.x:FW.x,SZ=spc?spc.z:FW.z,SYW=spc?spc.yaw:FW.yaw,SY=spc?(spc.y||0):FW.yv,SPT=spc?-.12:FW.pitch,TPV=spc?true:FW.tp;
   {const sc=FW.scopeK||0,zoom=1+(FW_ZOOMS[FW.zi]-1)*sc;cam.fov=Math.max(5,(touchOn()?68:76)*(1-.22*FW.adsK*(sc>.5?0:1))/zoom);FW.fovNow=cam.fov;cam.updateProjectionMatrix()}
   const bob=Math.sin(FW.bob)*(SY>0?0:2.1)*(1-FW.crouch*.5),sh=FW.shk>.3?(Math.random()-.5)*FW.shk*.5:0;

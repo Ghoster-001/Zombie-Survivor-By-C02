@@ -29,7 +29,7 @@ function fwAtmos(sc){
   const [sx,sy,sz]=fwSunVec();
   sc.add(new T.HemisphereLight(0x8c9cdc,0x503a3e,.6));
   const sun=new T.DirectionalLight(0xffa862,1.5);FW.sunV=[sx,sy,sz];sun.position.set(sx*1800,sy*1800,sz*1800);sc.add(sun);sc.add(sun.target);FW.sun=sun;
-  const sh=sun.shadow;sh.mapSize.set(2048,2048);const c=sh.camera;c.left=-800;c.right=800;c.top=800;c.bottom=-800;c.near=50;c.far=4600;sh.bias=-.0005;sh.normalBias=1.4;
+  const sh=sun.shadow,smap=FXF.refl?2048:1024;sh.mapSize.set(smap,smap);const c=sh.camera;c.left=-800;c.right=800;c.top=800;c.bottom=-800;c.near=50;c.far=4600;sh.bias=-.0005;sh.normalBias=1.4;
   const fill=new T.DirectionalLight(0x5a6cc8,.32);fill.position.set(-sx*900,700,-sz*900);sc.add(fill);
   if(FXF.refl) try{const es=new T.Scene();es.add(new T.Mesh(new T.SphereGeometry(100,32,16),new T.MeshBasicMaterial({map:tex,side:T.BackSide})));const pm=new T.PMREMGenerator(G3.r);FW.env=pm.fromScene(es,.04).texture;sc.environment=FW.env;pm.dispose()}catch(e){FW.env=null}
   // poussière et braises dans l'air
@@ -47,7 +47,7 @@ const FW_FILT=typeof CanvasRenderingContext2D!=='undefined'&&'filter' in CanvasR
 function fwPost(){
   if(!FXF.post) return;
   const w=W,h=H;
-  if(FW_FILT&&FXF.bloom!==undefined){
+  if(FW_FILT&&(FXF.bloom||FXF.refl)){
     const bw=Math.max(80,w>>2),bh=Math.max(45,h>>2);
     if(!FW.bc){FW.bc=document.createElement('canvas');FW.bx=FW.bc.getContext('2d',{willReadFrequently:true})}
     if(FW.bc.width!==bw||FW.bc.height!==bh){FW.bc.width=bw;FW.bc.height=bh}
@@ -122,7 +122,7 @@ function fwBuild(n,seed){
   n=n||7;seed=seed|0||1;
   if(FW.built&&FW.bN===n&&FW.bSeed===seed) return;
   FW.built=true;FW.bN=n;FW.bSeed=seed;FW_N=n;FW_LIM=(n-1)/2*FW_P+550;
-  FW.grid=new Map();FW.bmap=new Map();FW.furnList=[];FW.inMats=[];FW.maxH=0;FW.lamps=[];FW.fires=[];FW.bl=[];FW.bld=[];FW.tr=[];FW.pt=[];FW.ex=[];FW.pl=[];FW.zoneM=null;FW.planeM=null;FW.model=null;FW.hand=null;
+  FW.lampSpr=[];FW.lampSprOn=undefined;FW.grid=new Map();FW.bmap=new Map();FW.furnList=[];FW.inMats=[];FW.maxH=0;FW.lamps=[];FW.fires=[];FW.bl=[];FW.bld=[];FW.tr=[];FW.pt=[];FW.ex=[];FW.pl=[];FW.zoneM=null;FW.planeM=null;FW.model=null;FW.hand=null;
   const T=THREE,sc=FW.scene=new T.Scene(),rnd=fwRng(seed);
   fwAtmos(sc);G3.r.toneMapping=T.ACESFilmicToneMapping;G3.r.toneMappingExposure=1.3;G3.r.shadowMap.enabled=true;G3.r.shadowMap.type=T.PCFSoftShadowMap;
   FW.cam=new T.PerspectiveCamera(75,16/9,3,n>8?7200:4200);FW.cam.rotation.order='YXZ';sc.add(FW.cam);
@@ -191,7 +191,7 @@ function fwBuild(n,seed){
     const p=new T.Mesh(new T.CylinderGeometry(4,6,300,8),pm);p.position.set(x,158,z);sc.add(p);
     const arm=new T.Mesh(bg,pm);arm.scale.set(46,5,5);arm.position.set(x-20,306,z);sc.add(arm);
     const b=new T.Mesh(new T.SphereGeometry(10,10,8),bm);b.position.set(x-42,302,z);sc.add(b);
-    const sp=new T.Sprite(gm);sp.scale.set(120,120,1);sp.position.set(x-42,302,z);sc.add(sp);FW.lamps.push({x:x-42,z});if(FXF.lights) fwLampGlow(sc,x-42,z,300);
+    const sp=new T.Sprite(gm);(FW.lampSpr=FW.lampSpr||[]).push(sp);sp.scale.set(120,120,1);sp.position.set(x-42,302,z);sc.add(sp);FW.lamps.push({x:x-42,z});if(FXF.lights) fwLampGlow(sc,x-42,z,300);
     fwAddCol(x-6,z-6,x+6,z+6,300,'p');
   }
   // ----- épaves, tonneaux, bennes, arbres morts, bancs (à l'échelle du personnage) -----
@@ -227,6 +227,7 @@ function fwBuild(n,seed){
   }
   fwPropsLayout(sc,seed);
   for(const o of sc.children.slice()) if(!o.isCamera&&!o.isLight&&!o.isSprite&&o!==FW.sky&&o!==FW.dust){o.updateMatrix();o.matrixAutoUpdate=false}
+  try{fwBatchStatic(sc)}catch(e){console.warn('fusion',e)}
   fwModelsApply(sc);
   // ----- ciel : lune et étoiles (suivent le joueur) -----
   const grp=FW.grp=new T.Group();sc.add(grp);
@@ -308,7 +309,7 @@ function fwSpawnZ(type){
   const z={type,boss,px:p[0],pz:p[1],hp:(boss?B.hp*1.4:t.hp)*hpMul,speed:(boss?B.sp:t.speed)*(.8+Math.random()*.4)*spMul,size:boss?B.size*.8:t.size,dmg:Math.round((boss?B.dmg:t.dmg)*dmgMul),
     color:t.color,step:Math.random()*6,atk:0,stun:0,av:0,avT:0,flash:0,B:boss?B:null};
   z.maxhp=z.hp;
-  const m=g3MakeZombie(boss?{type:'tank',boss:true,skin:B.skin,shirt:B.shirt}:{type});z.mesh=m;fwZScale(m,z.size);m.position.set(z.px,0,z.pz);FW.scene.add(m);FW.zs.push(z);
+  const m=fwMergeRig(g3MakeZombie(boss?{type:'tank',boss:true,skin:B.skin,shirt:B.shirt}:{type}));z.mesh=m;fwZScale(m,z.size);m.position.set(z.px,0,z.pz);FW.scene.add(m);FW.zs.push(z);
   if(boss) FW.boss=z;
   if(Math.random()<.25) sfx('groan');
 }
