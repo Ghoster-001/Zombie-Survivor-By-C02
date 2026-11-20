@@ -273,6 +273,6 @@ drawSoldier=function(p){if(G3.skip) return;return _ds3(p)};
 drawFog=function(front){if(front) G3.skip=false;if(G3.on) return;return _fog3.apply(this,arguments)};
 ash=function(){if(G3.on) return;return _ash3()};
 
-if(SET.m3){gameMode='3D';g3Request()}else if(SET.vr) gameMode='VR';          // le dernier mode utilisé (2D, 3D ou VR) est restauré au lancement
+if(SET.m3||SET.vr){gameMode='3D';SET.m3=true;g3Request()}          // le dernier mode utilisé (2D, 3D ou VR) est restauré au lancement
 // --- Boucle ---
 for(const ev of['mousemove','mousedown','mouseup','touchstart','touchmove','keydown','wheel']) addEventListener(ev,()=>{uiDirty=true},{passive:true});

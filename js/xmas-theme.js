@@ -126,7 +126,7 @@ function drawMenuBody(){
   }
   if(state==='menu'){
     drawProfileCard();
-    {const it=[['JOUER',()=>{mapTrain=false;training=false;NM.on=false;state='playhub'},gameMode==='VR'?'VR en maintenance':'solo · multijoueur · nightmare · entraînement · arsenal'],
+    {const it=[['JOUER',()=>{mapTrain=false;training=false;NM.on=false;state='playhub'},SET.vr&&gameMode==='3D'?'réalité virtuelle · solo · multijoueur':'solo · multijoueur · nightmare · entraînement · arsenal'],
       ['PERSONNALISATION',()=>state='custom','skins · zombies jouables · sapin'],
       ['BOUTIQUE',()=>state='shop','tenues et packs de fêtes'],
       ['OPTIONS',()=>{optFrom='menu';state='options'},'jeu · son · graphismes · touches · crédits'],

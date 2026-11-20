@@ -103,7 +103,8 @@ function fwVrBtn(){
   fwVrCheck();let framed=false;try{framed=window.top!==window}catch(e){framed=true}
   const open=!FWVR.ok&&!!navigator.xr&&framed;
   if((!FWVR.ok&&!open)||FW.vr){FWVR.btn=null;return}
-  const x=W-92-(open?90:60),y=196,w=open?180:120,h=34;FWVR.btn={x,y,w,h,open};
+  const big=!!SET.vr&&!open,x=big?W/2-150:W-92-(open?90:60),y=big?H-150:196,w=big?300:open?180:120,h=big?52:34;FWVR.btn={x,y,w,h,open};
+  if(big){ctx.save();ctx.fillStyle='rgba(10,10,14,.82)';ctx.fillRect(x,y,w,h);ctx.strokeStyle='#e2542e';ctx.lineWidth=3;ctx.strokeRect(x,y,w,h);ctx.fillStyle='#fff';ctx.font='700 22px '+FONT;ctx.textAlign='center';ctx.fillText('▶  ENTRER EN VR',x+w/2,y+34);ctx.restore();ctx.textAlign='left';return}
   if(open){ctx.save();ctx.fillStyle='rgba(10,10,14,.75)';ctx.fillRect(x,y,w,h);ctx.strokeStyle='#8a8178';ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);ctx.fillStyle='#e9e1d0';ctx.font='700 14px '+FONT;ctx.textAlign='center';ctx.fillText('VR : OUVRIR LE JEU',x+w/2,y+22);ctx.restore();ctx.textAlign='left';return}
   ctx.save();ctx.fillStyle='rgba(10,10,14,.75)';ctx.fillRect(x,y,w,h);ctx.strokeStyle='#e2542e';ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
   ctx.fillStyle='#e9e1d0';ctx.font='700 16px '+FONT;ctx.textAlign='center';ctx.fillText('ENTRER EN VR',x+w/2,y+22);ctx.restore();ctx.textAlign='left';
@@ -114,3 +115,31 @@ function fwVrHit(e){
   return x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h;
 }
 for(const ev of['mousedown','touchstart']) cv.addEventListener(ev,e=>{if(fwVrHit(e)){e.preventDefault();e.stopImmediatePropagation();if(FWVR.btn.open){try{window.open(REMOTE_URL,'_blank')}catch(_){}}else fwVrEnter()}},{capture:true,passive:false});
+// ----- page JOUER en mode VR -----
+function fwVrStartSolo(){                                                 // même clic : la partie démarre puis le casque s'ouvre (le navigateur exige un geste de l'utilisateur)
+  if(G3.status!=='ready'){flash('Chargement du moteur 3D… réessaie dans un instant');g3Request();return}
+  mapTrain=false;training=false;NM.on=false;reset(false);
+  if(FW.on) fwVrEnter();
+}
+function drawVrHub(){
+  fwVrCheck();let framed=false;try{framed=window.top!==window}catch(e){framed=true}
+  ctx.fillStyle='#e9e1d0';ctx.font='700 26px '+FONT;ctx.fillText('RÉALITÉ VIRTUELLE',40,112);
+  if(FWVR.ok){
+    const cards=[['JOUER EN VR','solo · la partie démarre directement dans le casque',fwVrStartSolo],
+      ['MULTIJOUEUR VR','coop ou battle royale : touche « ENTRER EN VR » une fois en partie',()=>{NM.mpWanted=false;MP.msg='';MP.status='off';state='mpmenu'}],
+      ['CHOISIR LA CARTE','puis « ENTRER EN VR » en partie',()=>{mapTrain=false;training=false;NM.on=false;state='maps'}]];
+    cards.forEach(([lab,sub,act],k)=>btn(menuRects,40+k*300,130,280,150,lab,{act,size:24,sub}));
+  } else {
+    ctx.fillStyle='#e0a526';ctx.font='700 20px '+FONT;ctx.fillText('Aucun casque VR détecté sur cet appareil.',40,150);
+    ctx.fillStyle='#d8d2c8';ctx.font='500 16px '+FONT;
+    const L=['• Meta Quest / Pico : ouvre ghoster-001.github.io/Zombie-Survivor-By-C02 dans le navigateur du casque.',
+      '• Casque PC (SteamVR, Oculus Link, Windows MR) : Chrome ou Edge sur l\'ordinateur, casque branché et allumé.',
+      framed?'• Le jeu est ouvert dans une page intégrée, qui n\'a pas accès au casque : utilise le bouton ci-dessous.':'• Le navigateur doit être récent et la page en HTTPS (c\'est le cas de la version en ligne).'];
+    L.forEach((t,i)=>ctx.fillText(t,40,182+i*26));
+    if(framed) btn(menuRects,40,262,300,44,'OUVRIR LE JEU POUR LA VR',{act:()=>{try{window.open(REMOTE_URL,'_blank')}catch(e){}},size:16});
+    btn(menuRects,framed?360:40,262,300,44,'JOUER EN 3D SANS CASQUE',{act:()=>{setGameMode('3D');state='playhub'},size:16});
+  }
+  ctx.fillStyle='#a89f94';ctx.font='500 14px '+FONT;
+  ['Commandes : stick gauche marcher · stick droit tourner · gâchette droite tirer (on vise avec la main)',
+   'A sauter · B ramasser · poignée droite changer d\'arme · X/Y bonus · vie et munitions sur le poignet gauche'].forEach((t,i)=>ctx.fillText(t,40,330+i*22));
+}

@@ -2,9 +2,9 @@
 function drawPlayHub(){
   ctx.fillStyle='#000000d8';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
   ctx.fillStyle='#000';ctx.font='400 38px '+TITLE;ctx.fillText('JOUER',43,61);ctx.fillStyle='#e9e1d0';ctx.fillText('JOUER',40,58);ctx.fillStyle='#7a2c1c';ctx.fillRect(40,66,120,3);
-  const nxt=gameMode==='2D'?'3D':gameMode==='3D'?'VR':'2D';
-  btn(menuRects,700,36,220,36,'MODE : '+gameMode+'  ›',{act:()=>{setGameMode(nxt);if(nxt!=='VR') state='playhub'},size:16});
-  if(gameMode==='VR'){ctx.fillStyle='#e0a526';ctx.font='700 20px '+FONT;ctx.fillText('Le mode VR est en maintenance. Choisis 2D ou 3D (bouton MODE en haut à droite).',40,140)}
+  const vr=gameMode==='3D'&&!!SET.vr,lab=vr?'VR':gameMode,nxt=gameMode==='2D'?'3D':vr?'2D':'VR';
+  btn(menuRects,700,36,220,36,'MODE : '+lab+'  ›',{act:()=>{setGameMode(nxt);state='playhub'},size:16});
+  if(vr) drawVrHub();
   else{
     const m3=gameMode==='3D';
     const cards=[

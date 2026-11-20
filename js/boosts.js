@@ -319,7 +319,8 @@ let maintTitle='MULTIJOUEUR',gameMode='2D';
 function setGameMode(m){
   if(m==='3D'){gameMode='3D';SET.m3=true;SET.vr=false;saveOpts();g3Request();state='menu';return}
   if(m==='2D'){gameMode='2D';SET.m3=false;SET.vr=false;saveOpts();state='menu';return}
-  gameMode=m;SET.vr=(m==='VR');SET.m3=false;saveOpts();maintTitle='MODE '+m;state='maint'
+  if(m==='VR'){gameMode='3D';SET.m3=true;SET.vr=true;saveOpts();g3Request();try{fwVrCheck()}catch(e){}state='playhub';return}   // V0.84 : le mode VR utilise le moteur 3D
+  gameMode=m;SET.vr=false;SET.m3=false;saveOpts();maintTitle='MODE '+m;state='maint'
 }   // VR : page de maintenance ; le mode choisi (2D, 3D ou VR) est mémorisé et restauré au prochain lancement
 function drawMaint(){
   ctx.fillStyle='#000000d8';ctx.fillRect(0,0,W,H);ctx.textAlign='left';barbed(0,W,12,.8);
