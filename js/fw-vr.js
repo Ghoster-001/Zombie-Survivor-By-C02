@@ -65,6 +65,12 @@ function fwVrPose(){
   let rc=null,lc=null;for(const c of FWVR.ctrl){if(!c.userData.src) continue;if(c.userData.hand==='left') lc=c;else rc=c}
   if(rc){
     if(FWVR.gun.parent!==rc) rc.add(FWVR.gun);
+    if(FWVR.gunW!==player.w&&typeof fwGunGroup==='function'){                          // l'arme réellement équipée, à l'échelle de la main
+      FWVR.gunW=player.w;while(FWVR.gun.children.length) FWVR.gun.remove(FWVR.gun.children[0]);
+      const wp=WEAPONS[player.w],w=wp&&wp.hands?wp.hi[0]:player.w,hold=new T.Group();
+      if(WEAPONS[w]&&WEAPONS[w].melee){const pg={gun:new T.Group()};pg.gun.userData.w=-1;g3Gun(pg,w);hold.add(pg.gun)}else for(const m of fwGunGroup(w)) hold.add(m);
+      hold.scale.setScalar(1/FWVR.S);hold.rotation.y=Math.PI/2;hold.position.set(0,-.02,.03);FWVR.gun.add(hold);
+    }
     rc.updateMatrixWorld(true);const p=new T.Vector3(),q=new T.Quaternion();rc.getWorldPosition(p);rc.getWorldQuaternion(q);
     FW.cam.position.copy(p);FW.cam.quaternion.copy(q);FW.cam.updateMatrixWorld(true);
     const f=new T.Vector3(0,0,-1).applyQuaternion(q);FW.pitch=Math.asin(Math.max(-1,Math.min(1,f.y)));
@@ -94,8 +100,11 @@ function fwVrFrame(t){
 }
 // bouton « VR » dans l'interface 3D (seulement si un casque est disponible)
 function fwVrBtn(){
-  fwVrCheck();if(!FWVR.ok||FW.vr) {FWVR.btn=null;return}
-  const x=W-92-60,y=196,w=120,h=34;FWVR.btn={x,y,w,h};
+  fwVrCheck();let framed=false;try{framed=window.top!==window}catch(e){framed=true}
+  const open=!FWVR.ok&&!!navigator.xr&&framed;
+  if((!FWVR.ok&&!open)||FW.vr){FWVR.btn=null;return}
+  const x=W-92-(open?90:60),y=196,w=open?180:120,h=34;FWVR.btn={x,y,w,h,open};
+  if(open){ctx.save();ctx.fillStyle='rgba(10,10,14,.75)';ctx.fillRect(x,y,w,h);ctx.strokeStyle='#8a8178';ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);ctx.fillStyle='#e9e1d0';ctx.font='700 14px '+FONT;ctx.textAlign='center';ctx.fillText('VR : OUVRIR LE JEU',x+w/2,y+22);ctx.restore();ctx.textAlign='left';return}
   ctx.save();ctx.fillStyle='rgba(10,10,14,.75)';ctx.fillRect(x,y,w,h);ctx.strokeStyle='#e2542e';ctx.lineWidth=2;ctx.strokeRect(x,y,w,h);
   ctx.fillStyle='#e9e1d0';ctx.font='700 16px '+FONT;ctx.textAlign='center';ctx.fillText('ENTRER EN VR',x+w/2,y+22);ctx.restore();ctx.textAlign='left';
 }
@@ -104,4 +113,4 @@ function fwVrHit(e){
   const r=cv.getBoundingClientRect(),t=e.touches?e.touches[0]:e,x=(t.clientX-r.left)*W/r.width,y=(t.clientY-r.top)*H/r.height;
   return x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h;
 }
-for(const ev of['mousedown','touchstart']) cv.addEventListener(ev,e=>{if(fwVrHit(e)){e.preventDefault();e.stopImmediatePropagation();fwVrEnter()}},{capture:true,passive:false});
+for(const ev of['mousedown','touchstart']) cv.addEventListener(ev,e=>{if(fwVrHit(e)){e.preventDefault();e.stopImmediatePropagation();if(FWVR.btn.open){try{window.open(REMOTE_URL,'_blank')}catch(_){}}else fwVrEnter()}},{capture:true,passive:false});

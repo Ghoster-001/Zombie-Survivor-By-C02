@@ -38,11 +38,12 @@ function fwmHostStart(){
   const n=MP.guests.length+1;
   const teamOf=i=>mode==='brt'?i%Math.max(2,Math.ceil(n/2)):(mode==='br'?i:0);
   MP.pinfo={};FW.myTeam=teamOf(0);MP.guests.forEach((g,i)=>{g.f3={x:0,z:0,y:0,yaw:0,pitch:0,w:g.p.w,t:performance.now(),team:teamOf(i+1),k:0,place:0,px:0,pz:0,viol:0}});
-  fwStart({net:'host',mode});
+  fwStart({net:'host',mode,seed:MP.preSeed||0});
   MP.pinfo[0]={n:cleanName(mpName()),look:sanitizeLook(save.look),team:FW.myTeam};for(const g of MP.guests) MP.pinfo[g.id]={n:g.name,look:sanitizeLook(g.look),team:g.f3.team};
   const info=[{id:0,n:cleanName(mpName()),look:save.look,team:FW.myTeam}].concat(MP.guests.map(g=>({id:g.id,n:g.name,look:g.look,team:g.f3.team})));
   for(const g of MP.guests){const sp=mode==='coop'?[FW.x+(g.id%2?1:-1)*60,FW.z+40*g.id]:fwmSpawnFor(g.id,n);g.f3.x=g.f3.px=sp[0];g.f3.z=g.f3.pz=sp[1];
     try{g.conn.send({t:'go3',mode,map:m.id,diff:d.id,gid:MP.gid,id:g.id,pl:info,team:g.f3.team,spawn:sp,nm:NM.on?1:0,seed:FW.worldSeed})}catch(e){}}
+  MP.preSeed=0;                                                        // la prochaine partie aura une nouvelle ville
 }
 function fwmSpawnFor(id,n){const a=(id/n)*6.283+.4,p=fwmFreeNear(Math.cos(a)*1800,Math.sin(a)*1800);return p}
 function fwmGuestGo(d){

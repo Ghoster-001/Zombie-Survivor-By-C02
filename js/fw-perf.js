@@ -102,3 +102,16 @@ function fwMergeRig(root){
   };
   walk(root);return root;
 }
+// Préconstruction pendant le salon multijoueur 3D : la ville (graine partagée) et les shaders sont prêts avant le départ,
+// le lancement de la partie ne fige plus le jeu (sur un petit appareil, un gel de plusieurs secondes coupait la connexion).
+function fwPrebuild(n,seed){
+  if(!seed||FW.on) return;
+  if(G3.status!=='ready'){if(G3.status==='idle') g3Request();clearTimeout(FW.preT);FW.preT=setTimeout(()=>fwPrebuild(n,seed),400);return}
+  if(FW.built&&FW.bN===n&&FW.bSeed===seed) return;
+  clearTimeout(FW.preT);
+  FW.preT=setTimeout(()=>{
+    if(FW.on||(FW.built&&FW.bN===n&&FW.bSeed===seed)) return;
+    try{fwBuild(n,seed);FW.worldSeed=seed;if(MP) MP.lastSnapAt=performance.now();try{G3.r.compile(FW.scene,FW.cam)}catch(e){}}catch(e){console.warn('préconstruction',e)}
+    if(MP) MP.lastSnapAt=performance.now();
+  },60);
+}

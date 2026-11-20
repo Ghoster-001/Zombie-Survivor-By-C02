@@ -123,7 +123,7 @@ function fwBuild(n,seed){
   if(FW.built&&FW.bN===n&&FW.bSeed===seed) return;
   FW.built=true;FW.bN=n;FW.bSeed=seed;FW_N=n;FW_LIM=(n-1)/2*FW_P+550;
   FW.lampSpr=[];FW.lampSprOn=undefined;FW.grid=new Map();FW.bmap=new Map();FW.furnList=[];FW.inMats=[];FW.maxH=0;FW.lamps=[];FW.fires=[];FW.bl=[];FW.bld=[];FW.tr=[];FW.pt=[];FW.ex=[];FW.pl=[];FW.zoneM=null;FW.planeM=null;FW.model=null;FW.hand=null;
-  const T=THREE,sc=FW.scene=new T.Scene(),rnd=fwRng(seed);
+  const T=THREE,sc=FW.scene=new T.Scene(),rnd=fwRng(seed),trnd=fwRng(97531);   // textures : générateur à part (elles sont en cache après la 1re partie : la ville doit rester identique chez tous les joueurs)
   fwAtmos(sc);G3.r.toneMapping=T.ACESFilmicToneMapping;G3.r.toneMappingExposure=1.3;G3.r.shadowMap.enabled=true;G3.r.shadowMap.type=T.PCFSoftShadowMap;
   FW.cam=new T.PerspectiveCamera(75,16/9,3,n>8?7200:4200);FW.cam.rotation.order='YXZ';sc.add(FW.cam);
   for(let i=0;i<5;i++){const l=new T.PointLight(0xffd29a,0,760,2);sc.add(l);FW.pl.push(l)}
@@ -131,19 +131,19 @@ function fwBuild(n,seed){
   // ----- textures : asphalte fissuré et taché, trottoir carrelé, passages piétons -----
   const road=fwTex('fwroad2',512,512,(g,w,h)=>{
     g.fillStyle='#1d1e22';g.fillRect(0,0,w,h);
-    for(let i=0;i<2200;i++){g.fillStyle='rgba('+(rnd()<.5?'255,255,255':'0,0,0')+','+(.025+rnd()*.05)+')';g.fillRect(rnd()*w,rnd()*h,1+rnd()*2,1+rnd()*2)}
-    for(let i=0;i<7;i++){g.fillStyle='rgba(0,0,0,.18)';g.beginPath();g.ellipse(rnd()*w,rnd()*h,20+rnd()*40,10+rnd()*24,rnd()*3,0,7);g.fill()}         // taches d'huile
-    for(let i=0;i<5;i++){g.fillStyle='rgba(40,42,48,.5)';g.fillRect(rnd()*w,rnd()*h,40+rnd()*80,30+rnd()*60)}                                           // rustines
-    g.strokeStyle='rgba(0,0,0,.6)';g.lineWidth=1.4;for(let i=0;i<9;i++){let x=rnd()*w,y=rnd()*h;g.beginPath();g.moveTo(x,y);for(let k=0;k<9;k++){x+=(rnd()-.5)*40;y+=(rnd()-.3)*34;g.lineTo(x,y)}g.stroke()}   // fissures
+    for(let i=0;i<2200;i++){g.fillStyle='rgba('+(trnd()<.5?'255,255,255':'0,0,0')+','+(.025+trnd()*.05)+')';g.fillRect(trnd()*w,trnd()*h,1+trnd()*2,1+trnd()*2)}
+    for(let i=0;i<7;i++){g.fillStyle='rgba(0,0,0,.18)';g.beginPath();g.ellipse(trnd()*w,trnd()*h,20+trnd()*40,10+trnd()*24,trnd()*3,0,7);g.fill()}         // taches d'huile
+    for(let i=0;i<5;i++){g.fillStyle='rgba(40,42,48,.5)';g.fillRect(trnd()*w,trnd()*h,40+trnd()*80,30+trnd()*60)}                                           // rustines
+    g.strokeStyle='rgba(0,0,0,.6)';g.lineWidth=1.4;for(let i=0;i<9;i++){let x=trnd()*w,y=trnd()*h;g.beginPath();g.moveTo(x,y);for(let k=0;k<9;k++){x+=(trnd()-.5)*40;y+=(trnd()-.3)*34;g.lineTo(x,y)}g.stroke()}   // fissures
     g.fillStyle='rgba(20,22,26,.9)';g.beginPath();g.arc(120,340,16,0,7);g.fill();g.strokeStyle='#3a3c42';g.lineWidth=2;g.stroke();                           // plaque d'égout
   },16,16);
   const roadR=fwTex('fwroadR',256,256,(g,w,h)=>{
-    g.fillStyle='#8c8c8c';g.fillRect(0,0,w,h);for(let i=0;i<900;i++){const v=110+rnd()*70;g.fillStyle='rgba('+v+','+v+','+v+',.5)';g.fillRect(rnd()*w,rnd()*h,2,2)}
-    for(let i=0;i<9;i++){const x=rnd()*w,y=rnd()*h,r=14+rnd()*34,rg=g.createRadialGradient(x,y,0,x,y,r);rg.addColorStop(0,'rgba(10,10,10,.95)');rg.addColorStop(.7,'rgba(10,10,10,.8)');rg.addColorStop(1,'rgba(10,10,10,0)');g.fillStyle=rg;g.beginPath();g.ellipse(x,y,r*1.6,r,rnd()*3,0,7);g.fill()}
+    g.fillStyle='#8c8c8c';g.fillRect(0,0,w,h);for(let i=0;i<900;i++){const v=110+trnd()*70;g.fillStyle='rgba('+v+','+v+','+v+',.5)';g.fillRect(trnd()*w,trnd()*h,2,2)}
+    for(let i=0;i<9;i++){const x=trnd()*w,y=trnd()*h,r=14+trnd()*34,rg=g.createRadialGradient(x,y,0,x,y,r);rg.addColorStop(0,'rgba(10,10,10,.95)');rg.addColorStop(.7,'rgba(10,10,10,.8)');rg.addColorStop(1,'rgba(10,10,10,0)');g.fillStyle=rg;g.beginPath();g.ellipse(x,y,r*1.6,r,trnd()*3,0,7);g.fill()}
   },16,16);
   const gr=new T.Mesh(new T.PlaneGeometry(14000,14000),new T.MeshStandardMaterial(Object.assign({map:road,roughnessMap:roadR,roughness:1,metalness:.08,envMapIntensity:.8},fwPbr()?{normalMap:fwAsphaltNormal(),normalScale:new T.Vector2(.5,.5)}:{})));gr.receiveShadow=true;gr.rotation.x=-Math.PI/2;sc.add(gr);
   const walk=fwTex('fwwalk',256,256,(g,w,h)=>{g.fillStyle='#55524d';g.fillRect(0,0,w,h);g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=2;for(let i=0;i<=w;i+=64){g.beginPath();g.moveTo(i,0);g.lineTo(i,h);g.stroke();g.beginPath();g.moveTo(0,i);g.lineTo(w,i);g.stroke()}
-    for(let i=0;i<500;i++){g.fillStyle='rgba('+(rnd()<.5?'255,255,255':'0,0,0')+','+(.03+rnd()*.05)+')';g.fillRect(rnd()*w,rnd()*h,2,2)}},6,6);
+    for(let i=0;i<500;i++){g.fillStyle='rgba('+(trnd()<.5?'255,255,255':'0,0,0')+','+(.03+trnd()*.05)+')';g.fillRect(trnd()*w,trnd()*h,2,2)}},6,6);
   const dash=g3Tex('fwdash',64,16,(g,w,h)=>{g.clearRect(0,0,w,h);g.fillStyle='#dcc65a';g.fillRect(0,5,34,6)},true);
   const half=FW_N*FW_P/2;
   for(let k=0;k<=FW_N;k++){
@@ -240,10 +240,11 @@ function fwBuild(n,seed){
   for(let i=0;i<24;i++){const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute([0,0,0,0,0,1],3));const ln=new T.Line(g,lm.clone());ln.visible=false;ln.frustumCulled=false;sc.add(ln);FW.tr.push({m:ln,life:0})}
   for(let i=0;i<110;i++){const m=new T.Mesh(bg,new T.MeshBasicMaterial({color:0xaa1111}));m.scale.setScalar(2.6);m.visible=false;sc.add(m);FW.pt.push({m,life:0,vx:0,vy:0,vz:0})}
   for(let i=0;i<6;i++){const m=new T.Mesh(new T.SphereGeometry(1,12,10),new T.MeshBasicMaterial({color:0xff9a3a,transparent:true,opacity:.7}));m.visible=false;sc.add(m);FW.ex.push({m,life:0,r:0})}
+  fwCasingPool(sc);
   // ----- arme en main -----
   const vm=FW.vm=new T.Group();vm.position.set(11,-10,-24);FW.cam.add(vm);
   const vg=new T.Group();vg.rotation.y=Math.PI/2;vm.add(vg);vm.userData.g=vg;
-  const hand=FW.hand=new T.Mesh(FW_SPH(),new T.MeshLambertMaterial({color:0xe2b58c}));hand.scale.setScalar(3.6);hand.position.set(-1,-4,0);vg.add(hand);
+  const hand=FW.hand=fwBuildHands();vg.add(hand);
   FW.mmDraw();
 }
 FW.mmDraw=function(){
@@ -373,12 +374,12 @@ function fwDmgZ(z,dmg,head){
 function fwSpread(base,sp){const d=base.clone();if(sp){d.x+=(Math.random()-.5)*sp*2;d.y+=(Math.random()-.5)*sp*2;d.z+=(Math.random()-.5)*sp*2;d.normalize()}return d}
 function fwShoot(){
   const wp=WEAPONS[player.w];
-  if(FW.net==='guest'){fwmGuestShoot(wp);return}
+  if(FW.net==='guest'){fwmGuestShoot(wp);fwRecoil(wp.hands?WEAPONS[wp.hi[0]]:wp);return}
   let hw=wp,side=0;
   if(wp.hands){side=player.hand=1-(player.hand||0);hw=WEAPONS[wp.hi[side]]}
   const o=FW.cam.getWorldPosition(new THREE.Vector3());
   fwFire(o,fwDir(0),hw,hw.dmg*player.dmgMul*wBoost(player.w)*dmgM(),{id:0,g:null,team:FW.myTeam,ads:FW.adsK>.6});
-  FW.recoil=1;useAmmo();player.cd=(wp.hands?hw.rate*.6:wp.rate)/rapM();ACG.fwShot(player.cd);playGun(hw);
+  FW.recoil=1;useAmmo();player.cd=(wp.hands?hw.rate*.6:wp.rate)/rapM();ACG.fwShot(player.cd);playGun(hw);fwRecoil(hw);
 }
 function fwFire(o,base,hw,dm,who){                                        // tir hitscan commun (hôte, solo, invités) : zombies et, en Battle Royale, autres joueurs
   const T=THREE,sh=hw.kind==='shotgun',range=Math.max(700,(hw.range||800)*1.6),muz=o.clone().add(base.clone().multiplyScalar(30)).add(new T.Vector3(0,-6,0));
@@ -407,7 +408,7 @@ function fwFire(o,base,hw,dm,who){                                        // tir
     if(others) for(const q of others) cyl(q.x,q.z,16,q.c?58:84,q,true,q.y||0);
     hits.sort((a,b)=>a.t-b.t);
     let left=Math.max(1,hw.pierce||1),end=tw;
-    for(const h of hits){if(left<=0) break;if(h.t>tw) break;const dmg=sh?dm*Math.max(.3,1-.7*h.t/range):dm;if(h.isP) fwmHurtP(h.ref,dmg,h.head,who);else fwDmgZ(h.ref,dmg,h.head);left--;end=h.t;if(left<=0) break}
+    for(const h of hits){if(left<=0) break;if(h.t>tw) break;const dmg=sh?dm*Math.max(.3,1-.7*h.t/range):dm*fwFalloff(hw,h.t);if(h.isP) fwmHurtP(h.ref,dmg,h.head,who);else fwDmgZ(h.ref,dmg,h.head);left--;end=h.t;if(left<=0) break}
     if(left>0&&hits.length===0&&tw<range) fwPart(o.x+d.x*tw,o.y+d.y*tw,o.z+d.z*tw,'#d8c27a',2);
     const e=o.clone().add(d.clone().multiplyScalar(Math.min(end,range)));
     if(i<4||!sh) fwTrace(muz,e,hw.col||'#ffe08a',who.id);
@@ -418,7 +419,7 @@ function fwFire(o,base,hw,dm,who){                                        // tir
 const FW_STYLE=wp=>/knife|blade|dagger/.test(wp.kind)?'stab':/axe|bat|hammer|saw|scythe/.test(wp.kind)?'chop':'slash';
 function fwSlash(){
   const wp=WEAPONS[player.w];player.cd=wp.rate/rapM();player.swing=180;
-  FW.sw={t:0,d:Math.max(170,Math.min(420,wp.rate*.85)),hit:false,k:FW_STYLE(wp)};playSwing(wp);
+  FW.sw={t:0,d:Math.max(200,Math.min(460,wp.rate*.9)),hit:false,k:fwMeleeStyle(wp),amp:wp.kind==='blade'&&/Katana/i.test(wp.name)||wp.kind==='scythe'?1.25:1};playSwing(wp);
 }
 function fwSlashHit(){                                                    // l'impact a lieu au milieu du geste : aucun projectile, seulement la portée de l'arme
   const wp=WEAPONS[player.w],d=fwDir(0);d.y=0;d.normalize();

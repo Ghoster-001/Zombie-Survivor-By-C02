@@ -376,6 +376,7 @@ function fwUpdate(dt,pz){
   }
   if(!touch&&!gp||FW.lock) fireH=fireH||(FW.lmb&&performance.now()-FW.lockT>250)||kd('fire');
   FW.pitch=Math.max(-1.45,Math.min(1.45,FW.pitch));
+  fwRecoilTick(dt);
   if(FW.vr&&FW.vrIn){mvx+=FW.vrIn.mx;mvz+=FW.vrIn.mz;if(FW.vrIn.fire) fireH=true;if(FW.vrIn.jump) jump=true}
   if(idle){mvx=0;mvz=0;jump=false;fireH=false}
   const adsOn=(FW.adsM||(gp&&gp.lt))&&!idle&&!FW.air&&!WEAPONS[P.w].melee;FW.ads=!!adsOn;FW.adsK+=((adsOn?1:0)-FW.adsK)*.22*(dt/16.7);
@@ -436,7 +437,7 @@ function fwUpdate(dt,pz){
     if(d<(26*z.size+FW_R)&&z.atk<=0&&(tg.y||0)<45){z.atk=800;z.at=18;z.fx=dx;z.fz=dz;if(tg.g) fwmHurtG(tg.g,z.dmg);else if(!FW.down) fwHurt(z.dmg)}
     z.fx=dx;z.fz=dz;const m=z.mesh;m.position.set(z.px,0,z.pz);m.rotation.y=Math.atan2(-dz,dx);
     const P_=m.userData.P,sw=Math.sin(z.step*3);
-    if(P_&&P_.legL){P_.legL.rotation.z=sw*.7;P_.legR.rotation.z=-sw*.7;const lg=z.at>0?Math.sin(z.at--/18*Math.PI):0;P_.armL.rotation.z=1.25+Math.sin(z.step*2)*.12+lg*.7;P_.armR.rotation.z=1.3+Math.sin(z.step*2+1)*.12+lg*.7;P_.body.rotation.z=-.08-lg*.3;fwZScale(m,z.size,z.flash>0?1.06:1);if(z.flash>0) z.flash--}
+    if(P_&&P_.legL){const lg=z.at>0?Math.sin(z.at--/18*Math.PI):0;fwZombieGait(z,P_,lg);fwZScale(m,z.size,z.flash>0?1.06:1);if(z.flash>0) z.flash--}
   }
   if(!G) for(let i=0;i<FW.zs.length;i++){const a=FW.zs[i];if(a.dead) continue;for(let j=i+1;j<FW.zs.length;j++){const b=FW.zs[j];if(b.dead) continue;
     const dx=b.px-a.px,dz=b.pz-a.pz,dd=dx*dx+dz*dz,r=(a.size+b.size)*13;if(dd<r*r&&dd>.01){const d=Math.sqrt(dd),k=(r-d)/d*.5;a.px-=dx*k;a.pz-=dz*k;b.px+=dx*k;b.pz+=dz*k}}}
@@ -489,13 +490,14 @@ function fwRender(){
     const mv=Math.hypot(FW.x-(FW.vx0||FW.x),FW.z-(FW.vz0||FW.z))>.3;FW.vx0=FW.x;FW.vz0=FW.z;
     px+=Math.sin(FW.bob*.5)*(mv?.9:.25);py+=Math.abs(Math.sin(FW.bob))*(mv?1.1:0)+Math.sin(tick*.04)*.25;
     pz+=FW.recoil*5;py-=FW.recoil*1.2;rx_-=FW.recoil*.07;
+    {const dy=FW.yaw-(FW.lyaw===undefined?FW.yaw:FW.lyaw),dp=FW.pitch-(FW.lpit===undefined?FW.pitch:FW.lpit);FW.lyaw=FW.yaw;FW.lpit=FW.pitch;   // inertie : l'arme suit le regard avec un temps de retard
+      FW.swX=(FW.swX||0)*.86+Math.max(-1,Math.min(1,dy*7))*.14;FW.swY=(FW.swY||0)*.86+Math.max(-1,Math.min(1,dp*7))*.14;const a=1-.75*FW.adsK;
+      px+=FW.swX*3.4*a;py-=FW.swY*2.6*a;ry_+=FW.swX*.16*a;rz_-=FW.swX*.08*a;rx_+=FW.swY*.06*a;
+      pz+=(FW.vmKick||0)*2.2;rx_-=(FW.vmKick||0)*.06;py+=(FW.vmKick||0)*.4}
     if(vg.userData.w!==FW.lastW){FW.lastW=vg.userData.w;FW.swapT=1}FW.swapT=Math.max(0,(FW.swapT||0)-.07);py-=FW.swapT*16;rx_-=FW.swapT*.6;
     const sw=FW.sw;
-    if(sw){const p=Math.min(1,sw.t/sw.d),e=p<.42?p/.42:1-(p-.42)/.58,e2=e*e*(3-2*e);
-      if(sw.k==='stab'){pz+=p<.2?p*20:-22*Math.sin(Math.min(1,(p-.2)/.35)*Math.PI*.9);px-=3*e}
-      else if(sw.k==='chop'){rx_+=(p<.25?-p/.25*1.1:(p<.5?-1.1+(p-.25)/.25*2.6:1.5-(p-.5)/.5*1.5));pz-=4*e;py+=(p<.25?p/.25*8:0)}
-      else{rz_=(p<.2?p/.2*1.0:(p<.5?1.0-(p-.2)/.3*2.4:-1.4+(p-.5)/.5*1.4));px+=(p<.5?-(p/.5)*18+8:(-18+8)+(p-.5)/.5*10);ry_=-rz_*.4}
-    }
+    if(sw){const o=fwMeleePose(sw);px+=o[0];py+=o[1];pz+=o[2];rx_+=o[3];ry_+=o[4];rz_+=o[5]}
+    {const o=fwCyclePose();if(o){px+=o[0];py+=o[1];pz+=o[2];rx_+=o[3];ry_+=o[4];rz_+=o[5]}}
     px*=(1-FW.adsK);py=py*(1-.28*FW.adsK)-1.5*FW.adsK;vm.position.set(px,py,pz);vm.rotation.set(rx_,ry_,rz_);
   }
   // joueur à la troisième personne

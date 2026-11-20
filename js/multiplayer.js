@@ -113,8 +113,9 @@ function mpLobbyList(){
   return l;
 }
 function mpLobbySend(){
+  if(gameMode==='3D'){if(!MP.preSeed) MP.preSeed=Math.floor(Math.random()*2147483000)+1;try{fwPrebuild((MP.sel.mode||'coop')!=='coop'?17:7,MP.preSeed)}catch(e){}}
   MP.lobby={pl:mpLobbyList(),map:MP.sel.map,diff:MP.sel.diff,mode:MP.sel.mode,m3:gameMode==='3D',nm:!!MP.sel.nm};
-  for(const g of MP.guests) if(g.ok&&g.conn.open){try{g.conn.send({t:'lob',pl:MP.lobby.pl,map:MP.sel.map,diff:MP.sel.diff,mode:MP.sel.mode,m3:gameMode==='3D',nm:!!MP.sel.nm,you:g.id})}catch(e){}}
+  for(const g of MP.guests) if(g.ok&&g.conn.open){try{g.conn.send({t:'lob',pl:MP.lobby.pl,map:MP.sel.map,diff:MP.sel.diff,mode:MP.sel.mode,m3:gameMode==='3D',nm:!!MP.sel.nm,you:g.id,seed:gameMode==='3D'?MP.preSeed:0})}catch(e){}}
 }
 function mpStartGame(){
   if(MP.role!=='host'||MP.started) return;
@@ -246,7 +247,7 @@ function mpGuestData(d){
       mpSend({t:'hello',n:o.n,lvl:o.lvl,hp:o.hp,mel:o.mel,v:o.v,up:o.up,look:save.look,av:save.avatar|0,acv:ACG.VER,tok:ACG.profTok(n,o)});break}
     case 'wel':MP.status='ok';MP.msg='';MP.myId=d.id;state='mplobby';break;
     case 'rej':MP.status='err';MP.msg=String(d.why||'Refusé').slice(0,80);try{MP.hostConn.close()}catch(e){}state='mpmenu';break;
-    case 'lob':MP.lobby={pl:Array.isArray(d.pl)?d.pl:[],map:d.map,diff:d.diff,mode:d.mode,m3:!!d.m3,nm:!!d.nm};if(d.m3&&G3.status==='idle') g3Request();MP.myId=d.you;if(state==='mplobby'||state==='mpjoining') state='mplobby';break;
+    case 'lob':MP.lobby={pl:Array.isArray(d.pl)?d.pl:[],map:d.map,diff:d.diff,mode:d.mode,m3:!!d.m3,nm:!!d.nm};if(d.m3&&G3.status==='idle') g3Request();if(d.m3&&(d.seed|0)>0){const sd=d.seed|0;try{fwPrebuild((d.mode||'coop')!=='coop'?17:7,sd)}catch(e){}}MP.myId=d.you;if(state==='mplobby'||state==='mpjoining') state='mplobby';break;
     case 'go':mpGuestGo(d);break;
     case 's':if(MP.on&&!FW.on) mpApplySnap(d);break;
     case 'go3':mpGuestGo3(d);break;

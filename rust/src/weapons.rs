@@ -47,13 +47,14 @@ pub struct Loadout {
     pub kick: f32,
     pub swap: f32,
     pub swing: f32,
+    pub swing_n: u32,
     pub flash: f32,
     pub seed: u32,
 }
 
 impl Default for Loadout {
     fn default() -> Self {
-        let mut l = Self { cur: 4, ammo: [0; N], reserve: [0; N], cd: 0.0, reload: 0.0, ads: 0.0, kick: 0.0, swap: 0.0, swing: 0.0, flash: 0.0, seed: 12345 };
+        let mut l = Self { cur: 4, ammo: [0; N], reserve: [0; N], cd: 0.0, reload: 0.0, ads: 0.0, kick: 0.0, swap: 0.0, swing: 0.0, swing_n: 0, flash: 0.0, seed: 12345 };
         l.refill();
         l
     }
@@ -267,6 +268,7 @@ pub fn weapon_system(
         if w.melee {
             lo.cd = w.interval;
             lo.swing = 1.0;
+            lo.swing_n += 1;
             let mut hit = false;
             for (_, mut e, t) in &mut enemies {
                 if e.is_dead() {
@@ -374,12 +376,12 @@ pub fn weapon_system(
             rot *= Quat::from_rotation_x(-0.5 * dip) * Quat::from_rotation_z(0.5 * dip);
         }
         if w.melee {
-            let s = (1.0 - lo.swing).clamp(0.0, 1.0);
-            let a = (s * std::f32::consts::PI).sin();
+            // coups à images clés (comme la version web) : taille en diagonale, revers diagonal, estoc
             if lo.swing > 0.0 {
-                p.x -= 0.25 * a;
-                p.z -= 0.18 * a;
-                rot *= Quat::from_rotation_y(0.9 * a) * Quat::from_rotation_z(-0.6 * a);
+                let s = (1.0 - lo.swing).clamp(0.0, 1.0);
+                let o = melee_pose(lo.swing_n % 3, s);
+                p += vec3(o[0], o[1], o[2]);
+                rot *= Quat::from_euler(EulerRot::XYZ, o[3], o[4], o[5]);
             }
         }
         // léger balancement
@@ -397,4 +399,24 @@ pub fn weapon_system(
             pp.fov += (target - pp.fov) * (dt * 14.0).min(1.0);
         }
     }
+}
+
+/// Pose de mêlée : [dx, dy, dz, rx, ry, rz] (mètres / radians, repère caméra) ; impact vers 0,42
+fn melee_pose(style: u32, p: f32) -> [f32; 6] {
+    const DIAG_A: [[f32; 7]; 5] = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.28, 0.22, 0.34, 0.1, -0.35, 0.45, -1.1], [0.42, -0.1, 0.07, -0.27, 0.25, -0.3, 0.5], [0.6, -0.4, -0.3, -0.12, 0.5, -0.6, 1.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]];
+    const DIAG_B: [[f32; 7]; 5] = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.28, -0.3, -0.3, 0.02, 0.4, -0.5, 0.9], [0.42, 0.05, 0.05, -0.27, -0.1, 0.25, -0.3], [0.6, 0.32, 0.32, -0.1, -0.4, 0.55, -1.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]];
+    const STAB: [[f32; 7]; 5] = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.3, 0.05, -0.02, 0.15, 0.12, 0.0, 0.0], [0.42, -0.05, 0.02, -0.42, -0.06, 0.0, 0.0], [0.6, -0.02, 0.0, -0.3, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]];
+    let k = match style { 0 => &DIAG_A, 1 => &DIAG_B, _ => &STAB };
+    let mut i = 0;
+    while i < k.len() - 2 && p > k[i + 1][0] {
+        i += 1;
+    }
+    let (a, b) = (k[i], k[i + 1]);
+    let t = ((p - a[0]) / (b[0] - a[0]).max(1e-4)).clamp(0.0, 1.0);
+    let u = if t < 0.5 { 2.0 * t * t } else { 1.0 - (-2.0 * t + 2.0).powi(2) / 2.0 };
+    let mut o = [0.0; 6];
+    for j in 0..6 {
+        o[j] = a[j + 1] + (b[j + 1] - a[j + 1]) * u;
+    }
+    o
 }

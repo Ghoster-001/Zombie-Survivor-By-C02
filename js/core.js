@@ -97,6 +97,7 @@ function fxUpdate(){
   const s=SET;HZ=s.hz>0?s.hz:HZm;const a=s.prof==='auto'?autoDrop:0;
   let pi=Math.max(0,Math.min(3,s.parts|0));if(a>=1) pi=Math.min(pi,2);if(a>=5) pi=Math.min(pi,1);if(a>=6) pi=0;
   FXF.lights=s.lights&&a<4?1:0;FXF.fog=s.fog&&a<3?1:0;FXF.refl=s.refl&&a<2?1:0;FXF.post=s.post&&a<5?1:0;FXF.bloom=s.bloom&&a<1?1:0;
+  if(typeof FW!=='undefined'&&FW&&FW.vr){FXF.lights=0;FXF.post=0;FXF.bloom=0}   // VR : ombres et post-traitements coupés
   FXF.pq=PARTS[pi].q;FXF.pmax=PARTS[pi].max;FXF.fps=s.fps>0?Math.max(15,Math.min(s.fps,HZ)):HZ;
   {let an=[0,1,2].includes(s.anim)?s.anim:2;if(a>=6) an=0;else if(a>=5) an=Math.min(an,1);FXF.anim=an}
   if(s.bright!==lastBright){lastBright=s.bright;const b=Math.max(0,Math.min(1,+s.bright)),f=b<=.5?.35+b/.5*.65:1+(b-.5)*1.4;cv.style.filter=Math.abs(f-1)<.01?'':'brightness('+f.toFixed(2)+')'}   // luminosité : filtre CSS (aucun coût au dessin)
