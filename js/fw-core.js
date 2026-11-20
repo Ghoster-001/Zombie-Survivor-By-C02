@@ -21,7 +21,7 @@ function fwPush1(o,r,yy,hgt){
     {const BB=FW.bmap.get(fwCellKey(cx,cz));if(BB&&fwBldPush(BB,o,r,yy,hgt)) hit=true}
     const l=FW.grid.get(fwCellKey(cx,cz));if(!l) continue;
     for(const c of l){
-      if(c.np||(yy!==undefined&&(yy>=c.h||yy+(hgt||80)<=c.y0))) continue;
+      if(c.np||c.dead||(yy!==undefined&&(yy>=c.h||yy+(hgt||80)<=c.y0))) continue;
       const qx=Math.max(c.x0,Math.min(c.x1,o.px)),qz=Math.max(c.z0,Math.min(c.z1,o.pz)),dx=o.px-qx,dz=o.pz-qz,d2=dx*dx+dz*dz;
       if(d2>=r*r) continue;hit=true;
       if(d2>1e-6){const d=Math.sqrt(d2),k=(r-d)/d;o.px+=dx*k;o.pz+=dz*k}
@@ -30,7 +30,7 @@ function fwPush1(o,r,yy,hgt){
   }
   return hit;
 }
-function fwSolid(x,z,y){const k=fwCellKey(Math.floor(x/300),Math.floor(z/300)),l=FW.grid.get(k);if(l) for(const c of l) if(!c.nr&&x>=c.x0&&x<=c.x1&&z>=c.z0&&z<=c.z1&&y<c.h&&y>=c.y0) return true;const B=FW.bmap.get(k);return !!B&&fwBldSolid(B,x,z,y)}
+function fwSolid(x,z,y){const k=fwCellKey(Math.floor(x/300),Math.floor(z/300)),l=FW.grid.get(k);if(l) for(const c of l) if(!c.nr&&!c.dead&&x>=c.x0&&x<=c.x1&&z>=c.z0&&z<=c.z1&&y<c.h&&y>=c.y0) return true;const B=FW.bmap.get(k);return !!B&&fwBldSolid(B,x,z,y)}
 function fwFacade(v,fl){
   const key=v+'_'+fl;let m=FW.matC[key];if(m) return m;
   const mk=em=>{const t=g3Tex('fwt2'+v+(em?'e':'w'),512,512,(g,w,h)=>{

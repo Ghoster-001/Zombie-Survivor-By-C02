@@ -32,10 +32,14 @@ function fwModelsPlace(sc,spots){
     const list=by[n],mod=FWM.m[n];
     for(const p of mod.parts){
       const im=new T.InstancedMesh(p.geo,p.mat,list.length);im.frustumCulled=false;im.castShadow=true;im.receiveShadow=true;
-      list.forEach((s,i)=>{const k=s.s||FWM.S;M.makeTranslation(s.x,-mod.minY*k,s.z);R.makeRotationY(s.ry||0);S.makeScale(k,k,k);M.multiply(R).multiply(S).multiply(p.mtx);im.setMatrixAt(i,M)});
-      im.instanceMatrix.needsUpdate=true;sc.add(im);
+      const white=new T.Color(1,1,1),Z=new T.Matrix4().makeScale(0,0,0);
+      list.forEach((s,i)=>{const k=s.s||FWM.S;M.makeTranslation(s.x,-mod.minY*k,s.z);R.makeRotationY(s.ry||0);S.makeScale(k,k,k);M.multiply(R).multiply(S).multiply(p.mtx);im.setMatrixAt(i,M);
+        if(s.car) im.setColorAt(i,white);
+        const d=s.did!==undefined&&FW.dob&&FW.dob[s.did];if(d){d.inst.push({im,i});if(d.dead&&!s.car) im.setMatrixAt(i,Z)}});
+      im.instanceMatrix.needsUpdate=true;if(im.instanceColor) im.instanceColor.needsUpdate=true;sc.add(im);
     }
     for(const s of list) if(s.g) s.g.visible=false;
+    for(const s of list){const d=s.did!==undefined&&FW.dob[s.did];if(d&&d.dead&&s.car) fwDobChar(d)}   // épaves déjà détruites avant l'arrivée des modèles
   }
 }
 function fwModelsApply(sc){FW.mdScene=sc;fwModelsLoad(()=>{if(FW.scene===sc&&FW.spots&&!FW.spotsDone){FW.spotsDone=true;fwModelsPlace(sc,FW.spots)}})}
@@ -46,10 +50,13 @@ const FW_PROPS=[
 function fwPropsLayout(sc,seed){
   const rp=fwRng((seed|0)^0x2545f491),half=FW_N*FW_P/2,tot=FW_PROPS.reduce((a,p)=>a+p.w,0);
   const pickProp=()=>{let t=rp()*tot;for(const p of FW_PROPS){t-=p.w;if(t<=0) return p}return FW_PROPS[0]};
+  const KIND={firehydrant:'hydrant',trash_A:'bin',trash_B:'bin',bench:'bench',bush:'bush',box_A:'box',box_B:'box',dumpster:'dumpster'};
   const add=(p,x,z,ry,k)=>{
-    FW.spots.push({n:p.n,x,z,ry,s:FWM.S*(p.k||1)*(k||1)});
-    if(p.bx){const cs=Math.abs(Math.cos(ry)),sn=Math.abs(Math.sin(ry)),w=p.bx[0]*cs+p.bx[1]*sn,d=p.bx[0]*sn+p.bx[1]*cs;fwAddCol(x-w/2,z-d/2,x+w/2,z+d/2,p.h,'p')}
-    else if(p.r) fwAddCol(x-p.r,z-p.r,x+p.r,z+p.r,p.h,'p');
+    let c=null;
+    if(p.bx){const cs=Math.abs(Math.cos(ry)),sn=Math.abs(Math.sin(ry)),w=p.bx[0]*cs+p.bx[1]*sn,d=p.bx[0]*sn+p.bx[1]*cs;c=fwAddCol(x-w/2,z-d/2,x+w/2,z+d/2,p.h,'p')}
+    else if(p.r) c=fwAddCol(x-p.r,z-p.r,x+p.r,z+p.r,p.h,'p');
+    const d=fwDob(KIND[p.n]||'box',x,20,z,c?[c]:[],[]);
+    FW.spots.push({n:p.n,x,z,ry,s:FWM.S*(p.k||1)*(k||1),did:d.id});
   };
   for(let i=0;i<FW_N;i++) for(let j=0;j<FW_N;j++){
     const cx=(i-(FW_N-1)/2)*FW_P,cz=(j-(FW_N-1)/2)*FW_P;
@@ -68,7 +75,7 @@ function fwPropsLayout(sc,seed){
     const x0=k*FW_P-half,z0=l*FW_P-half;
     for(const [sx,sz,m] of[[-1,1,'trafficlight_B'],[1,-1,'trafficlight_A'],[-1,-1,'trafficlight_B']]){
       const x=x0+sx*124,z=z0+sz*124;if(fwSolid(x,z,10)) continue;
-      FW.spots.push({n:m,x,z,ry:Math.atan2(-sx,-sz),s:FWM.S});fwAddCol(x-7,z-7,x+7,z+7,200,'p');
+      const d=fwDob('traffic',x,100,z,[fwAddCol(x-7,z-7,x+7,z+7,200,'p')],[]);FW.spots.push({n:m,x,z,ry:Math.atan2(-sx,-sz),s:FWM.S,did:d.id});
     }
   }
 }

@@ -176,6 +176,7 @@ function fwmSend(){
   const en=FW.en.filter(e=>!e.dead).map(e=>{if(!e.nid) e.nid=++FW.enid;return[e.nid,e.k,Math.round(e.x),Math.round(e.z),Math.round((e.yaw||0)*100)]});
   const ZZ=FW.zone,Z=ZZ?[Math.round(ZZ.cx),Math.round(ZZ.cz),Math.round(ZZ.r),Math.round(ZZ.cx1),Math.round(ZZ.cz1),Math.round(ZZ.r1),ZZ.phase,Math.round(fwmZoneSecs(ZZ)),ZZ.st==='wait'?0:1]:0;
   const base={t:'s3',n:++FW.seq,w:wave,m:money,x:runXp,k:kills,q:FW.queue.length+FW.zs.length,z,pl,pk,en,ev:FW.evq,zn:Z,fd:FW.feed.map(f=>[f.a,f.b])};
+  try{fwDobNet(base)}catch(e){}
   FW.evq=[];
   for(const g of MP.guests){
     if(!g.conn.open||!g.p) continue;const p=g.p,fxo={};for(const k in g.fxb) if(g.fxb[k]>0) fxo[k]=Math.round(g.fxb[k]);
@@ -210,6 +211,7 @@ function fwmApply(s){
   if(!FW.on||FW.net!=='guest') return;
   const T=THREE;MP.lastSnapAt=performance.now();
   wave=s.w;money=s.m;runXp=s.x;kills=s.k;FW.left=s.q;
+  try{fwDobApply(s)}catch(e){}
   // zombies
   const seen=new Set();
   for(const e of s.z){
@@ -376,7 +378,7 @@ function fwUpdate(dt,pz){
   }
   if(!touch&&!gp||FW.lock) fireH=fireH||(FW.lmb&&performance.now()-FW.lockT>250)||kd('fire');
   FW.pitch=Math.max(-1.45,Math.min(1.45,FW.pitch));
-  fwRecoilTick(dt);
+  fwRecoilTick(dt);fwDobTick();
   if(FW.vr&&FW.vrIn){mvx+=FW.vrIn.mx;mvz+=FW.vrIn.mz;if(FW.vrIn.fire) fireH=true;if(FW.vrIn.jump) jump=true}
   if(idle){mvx=0;mvz=0;jump=false;fireH=false}
   const adsOn=(FW.adsM||(gp&&gp.lt))&&!idle&&!FW.air&&!WEAPONS[P.w].melee;FW.ads=!!adsOn;FW.adsK+=((adsOn?1:0)-FW.adsK)*.22*(dt/16.7);
@@ -512,7 +514,7 @@ function fwRender(){
     const wp=WEAPONS[P.w];if(wp.melee){PP.armR.rotation.z=FW.sw?-1.2+Math.min(1,FW.sw.t/FW.sw.d)*2.6:-.3;PP.armL.rotation.z=.2}else{const al=FW.pitch;PP.armR.rotation.z=al;PP.armL.rotation.z=al-.15;PP.armL.rotation.y=.18}
   }
   // lumières proches
-  FW.plT--;if(FW.plT<=0){FW.plT=12;const ls=FW.lamps.map(l=>({l,d:(l.x-SX)**2+(l.z-SZ)**2+((l.y||230)-(SY+50))**2})).sort((a,b)=>a.d-b.d);
+  FW.plT--;if(FW.plT<=0){FW.plT=12;const ls=FW.lamps.filter(l=>!l.dead).map(l=>({l,d:(l.x-SX)**2+(l.z-SZ)**2+((l.y||230)-(SY+50))**2})).sort((a,b)=>a.d-b.d);
     for(let i=0;i<FW.pl.length;i++){const q=ls[i];const L=FW.pl[i];if(q&&q.d<900*900){L.position.set(q.l.x,q.l.fire?50:(q.l.y||230),q.l.z);L.color.set(q.l.fire?0xff8a3a:0xffd29a);L.intensity=q.l.fire?1.4:(q.l.int?.95:1.6)}else L.intensity=0}}
   FW.grp.position.set(SX,0,SZ);
   if(FW.sky) FW.sky.position.copy(cam.position);

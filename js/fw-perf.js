@@ -46,8 +46,10 @@ function fwBatchStatic(sc){
       if(!batch.length) return;
       const P=new Float32Array(nv*3),N=new Float32Array(nv*3),U=gr.attrs.includes('uv')?new Float32Array(nv*2):null,C=gr.attrs.includes('color')?new Float32Array(nv*3):null,I=[];
       let base=0;
+      const rng=[];
       for(const {o,start,count} of batch){
         const g=o.geometry,pa=g.attributes.position,na=g.attributes.normal,ua=g.attributes.uv,ca=g.attributes.color,n=pa.count;nm.getNormalMatrix(o.matrixWorld);
+        if(o.userData.did!==undefined&&FW.dob&&FW.dob[o.userData.did]) rng.push([FW.dob[o.userData.did],o,base,n]);
         for(let i=0;i<n;i++){
           v.fromBufferAttribute(pa,i).applyMatrix4(o.matrixWorld);P[(base+i)*3]=v.x;P[(base+i)*3+1]=v.y;P[(base+i)*3+2]=v.z;
           v.fromBufferAttribute(na,i).applyMatrix3(nm).normalize();N[(base+i)*3]=v.x;N[(base+i)*3+1]=v.y;N[(base+i)*3+2]=v.z;
@@ -61,6 +63,7 @@ function fwBatchStatic(sc){
       if(U) bg.setAttribute('uv',new T.BufferAttribute(U,2));if(C) bg.setAttribute('color',new T.BufferAttribute(C,3));
       bg.setIndex(new T.BufferAttribute(base>65535?new Uint32Array(I):new Uint16Array(I),1));bg.computeBoundingSphere();
       const m=new T.Mesh(bg,gr.mat);m.castShadow=gr.o.castShadow;m.receiveShadow=gr.o.receiveShadow;m.renderOrder=gr.o.renderOrder;m.matrixAutoUpdate=false;m.updateMatrix();
+      for(const [d,o,v0,n] of rng){d.ranges.push({geo:bg,v0,n});const k=d.objs.indexOf(o);if(k>=0) d.objs.splice(k,1)}
       sc.add(m);after++;batch=[];nv=0;
     };
     for(const it of gr.list){const n=it.o.geometry.attributes.position.count;if(nv+n>65000) flush();batch.push(it);nv+=n}

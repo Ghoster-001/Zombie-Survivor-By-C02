@@ -2,18 +2,19 @@
 function fwHash(a,b){let h=(a*374761393+b*668265263)|0;h=(h^(h>>>13))*1274126177|0;return(h^(h>>>16))>>>0}
 function fwFurnish(B){
   if(B.furn) return;
-  const T=THREE,rnd=fwRng(fwHash(B.x|0,B.z|0)^(FW.worldSeed|0)),G=fwGeoNew(),Gb=fwGeoNew(),cols=[],lamps=[],I=B.I,cx=B.x,cz=B.z;G.k=.58;
+  const T=THREE,rnd=fwRng(fwHash(B.x|0,B.z|0)^(FW.worldSeed|0)),G=fwGeoNew(),Gb=fwGeoNew(),cols=[],lamps=[],pieces=[],I=B.I,cx=B.x,cz=B.z;let mark=0;G.k=.58;
   const pick=a=>a[Math.floor(rnd()*a.length)],shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
   const U0=-I+6,U1=I-6,Z0=-I+6,Z1=I-112,ZS=0,PU=140,CH=FW_FH-12;
   for(let f=0;f<B.fl;f++){
     const yb=f===0?4:f*FW_FH,yc=(f+1)*FW_FH-10;
     const bx=(u,z,w,d,h,col,y0,em)=>fwGeoBox(em?Gb:G,cx+u,yb+(y0||0)+h/2,cz+z,w,h,d,col);
-    const solid=(u,z,w,d,h,y0)=>{const c=fwAddCol(cx+u-w/2,cz+z-d/2,cx+u+w/2,cz+z+d/2,yb+(y0||0)+h,'f',yb+(y0||0)+1,false,false);c.fur=true;cols.push(c)};
+    const solid=(u,z,w,d,h,y0,fixed)=>{const c=fwAddCol(cx+u-w/2,cz+z-d/2,cx+u+w/2,cz+z+d/2,yb+(y0||0)+h,'f',yb+(y0||0)+1,false,false);c.fur=true;cols.push(c);
+      const v1=G.p.length/3;if(!fixed){c.fB=B;c.fp=pieces.length;pieces.push({v0:mark,v1,c,x:cx+u,y:yb+(y0||0)+h/2,z:cz+z,hp:Math.max(30,Math.min(170,w*d*h/1800))})}mark=v1};   // chaque meuble = une pièce destructible (les cloisons restent)
     const lampAt=(u,z)=>{const l={x:cx+u,z:cz+z,y:yc-14,int:true};FW.lamps.push(l);lamps.push(l)};
     // plafond clair + trappe d'escalier
-    const hr=fwStairRect(B,f);fwGeoSlab(G,cx,cz,(f+1)*FW_FH-8,-I,I,-I,I,[hr[0],hr[1],hr[2],hr[3]],2,0xa9a59a);
-    const wall=(u0,u1,z0,z1)=>{if(u1-u0<1||z1-z0<1) return;bx((u0+u1)/2,(z0+z1)/2,u1-u0,z1-z0,CH,0xc2baa8);solid((u0+u1)/2,(z0+z1)/2,u1-u0,z1-z0,CH)};
-    const lintel=(u0,u1,z0,z1)=>{bx((u0+u1)/2,(z0+z1)/2,u1-u0,z1-z0,CH-FW_DOORH,0xc2baa8,FW_DOORH);solid((u0+u1)/2,(z0+z1)/2,u1-u0,z1-z0,CH-FW_DOORH,FW_DOORH)};
+    const hr=fwStairRect(B,f);fwGeoSlab(G,cx,cz,(f+1)*FW_FH-8,-I,I,-I,I,[hr[0],hr[1],hr[2],hr[3]],2,0xa9a59a);mark=G.p.length/3;
+    const wall=(u0,u1,z0,z1)=>{if(u1-u0<1||z1-z0<1) return;bx((u0+u1)/2,(z0+z1)/2,u1-u0,z1-z0,CH,0xc2baa8);solid((u0+u1)/2,(z0+z1)/2,u1-u0,z1-z0,CH,0,true)};
+    const lintel=(u0,u1,z0,z1)=>{bx((u0+u1)/2,(z0+z1)/2,u1-u0,z1-z0,CH-FW_DOORH,0xc2baa8,FW_DOORH);solid((u0+u1)/2,(z0+z1)/2,u1-u0,z1-z0,CH-FW_DOORH,FW_DOORH,true)};
     const ground=f===0,zcS=(Z0+ZS-4)/2,zcN=(ZS+4+Z1)/2;
     const rooms=[];
     if(ground){rooms.push(['shop',U0,-PU+4,Z0,Z1],['lobby',-PU+12,PU-12,Z0,Z1],['cafe',PU-4,U1,Z0,Z1])}
@@ -95,7 +96,8 @@ function fwFurnish(B){
     }
   }
   const m1=fwGeoMesh(G,FW.vcPlain||(FW.vcPlain=new T.MeshLambertMaterial({vertexColors:true}))),m2=fwGeoMesh(Gb,FW.vcBasic||(FW.vcBasic=new T.MeshBasicMaterial({vertexColors:true})));
-  FW.scene.add(m1);FW.scene.add(m2);B.furn={m1,m2,cols,lamps};FW.furnList.push(B);
+  FW.scene.add(m1);FW.scene.add(m2);B.furn={m1,m2,cols,lamps,pieces};FW.furnList.push(B);
+  pieces.forEach((p,i)=>{if(FW.fdead&&FW.fdead.has(fwFurnKey(B,i))) fwFurnHide(B,i)});   // meubles déjà cassés : ils le restent quand on revient
 }
 function fwUnfurnish(B){
   const f=B.furn;if(!f) return;

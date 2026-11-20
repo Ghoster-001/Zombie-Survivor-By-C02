@@ -61,6 +61,7 @@ function fwLampGlow(sc,x,z,hy){
     FW.poolG=new T.PlaneGeometry(1,1);FW.coneG=new T.ConeGeometry(120,hy,18,1,true)}
   const p=new T.Mesh(FW.poolG,FW.poolM);p.scale.set(330,330,1);p.rotation.x=-Math.PI/2;p.position.set(x,1.4,z);p.renderOrder=2;sc.add(p);
   const c=new T.Mesh(FW.coneG,FW.coneM);c.position.set(x,hy/2+2,z);sc.add(c);
+  return [p,c];
 }
 // ----- éblouissement du soleil : intensité mesurée sur la copie réduite du rendu (ciel visible = soleil visible) -----
 function fwSunFlare(bw,bh){

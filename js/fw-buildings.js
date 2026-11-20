@@ -60,7 +60,7 @@ function fwBldAt(x,z){return FW.bmap.get(fwCellKey(Math.floor(x/300),Math.floor(
 function fwSupportY(x,z,y){
   let best=0;const B=fwBldAt(x,z);
   {const l=FW.grid.get(fwCellKey(Math.floor(x/300),Math.floor(z/300)));                  // on peut se poser sur les voitures, bennes et meubles bas
-   if(l) for(const c of l){if(c.np||c.h>y+16||c.h<=best||x<c.x0||x>c.x1||z<c.z0||z>c.z1) continue;
+   if(l) for(const c of l){if(c.np||c.dead||c.h>y+16||c.h<=best||x<c.x0||x>c.x1||z<c.z0||z>c.z1) continue;
      if(c.kind==='c'||c.kind==='d'||(c.kind==='f'&&c.y0%140<6&&c.h-c.y0<=70)) best=c.h}}
   if(!B) return best;
   const dx=x-B.x,dz=z-B.z,ax=Math.abs(dx),az=Math.abs(dz),half=B.half,I=B.I,lim=y+16;

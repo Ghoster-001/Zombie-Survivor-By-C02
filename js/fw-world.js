@@ -122,7 +122,7 @@ function fwBuild(n,seed){
   n=n||7;seed=seed|0||1;
   if(FW.built&&FW.bN===n&&FW.bSeed===seed) return;
   FW.built=true;FW.bN=n;FW.bSeed=seed;FW_N=n;FW_LIM=(n-1)/2*FW_P+550;
-  FW.lampSpr=[];FW.lampSprOn=undefined;FW.grid=new Map();FW.bmap=new Map();FW.furnList=[];FW.inMats=[];FW.maxH=0;FW.lamps=[];FW.fires=[];FW.bl=[];FW.bld=[];FW.tr=[];FW.pt=[];FW.ex=[];FW.pl=[];FW.zoneM=null;FW.planeM=null;FW.model=null;FW.hand=null;
+  FW.lampSpr=[];FW.lampSprOn=undefined;FW.dob=[];FW.dsq=[];FW.fdead=new Set();FW.jets=[];FW.grid=new Map();FW.bmap=new Map();FW.furnList=[];FW.inMats=[];FW.maxH=0;FW.lamps=[];FW.fires=[];FW.bl=[];FW.bld=[];FW.tr=[];FW.pt=[];FW.ex=[];FW.pl=[];FW.zoneM=null;FW.planeM=null;FW.model=null;FW.hand=null;
   const T=THREE,sc=FW.scene=new T.Scene(),rnd=fwRng(seed),trnd=fwRng(97531);   // textures : générateur à part (elles sont en cache après la 1re partie : la ville doit rester identique chez tous les joueurs)
   fwAtmos(sc);G3.r.toneMapping=T.ACESFilmicToneMapping;G3.r.toneMappingExposure=1.3;G3.r.shadowMap.enabled=true;G3.r.shadowMap.type=T.PCFSoftShadowMap;
   FW.cam=new T.PerspectiveCamera(75,16/9,3,n>8?7200:4200);FW.cam.rotation.order='YXZ';sc.add(FW.cam);
@@ -191,8 +191,8 @@ function fwBuild(n,seed){
     const p=new T.Mesh(new T.CylinderGeometry(4,6,300,8),pm);p.position.set(x,158,z);sc.add(p);
     const arm=new T.Mesh(bg,pm);arm.scale.set(46,5,5);arm.position.set(x-20,306,z);sc.add(arm);
     const b=new T.Mesh(new T.SphereGeometry(10,10,8),bm);b.position.set(x-42,302,z);sc.add(b);
-    const sp=new T.Sprite(gm);(FW.lampSpr=FW.lampSpr||[]).push(sp);sp.scale.set(120,120,1);sp.position.set(x-42,302,z);sc.add(sp);FW.lamps.push({x:x-42,z});if(FXF.lights) fwLampGlow(sc,x-42,z,300);
-    fwAddCol(x-6,z-6,x+6,z+6,300,'p');
+    const sp=new T.Sprite(gm);(FW.lampSpr=FW.lampSpr||[]).push(sp);sp.scale.set(120,120,1);sp.position.set(x-42,302,z);sc.add(sp);const L={x:x-42,z};FW.lamps.push(L);const gl=FXF.lights?fwLampGlow(sc,x-42,z,300):[];
+    fwDob('lamp',x,150,z,[fwAddCol(x-6,z-6,x+6,z+6,300,'p')],[p,arm,b,sp].concat(gl||[])).lamp=L;
   }
   // ----- épaves, tonneaux, bennes, arbres morts, bancs (à l'échelle du personnage) -----
   FW.spots=[];FW.spotsDone=false;const rcar=fwRng((seed|0)^0x51ed270b);
@@ -207,23 +207,25 @@ function fwBuild(n,seed){
     for(const [wx,wz] of[[-66,Wd/2],[66,Wd/2],[-66,-Wd/2],[66,-Wd/2]]){const w=new T.Mesh(new T.CylinderGeometry(15,15,10,12),new T.MeshLambertMaterial({color:0x0c0c0c}));w.rotation.x=Math.PI/2;w.position.set(wx,15,wz);g.add(w)}
     for(const hx of[1,-1]){const hl=new T.Mesh(bg,new T.MeshBasicMaterial({color:wreck?0x332211:0xffe8b0}));hl.scale.set(3,8,16);hl.position.set(L/2,30,hx*(Wd/2-14));g.add(hl)}
     if(wreck) body.rotation.z=(rnd()-.5)*.12;
-    g.position.set(x,0,z);g.rotation.y=vert?Math.PI/2:0;if(rnd()<.5) g.rotation.y+=Math.PI;sc.add(g);fwAddCol(x-sx/2,z-sz/2,x+sx/2,z+sz/2,78,'c');bl.push([x-sx/2,z-sz/2,x+sx/2,z+sz/2,-1]);FW.spots.push({n:FW_CARS[Math.floor(rcar()*FW_CARS.length)],x,z,ry:g.rotation.y+Math.PI/2,s:FWM.S,g});
+    g.position.set(x,0,z);g.rotation.y=vert?Math.PI/2:0;if(rnd()<.5) g.rotation.y+=Math.PI;sc.add(g);const cc=fwAddCol(x-sx/2,z-sz/2,x+sx/2,z+sz/2,78,'c');bl.push([x-sx/2,z-sz/2,x+sx/2,z+sz/2,-1]);const cd=fwDob('car',x,30,z,[cc],[g]);FW.spots.push({n:FW_CARS[Math.floor(rcar()*FW_CARS.length)],x,z,ry:g.rotation.y+Math.PI/2,s:FWM.S,g,did:cd.id,car:1});
   }
   for(let i=0;i<110;i++){
-    const x=(rnd()-.5)*FW_LIM*1.9,z=(rnd()-.5)*FW_LIM*1.9;if(fwSolid(x,z,10)) continue;
-    const fire=rnd()<.3,b=new T.Mesh(new T.CylinderGeometry(18,18,56,12),new T.MeshLambertMaterial({color:fire?0x7a4a22:0x2f6a7a}));b.position.set(x,28,z);sc.add(b);fwAddCol(x-18,z-18,x+18,z+18,56,'p');
+    const x=(rnd()-.5)*FW_LIM*1.9,z=(rnd()-.5)*FW_LIM*1.9;const nb=(px,pz)=>{const B=fwBldAt(px,pz);return !!B&&Math.abs(px-B.x)<B.half+60&&Math.abs(pz-B.z)<B.half+60};
+    if(fwSolid(x,z,10)||fwSolid(x+58,z,10)||fwSolid(x-58,z,10)||fwSolid(x,z+58,10)||fwSolid(x,z-58,10)||nb(x,z)||nb(x+60,z)||nb(x-60,z)||nb(x,z+60)||nb(x,z-60)) continue;   // jamais collé à une façade ni devant une porte : on garde toujours le passage
+    const fire=rnd()<.3,b=new T.Mesh(new T.CylinderGeometry(18,18,56,12),new T.MeshLambertMaterial({color:fire?0x7a4a22:0x2f6a7a}));b.position.set(x,28,z);sc.add(b);const bc=fwAddCol(x-18,z-18,x+18,z+18,56,'p');
     const ring=new T.Mesh(new T.CylinderGeometry(19,19,4,12),new T.MeshLambertMaterial({color:0x222}));ring.position.set(x,40,z);sc.add(ring);
-    if(fire){const f=new T.Mesh(new T.SphereGeometry(12,8,6),new T.MeshBasicMaterial({color:0xff7a22}));f.position.set(x,66,z);f.scale.y=1.6;sc.add(f);FW.lamps.push({x,z,fire:true});FW.fires.push({m:f,x,z})}
+    const bd=fwDob('barrel',x,28,z,[bc],[b,ring]);
+    if(fire){const f=new T.Mesh(new T.SphereGeometry(12,8,6),new T.MeshBasicMaterial({color:0xff7a22}));f.position.set(x,66,z);f.scale.y=1.6;sc.add(f);const L={x,z,fire:true};FW.lamps.push(L);FW.fires.push({m:f,x,z});bd.fire=f;bd.lamp=L;bd.objs.push(f)}
   }
   const dm=new T.MeshLambertMaterial({color:0x2a6a3a}),wd=new T.MeshLambertMaterial({color:0x3e3226}),tr=new T.MeshLambertMaterial({color:0x2a1e14});
   for(const [x,z] of lotsEmpty){
-    const d=new T.Mesh(bg,dm);d.scale.set(120,70,52);d.position.set(x,43,z);sc.add(d);fwAddCol(x-60,z-26,x+60,z+26,78,'d');
-    const lid=new T.Mesh(bg,new T.MeshLambertMaterial({color:0x1f4a2a}));lid.scale.set(124,6,56);lid.position.set(x,80,z);sc.add(lid);
+    const d=new T.Mesh(bg,dm);d.scale.set(120,70,52);d.position.set(x,43,z);sc.add(d);const dc=fwAddCol(x-60,z-26,x+60,z+26,78,'d');
+    const lid=new T.Mesh(bg,new T.MeshLambertMaterial({color:0x1f4a2a}));lid.scale.set(124,6,56);lid.position.set(x,80,z);sc.add(lid);fwDob('dumpster',x,43,z,[dc],[d,lid]);
     for(let i=0;i<3;i++){const px=x+(rnd()-.5)*220,pz=z+(rnd()-.5)*220;if(fwSolid(px,pz,10)||Math.abs(px-x)<80&&Math.abs(pz-z)<50) continue;
-      const c=new T.Mesh(bg,wd);c.scale.set(44,44,44);c.position.set(px,22,pz);sc.add(c);fwAddCol(px-22,pz-22,px+22,pz+22,44,'p')}
-    if(rnd()<.6){const px=x+(rnd()-.5)*200,pz=z+(rnd()-.5)*200;if(!fwSolid(px,pz,10)){const t=new T.Mesh(new T.CylinderGeometry(7,10,150,7),tr);t.position.set(px,75,pz);sc.add(t);
-      for(let k=0;k<4;k++){const br=new T.Mesh(new T.CylinderGeometry(2,4,70,5),tr);br.position.set(px+Math.cos(k*1.6)*16,130+k*8,pz+Math.sin(k*1.6)*16);br.rotation.z=Math.cos(k*1.6)*.9;br.rotation.x=-Math.sin(k*1.6)*.9;sc.add(br)}
-      fwAddCol(px-9,pz-9,px+9,pz+9,150,'p')}}
+      const c=new T.Mesh(bg,wd);c.scale.set(44,44,44);c.position.set(px,22,pz);sc.add(c);fwDob('crate',px,22,pz,[fwAddCol(px-22,pz-22,px+22,pz+22,44,'p')],[c])}
+    if(rnd()<.6){const px=x+(rnd()-.5)*200,pz=z+(rnd()-.5)*200;if(!fwSolid(px,pz,10)){const t=new T.Mesh(new T.CylinderGeometry(7,10,150,7),tr);t.position.set(px,75,pz);sc.add(t);const parts=[t];
+      for(let k=0;k<4;k++){const br=new T.Mesh(new T.CylinderGeometry(2,4,70,5),tr);br.position.set(px+Math.cos(k*1.6)*16,130+k*8,pz+Math.sin(k*1.6)*16);br.rotation.z=Math.cos(k*1.6)*.9;br.rotation.x=-Math.sin(k*1.6)*.9;sc.add(br);parts.push(br)}
+      fwDob('tree',px,75,pz,[fwAddCol(px-9,pz-9,px+9,pz+9,150,'p')],parts)}}
   }
   fwPropsLayout(sc,seed);
   for(const o of sc.children.slice()) if(!o.isCamera&&!o.isLight&&!o.isSprite&&o!==FW.sky&&o!==FW.dust){o.updateMatrix();o.matrixAutoUpdate=false}
@@ -374,7 +376,7 @@ function fwDmgZ(z,dmg,head){
 function fwSpread(base,sp){const d=base.clone();if(sp){d.x+=(Math.random()-.5)*sp*2;d.y+=(Math.random()-.5)*sp*2;d.z+=(Math.random()-.5)*sp*2;d.normalize()}return d}
 function fwShoot(){
   const wp=WEAPONS[player.w];
-  if(FW.net==='guest'){fwmGuestShoot(wp);fwRecoil(wp.hands?WEAPONS[wp.hi[0]]:wp);return}
+  if(FW.net==='guest'){fwmGuestShoot(wp);fwRecoil(wp.hands?WEAPONS[wp.hi[0]]:wp);fwGuestFurnRay(wp);return}
   let hw=wp,side=0;
   if(wp.hands){side=player.hand=1-(player.hand||0);hw=WEAPONS[wp.hi[side]]}
   const o=FW.cam.getWorldPosition(new THREE.Vector3());
@@ -387,7 +389,7 @@ function fwFire(o,base,hw,dm,who){                                        // tir
   for(let i=0;i<Math.max(1,hw.pellets);i++){
     const sp=(sh?Math.max(-hw.spread*.5,Math.min(hw.spread*.5,gauss()*hw.spread*.2))*.9:hw.spread*.55)*(who.ads?.45:1);
     const d=fwSpread(base,sp);
-    let tw=range;for(let t=8;t<range;t+=8){const x=o.x+d.x*t,y=o.y+d.y*t,z=o.z+d.z*t;if(y<0||fwSolid(x,z,y)){tw=t;break}}
+    let tw=range,hitC=null;for(let t=8;t<range;t+=8){const x=o.x+d.x*t,y=o.y+d.y*t,z=o.z+d.z*t;if(y<0){tw=t;break}const c=fwSolidAt(x,z,y);if(c){tw=t;hitC=c;break}}
     const hits=[],test=(px0,pz0,sph,ref,isP)=>{
       const dx=px0-o.x,dz=pz0-o.z;if(dx*dx+dz*dz>(tw+60)*(tw+60)) return;
       for(const q of sph){
@@ -410,6 +412,7 @@ function fwFire(o,base,hw,dm,who){                                        // tir
     let left=Math.max(1,hw.pierce||1),end=tw;
     for(const h of hits){if(left<=0) break;if(h.t>tw) break;const dmg=sh?dm*Math.max(.3,1-.7*h.t/range):dm*fwFalloff(hw,h.t);if(h.isP) fwmHurtP(h.ref,dmg,h.head,who);else fwDmgZ(h.ref,dmg,h.head);left--;end=h.t;if(left<=0) break}
     if(left>0&&hits.length===0&&tw<range) fwPart(o.x+d.x*tw,o.y+d.y*tw,o.z+d.z*tw,'#d8c27a',2);
+    if(left>0&&hitC&&tw<range) fwShotHit(hitC,(sh?dm*Math.max(.3,1-.7*tw/range):dm*fwFalloff(hw,tw))*(hw.aoe?1.5:1),o.x+d.x*tw,o.y+d.y*tw,o.z+d.z*tw);
     const e=o.clone().add(d.clone().multiplyScalar(Math.min(end,range)));
     if(i<4||!sh) fwTrace(muz,e,hw.col||'#ffe08a',who.id);
     if(hw.aoe){const R=hw.aoe*1.2;fwBoom(e.x,Math.max(10,e.y),e.z,R);for(const z of FW.zs) if(z.hp>0&&Math.hypot(z.px-e.x,z.pz-e.z)<R) fwDmgZ(z,dm*.8*(1-Math.hypot(z.px-e.x,z.pz-e.z)/R*.6),false);
@@ -429,6 +432,7 @@ function fwSlashHit(){                                                    // l'i
   FW.slashFx=7;
 }
 function fwMeleeHit(x,z,d,dm,reach,who){
+  try{fwDobMelee(x,z,d,reach,dm)}catch(e){}
   let any=false;
   for(const q of FW.zs){
     if(q.hp<=0) continue;
@@ -523,7 +527,7 @@ function fwApply(type,gold,org){
 }
 function fwEnDel(e){e.dead=true;if(e.m) FW.scene.remove(e.m)}
 function fwZNear(x,z,range){let b=null,bd=range*range;for(const q of FW.zs){if(q.hp<=0) continue;const d=(q.px-x)**2+(q.pz-z)**2;if(d<bd){bd=d;b=q}}return b}
-function fwAoe(x,z,R,dm,fall){fwBoom(x,25,z,R);sfx('boom');for(const q of FW.zs) if(q.hp>0){const d=Math.hypot(q.px-x,q.pz-z);if(d<R+14*q.size) fwDmgZ(q,fall?dm*(1-d/(R+20)*.5):dm,false)}}
+function fwAoe(x,z,R,dm,fall){fwBoom(x,25,z,R);sfx('boom');fwDobAoe(x,z,R,dm);for(const q of FW.zs) if(q.hp>0){const d=Math.hypot(q.px-x,q.pz-z);if(d<R+14*q.size) fwDmgZ(q,fall?dm*(1-d/(R+20)*.5):dm,false)}}
 function fwPushEn(o,r){                                                     // obstacles posés (barricades, nounours) : renvoie l'objet touché
   let hit=null;
   for(const e of FW.en){
